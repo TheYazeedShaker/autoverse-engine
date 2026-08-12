@@ -3,7 +3,7 @@
 > **Living document.** `CLAUDE.md` holds permanent standards. **This file changes every session** — read at session start, update at session end: fill _What Was Built Last Session_, refresh _Status_, append _Decisions_ / _Known Issues_, rewrite _Next Session — Start Here_ precisely.
 
 **Last updated:** 2026-08-12
-**Last session:** Executed `specs/SPEC-engine-migration.md` steps 1–4. The repo is scaffolded and the organs are transplanted with every carried test green. **Steps 5–7 are blocked on five account-level items flagged in `#build`** — most urgently, the GitHub remote points at a **public** repo named `autoverase-engine` (typo), so nothing has been pushed.
+**Last session:** Executed `specs/SPEC-engine-migration.md` steps 1–4. The repo is scaffolded and the organs are transplanted with every carried test green. **Steps 5, 6 and 8 are blocked on five account-level items flagged in `#build`** — most urgently, the GitHub remote points at a **public** repo named `autoverase-engine` (typo), so nothing has been pushed.
 
 ---
 
@@ -15,15 +15,15 @@
 
 ## Status
 
-| Track                             | Status                 | Notes                                                                                                                                                                                           |
-| --------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ENGINE-MIGRATION`                | 🟡 **Blocked mid-way** | Steps 1–4 done locally, all gates green. Steps 5 (rewire), 6 (loop-proof), 7 (archive) blocked on the five account-level items below. Still blocks everything.                                  |
-| Storybook / design system         | ⏸ Paused for migration | Transplanted and green in this repo (9 Tier-1 components, Storybook builds). Resumes after loop-proof. All decisions locked (sub-palette · Radix · restrained/precise · fonts self-hosted OFL). |
-| Phase 1·A — Engine core           | ⏳ Held                | Spec arrives after migration completes.                                                                                                                                                         |
-| Phase 1·B — Pipeline & admin      | ⏳ Held                | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                               |
-| Phase 1·C — Consumer app          | ⏳ Held                | Design-first: pages designed in Claude Design after Tier 1 → specs → build.                                                                                                                     |
-| Phase 1·D — Dashboard & hardening | ⏳ Held                |                                                                                                                                                                                                 |
-| Architecture v3 doc               | ✅ Done                | `docs/engine-architecture.html` — supersedes all earlier architecture versions.                                                                                                                 |
+| Track                             | Status                 | Notes                                                                                                                                                                                                                                 |
+| --------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENGINE-MIGRATION`                | 🟡 **Blocked mid-way** | Steps 1–4 done locally, all gates green. Steps 5 (rewire), 6 (loop-proof), 8 (archive) blocked on the five account-level items below; step 7 (Storybook resume) correctly still gated behind the loop-proof. Still blocks everything. |
+| Storybook / design system         | ⏸ Paused for migration | Transplanted and green in this repo (9 Tier-1 components, Storybook builds). Resumes after loop-proof. All decisions locked (sub-palette · Radix · restrained/precise · fonts self-hosted OFL).                                       |
+| Phase 1·A — Engine core           | ⏳ Held                | Spec arrives after migration completes.                                                                                                                                                                                               |
+| Phase 1·B — Pipeline & admin      | ⏳ Held                | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                                     |
+| Phase 1·C — Consumer app          | ⏳ Held                | Design-first: pages designed in Claude Design after Tier 1 → specs → build.                                                                                                                                                           |
+| Phase 1·D — Dashboard & hardening | ⏳ Held                |                                                                                                                                                                                                                                       |
+| Architecture v3 doc               | ✅ Done                | `docs/engine-architecture.html` — supersedes all earlier architecture versions.                                                                                                                                                       |
 
 ## What Was Built Last Session
 
@@ -96,8 +96,8 @@ All five need Yazeed's account access. Nothing was guessed.
 2. Step 5 — rewire Vercel / Actions secrets / Slack / Sentry / PostHog to this repo, once Yazeed confirms each is provisioned.
 3. Step 4's remainder — restore the Supabase project, then apply `0001_init_tenancy` to a **branch** DB and run `supabase/tests/0001_tenancy_isolation.test.sql` against it. Acceptance criterion 3.
 4. Step 6 — the loop-proof: one trivial change (a token comment or a docs line) through spec → branch → flag → self-gate → `code-reviewer` + `security-review` → PR → full CI wall → preview + branch-DB migration → merge → prod deploy → smoke → Slack → this file. **This is the acceptance criterion that still stands entirely unmet.**
-5. Step 7 — push the old repo's tombstone commit (`ce653fc`) and have Yazeed flip the archive switch.
-6. Only then step 8 → resume the Storybook track (`AV-P1-STORYBOOK-FOUNDATIONS` + revisions), Tier-1 slice order.
+5. Step 8 — push the old repo's tombstone commit (`ce653fc`) and have Yazeed flip the archive switch.
+6. Only then step 7 → resume the Storybook track (`AV-P1-STORYBOOK-FOUNDATIONS` + revisions), Tier-1 slice order. Tier 1 itself is already complete and transplanted, so this picks up at Tier 2 plus the outstanding CI work: wire the `@storybook/test-runner` a11y gate and the Storybook build into the wall (the story-level `test: "error"` gate is inert until then), and the reduced-motion gate.
 
 **Acceptance criteria status:** structure + all workspaces build ✅ · transplant green incl. contrast invariant ✅ · migrations apply to a branch DB ⛔ · CI wall + previews + Slack/Sentry/PostHog ⛔ · loop-proof completed once ⛔ · old repo archived 🟡 (README ready) · no work beyond scaffolds ✅ · this file updated ✅.
 
