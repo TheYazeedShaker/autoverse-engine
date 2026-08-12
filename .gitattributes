@@ -1,0 +1,16 @@
+# Normalize line endings to LF in the repo for all text files.
+# Keeps CI (Linux) format:check, the bash hooks, and Windows checkouts consistent —
+# Prettier defaults to endOfLine "lf", so CRLF in the repo would fail the format gate.
+* text=auto eol=lf
+
+# Shell scripts must stay LF (they run under bash).
+*.sh text eol=lf
+
+# Binary assets — never normalize.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

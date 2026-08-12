@@ -1,0 +1,24 @@
+{
+  "name": "@autoverse/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/tokens.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/tokens.ts",
+    "./contrast": "./src/contrast.ts",
+    "./css": "./src/tokens.css",
+    "./fonts.css": "./src/fonts.css",
+    "./tailwind": "./tailwind-preset.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

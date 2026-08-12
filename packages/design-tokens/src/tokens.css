@@ -1,0 +1,134 @@
+/* Autoverse design tokens — the single source of truth for colour, type, space, motion.
+   Cool neutral monochrome with NO chromatic accent, so it never clashes with brand colours.
+   Surfaces are paired with their foreground to make the WCAG-AA contrast rule structural.
+   Mirror of tokens.ts — keep the two in sync. */
+:root {
+  /* --- raw neutral palette --- */
+  --av-mist: #f4f7f5; /* lightest surface / canvas */
+  --av-panel: #ecefee; /* raised panel */
+  --av-card: #e1e5e3; /* card edge / deepest light */
+  --av-onyx: #08090a; /* primary ink */
+  --av-ink-soft: #3c4044; /* body / secondary ink */
+  --av-slate: #575a5e; /* tertiary / muted ink on light */
+  --av-platinum: #a7a2a9; /* accent-on-dark / metallic */
+  --av-line: #dbe0dd; /* hairline */
+  --av-line-soft: #e7eae9;
+  --av-gunmetal: #222823; /* dark surface */
+  --av-gunmetal-2: #2a312b;
+  --av-gunmetal-line: #3a413b;
+
+  /* --- contextual fg/bg: the "current surface" ink + canvas (§7) ---
+     Defaults to the light surface; a dark surface (the `Surface` component, a Card, or the Storybook dark
+     theme) re-sets these to its own pair. Components that must invert with their surface read them
+     (e.g. a primary Button = fill `--av-fg`, label `--av-bg`). Each value resolves to an already-AA pair. */
+  --av-fg: var(--av-onyx);
+  --av-fg-muted: var(--av-slate);
+  --av-bg: var(--av-mist);
+
+  /* --- semantic surfaces, each PAIRED with its required foreground (contrast rule, §4.2) --- */
+  --av-surface: var(--av-mist);
+  --av-on-surface: var(--av-onyx);
+  --av-on-surface-soft: var(--av-ink-soft);
+  --av-on-surface-muted: var(--av-slate);
+
+  --av-surface-panel: var(--av-panel);
+  --av-on-panel: var(--av-onyx);
+  --av-on-panel-muted: var(--av-slate);
+
+  --av-surface-card: var(--av-card);
+  --av-on-card: var(--av-onyx);
+  --av-on-card-muted: var(--av-slate);
+
+  --av-surface-dark: var(--av-gunmetal);
+  --av-on-dark: var(--av-mist);
+  --av-on-dark-soft: #cfd3d1;
+  --av-on-dark-muted: #9aa19d; /* lightened to clear AA on gunmetal */
+
+  --av-border: var(--av-line);
+  --av-border-soft: var(--av-line-soft);
+
+  /* accent is context-aware: slate on light, platinum on dark */
+  --av-accent: var(--av-slate);
+  --av-accent-on-dark: var(--av-platinum);
+
+  /* --- status sub-palette (muted, feedback-only — §R1.2) --- */
+  --av-status-error: #a1383d;
+  --av-status-success: #2e6a47;
+  --av-status-warning: #7c5a14;
+  --av-status-info: #2f5468;
+
+  /* status as subtle paired surfaces (tint bg + readable fg) */
+  --av-surface-error: #f6e7e8;
+  --av-on-error: #7e2b2f;
+  --av-on-error-muted: #8c3539;
+  --av-surface-success: #e6efe9;
+  --av-on-success: #1f5235;
+  --av-on-success-muted: #285e3e;
+  --av-surface-warning: #f5eddc;
+  --av-on-warning: #5e4310;
+  --av-on-warning-muted: #6e4f16;
+  --av-surface-info: #e5ecf1;
+  --av-on-info: #21424f;
+  --av-on-info-muted: #2a4e5c;
+
+  /* --- type --- */
+  --av-font-en: "Google Sans Flex", "Google Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --av-font-ar: "Cairo", "Google Sans Flex", sans-serif;
+  --av-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --av-text-xs: 0.75rem;
+  --av-text-sm: 0.875rem;
+  --av-text-base: 1rem;
+  --av-text-lg: 1.125rem;
+  --av-text-xl: 1.375rem;
+  --av-text-2xl: 1.75rem;
+  --av-text-3xl: 2.25rem;
+  --av-text-4xl: 3rem;
+
+  /* --- space (4px base, keyed by px value) --- */
+  --av-space-2: 2px;
+  --av-space-4: 4px;
+  --av-space-8: 8px;
+  --av-space-12: 12px;
+  --av-space-16: 16px;
+  --av-space-20: 20px;
+  --av-space-24: 24px;
+  --av-space-32: 32px;
+  --av-space-40: 40px;
+  --av-space-48: 48px;
+  --av-space-64: 64px;
+
+  /* --- radius --- */
+  --av-radius-sm: 7px;
+  --av-radius-md: 10px;
+  --av-radius: 10px; /* default = md */
+  --av-radius-lg: 14px;
+  --av-radius-xl: 18px;
+  --av-radius-pill: 999px;
+
+  /* --- elevation (soft, low-contrast, tuned for the Mist canvas) --- */
+  --av-shadow-sm: 0 1px 2px rgba(8, 9, 10, 0.05);
+  --av-shadow-md: 0 4px 12px rgba(8, 9, 10, 0.08);
+  --av-shadow-lg: 0 12px 32px rgba(8, 9, 10, 0.12);
+
+  /* --- motion (the Framer-Motion contract) --- */
+  --av-dur-fast: 150ms;
+  --av-dur: 220ms;
+  --av-dur-slow: 600ms;
+  --av-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* --- breakpoints (px, for reference; Grid/Container read the TS values) --- */
+  --av-bp-sm: 640px;
+  --av-bp-md: 768px;
+  --av-bp-lg: 1024px;
+  --av-bp-xl: 1280px;
+  --av-bp-2xl: 1536px;
+}
+
+:lang(ar),
+[lang="ar"] {
+  font-family: var(--av-font-ar);
+}
+[dir="rtl"] {
+  direction: rtl;
+}

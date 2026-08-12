@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autoverse — Production Architecture &amp; Reliability Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400..700&family=Google+Sans+Flex:wght@300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F4F7F5;        /* mist canvas */
+  --paper-2:#ECEFEE;      /* panel */
+  --paper-3:#E1E5E3;      /* card edge */
+  --ink:#08090A;          /* onyx text */
+  --ink-soft:#3C4044;     /* body secondary */
+  --muted:#575A5E;        /* slate labels */
+  --faint:#A7A2A9;        /* platinum */
+  --line:#DBE0DD;         /* hairline */
+  --line-soft:#E7EAE9;
+  --sand:#575A5E;         /* accent on light (slate) */
+  --sand-deep:#08090A;    /* deep accent / numbers */
+  --accent-soft:#A7A2A9;  /* accent on dark (platinum) */
+  --char:#222823;         /* gunmetal surface */
+  --char-2:#2A312B;
+  --char-line:#3A413B;
+  --font-en:"Google Sans Flex","Google Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-ar:"Cairo","Google Sans Flex",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --font-label:var(--font-en);
+  --maxw:1280px;
+  --sidebar:268px;
+  --reading:74ch;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-en);
+  font-size:18px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+:lang(ar),[lang="ar"]{font-family:var(--font-ar)}
+[dir="rtl"]{direction:rtl}
+::selection{background:var(--sand);color:#fff}
+
+/* ---- scroll progress ---- */
+#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--sand);z-index:200;transition:width .08s linear}
+
+/* ---- top bar ---- */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(244,247,245,.82);backdrop-filter:saturate(140%) blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:var(--maxw);margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+.brand .dot{width:11px;height:11px;border-radius:50%;background:var(--ink);position:relative}
+.brand .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.brand b{font-family:var(--font-en);font-weight:800;letter-spacing:.14em;font-size:.82rem;text-transform:uppercase}
+.brand span{font-family:var(--font-label);font-size:.66rem;color:var(--muted);letter-spacing:.08em}
+.docnav{display:flex;gap:6px;font-family:var(--font-label);font-size:.72rem}
+.docnav a{
+  text-decoration:none;color:var(--ink-soft);padding:7px 13px;border-radius:99px;
+  border:1px solid transparent;letter-spacing:.04em;transition:.18s;
+}
+.docnav a:hover{color:var(--ink);background:var(--paper-2)}
+.docnav a.active{border-color:var(--line);background:var(--paper-2);color:var(--ink)}
+.menu-btn{display:none;font-family:var(--font-label);font-size:.72rem;background:none;border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;color:var(--ink)}
+
+/* ---- shell grid ---- */
+.shell{max-width:var(--maxw);margin:0 auto;padding:0 28px;
+  display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:54px;align-items:start}
+
+/* ---- sidebar / toc ---- */
+.toc{position:sticky;top:78px;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding:30px 0 60px}
+.toc h4{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:600}
+.toc ol{list-style:none}
+.toc li a{
+  display:flex;gap:10px;text-decoration:none;color:var(--ink-soft);
+  font-family:var(--font-en);font-size:.83rem;line-height:1.35;
+  padding:6px 10px 6px 0;border-left:2px solid transparent;padding-left:12px;transition:.16s;
+}
+.toc li a .n{font-family:var(--font-label);font-size:.66rem;color:var(--muted);min-width:20px}
+.toc li a:hover{color:var(--ink)}
+.toc li a.active{color:var(--ink);border-left-color:var(--sand);font-weight:600}
+.toc li a.active .n{color:var(--sand-deep)}
+
+/* ---- main ---- */
+main{padding:0 0 120px;min-width:0}
+
+/* ---- hero ---- */
+.hero{
+  background:var(--char);color:var(--paper);border-radius:var(--r);
+  margin-top:34px;padding:54px 50px 46px;position:relative;overflow:hidden;
+  border:1px solid var(--char-line);
+}
+.hero::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 80% at 100% 0%, rgba(167,162,169,.16), transparent 60%);pointer-events:none}
+.hero .eyebrow{font-family:var(--font-label);font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:22px}
+.hero h1{font-family:var(--font-en);font-weight:800;line-height:1.02;letter-spacing:-.02em;
+  font-size:clamp(2.3rem,5vw,3.7rem);margin-bottom:18px}
+.hero h1 em{font-style:normal;color:var(--accent-soft)}
+.hero p.lede{font-size:1.12rem;color:#cfd3d1;max-width:54ch;line-height:1.55}
+.metastrip{margin-top:34px;padding-top:24px;border-top:1px solid var(--char-line);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:22px}
+.metastrip .m .k{font-family:var(--font-label);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:#8d9290;margin-bottom:5px}
+.metastrip .m .v{font-family:var(--font-en);font-size:.92rem;font-weight:600;color:var(--paper)}
+
+/* ---- sections ---- */
+.section{padding:62px 0 8px;border-top:1px solid var(--line-soft);margin-top:34px;scroll-margin-top:84px}
+.section:first-of-type{border-top:none}
+.sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:26px}
+.sec-num{font-family:var(--font-label);font-size:.8rem;color:var(--muted);font-weight:600;padding-top:6px;letter-spacing:.04em}
+.sec-head h2{font-family:var(--font-en);font-weight:700;letter-spacing:-.015em;line-height:1.08;
+  font-size:clamp(1.5rem,3vw,2.15rem)}
+h3{font-family:var(--font-en);font-weight:600;font-size:1.18rem;letter-spacing:-.01em;margin:30px 0 12px;line-height:1.25}
+.section > p, .prose p{max-width:var(--reading);margin-bottom:16px;color:var(--ink-soft)}
+.section > p strong, .prose strong{color:var(--ink);font-weight:600}
+.prose{max-width:var(--reading)}
+a.inline{color:var(--sand-deep);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+code{font-family:var(--font-mono);font-size:.84em;background:var(--paper-3);padding:1px 6px;border-radius:5px;color:var(--ink)}
+
+ul.list,ol.list{max-width:var(--reading);margin:0 0 18px;padding-left:0;list-style:none}
+ul.list li,ol.list li{position:relative;padding-left:26px;margin-bottom:11px;color:var(--ink-soft)}
+ul.list li::before{content:"";position:absolute;left:4px;top:.62em;width:7px;height:7px;background:var(--sand);border-radius:2px;transform:rotate(45deg)}
+ol.list{counter-reset:li}
+ol.list li{counter-increment:li}
+ol.list li::before{content:counter(li,decimal-leading-zero);position:absolute;left:0;top:.05em;font-family:var(--font-label);font-size:.72rem;color:var(--sand-deep);font-weight:600}
+li strong{color:var(--ink);font-weight:600}
+
+/* pills */
+.pill{display:inline-block;font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 9px;border-radius:99px;vertical-align:middle;font-weight:600}
+.pill.mvp{background:#222823;color:var(--accent-soft)}
+.pill.later{background:var(--paper-3);color:var(--ink-soft);border:1px solid var(--line)}
+
+/* callout */
+.callout{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--sand);
+  border-radius:var(--r);padding:24px 28px;margin:26px 0;max-width:var(--reading)}
+.callout .label{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:10px}
+.callout p{margin-bottom:10px}.callout p:last-child{margin-bottom:0}
+.callout.dark{background:var(--char);border-color:var(--char-line);border-left-color:var(--sand);color:#cfd3d1}
+.callout.dark .label{color:var(--accent-soft)}.callout.dark strong{color:var(--paper)}
+.callout.dark p,.callout.dark li{color:#cfd3d1}
+
+/* cards grid */
+.grid{display:grid;gap:16px;margin:24px 0}
+.grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r);padding:22px 22px}
+.card .co{font-family:var(--font-label);font-size:.66rem;color:var(--sand-deep);letter-spacing:.08em;margin-bottom:9px;font-weight:600}
+.card h4{font-family:var(--font-en);font-size:1.02rem;font-weight:600;margin-bottom:7px;letter-spacing:-.01em}
+.card p{font-size:.92rem;color:var(--ink-soft);line-height:1.5}
+
+/* table */
+.table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;min-width:560px;background:var(--paper-2)}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-family:var(--font-label);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--paper-3)}
+td{font-size:.9rem;color:var(--ink-soft)}
+td:first-child{font-family:var(--font-en);color:var(--ink);font-weight:600;font-size:.92rem}
+tr:last-child td{border-bottom:none}
+td strong{color:var(--ink)}
+
+/* blueprint / code panel */
+.blueprint{background:var(--char);border:1px solid var(--char-line);border-radius:var(--r);
+  padding:26px 24px;margin:26px 0;overflow-x:auto}
+.blueprint .bp-label{font-family:var(--font-label);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:16px;font-weight:600}
+.blueprint pre{font-family:var(--font-mono);font-size:.74rem;line-height:1.5;color:#c4c9c6;white-space:pre}
+.blueprint pre .hl{color:var(--accent-soft)}
+
+/* timeline (roadmap) */
+.timeline{margin:28px 0;position:relative;padding-left:34px}
+.timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.phase{position:relative;margin-bottom:26px}
+.phase::before{content:"";position:absolute;left:-34px;top:4px;width:20px;height:20px;border-radius:50%;background:var(--paper);border:2px solid var(--sand);box-shadow:0 0 0 4px var(--paper)}
+.phase .ptag{font-family:var(--font-label);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:5px}
+.phase h4{font-family:var(--font-en);font-size:1.06rem;font-weight:600;margin-bottom:7px}
+.phase p{font-size:.92rem;color:var(--ink-soft);max-width:var(--reading)}
+.phase .mile{display:block;margin-top:8px;font-size:.86rem;color:var(--ink);background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:9px 13px}
+.phase .mile b{font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sand-deep);margin-right:8px}
+
+/* footer */
+.foot{background:var(--char);color:#b3b8b5;margin-top:80px;border-top:1px solid var(--char-line)}
+.foot-inner{max-width:var(--maxw);margin:0 auto;padding:40px 28px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
+.foot .fb{display:flex;align-items:center;gap:11px;color:var(--paper);font-family:var(--font-en);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.78rem}
+.foot .fb .dot{width:10px;height:10px;border-radius:50%;background:var(--paper);position:relative}
+.foot .fb .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.foot small{font-family:var(--font-label);font-size:.66rem;letter-spacing:.04em;color:#878c89}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+
+/* responsive */
+@media (max-width:1000px){
+  .shell{grid-template-columns:1fr;gap:0}
+  .toc{position:fixed;inset:58px 0 auto 0;z-index:90;background:var(--paper);max-height:0;overflow:hidden;
+    padding:0 28px;border-bottom:1px solid var(--line);max-width:none;transition:max-height .3s ease}
+  .toc.open{max-height:70vh;overflow:auto;padding:22px 28px 30px}
+  .menu-btn{display:block}
+  .docnav{display:none}
+}
+@media (max-width:680px){
+  body{font-size:17px}
+  .topbar-inner,.shell{padding-left:18px;padding-right:18px}
+  .hero{padding:38px 26px 34px;margin-top:24px}
+  .sec-head{gap:12px}
+  .callout,.blueprint{padding:20px 18px}
+  .foot-inner{padding:30px 18px}
+}
+</style>
+</head><body>
+<div id="progress"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">
+      <span class="dot"></span>
+      <span><b>Autoverse</b><br><span>Internal Documentation</span></span>
+    </a>
+    <span class="docnav" style="color:var(--muted);font-family:var(--font-label);font-size:.72rem;letter-spacing:.06em">Production Architecture &amp; Reliability Plan</span>
+    <button class="menu-btn" id="menuBtn">Contents</button>
+  </div>
+</header>
+
+<div class="shell" id="top">
+  <aside class="toc" id="toc">
+    <h4>Contents</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span> How to read this</a></li>
+      <li><a href="#s1"><span class="n">01</span> The production doctrine</a></li>
+      <li><a href="#s2"><span class="n">02</span> The guarantee model</a></li>
+      <li><a href="#s3"><span class="n">03</span> System shape &amp; boundaries</a></li>
+      <li><a href="#s4"><span class="n">04</span> Tenancy &amp; data integrity</a></li>
+      <li><a href="#s5"><span class="n">05</span> The configurator contract</a></li>
+      <li><a href="#s6"><span class="n">06</span> Event pipeline &amp; delivery</a></li>
+      <li><a href="#s7"><span class="n">07</span> Observability standard</a></li>
+      <li><a href="#s8"><span class="n">08</span> SLOs, alerts &amp; on-call</a></li>
+      <li><a href="#s9"><span class="n">09</span> Environments &amp; release</a></li>
+      <li><a href="#s10"><span class="n">10</span> The merge wall</a></li>
+      <li><a href="#s11"><span class="n">11</span> Testing strategy</a></li>
+      <li><a href="#s12"><span class="n">12</span> Failure &amp; degradation</a></li>
+      <li><a href="#s13"><span class="n">13</span> Flags &amp; progressive delivery</a></li>
+      <li><a href="#s14"><span class="n">14</span> Security &amp; confidentiality</a></li>
+      <li><a href="#s15"><span class="n">15</span> Performance budgets</a></li>
+      <li><a href="#s16"><span class="n">16</span> Design system &amp; motion</a></li>
+      <li><a href="#s17"><span class="n">17</span> Runbooks &amp; incidents</a></li>
+      <li><a href="#s18"><span class="n">18</span> Definition of Done</a></li>
+      <li><a href="#s19"><span class="n">19</span> Roadmap &amp; production gates</a></li>
+      <li><a href="#s20"><span class="n">20</span> Risk register</a></li>
+    </ol>
+  </aside>
+
+  <main>
+    <section class="hero reveal">
+      <div class="eyebrow">Production Architecture &amp; Reliability Plan · v2.1</div>
+      <h1>Shipping <em>Autoverse</em> — with nothing left to chance.</h1>
+      <p class="lede">The engineering contract for the engine — the shared infrastructure layer — and every application built on it: configurator, brochure, showroom, brand dashboard, admin. It goes to production and stays there. Every guarantee in this document has a mechanism that enforces it and a test that proves it.</p>
+      <div class="metastrip">
+        <div class="m"><div class="k">Version</div><div class="v">2.1 · Engine-Lock</div></div>
+        <div class="m"><div class="k">Supersedes</div><div class="v">v2.0 · v1.0</div></div>
+        <div class="m"><div class="k">Owner</div><div class="v">CTO &amp; Founding Engineer</div></div>
+        <div class="m"><div class="k">Posture</div><div class="v">Strict · Fail-closed</div></div>
+      </div>
+    </section>
+
+    <!-- 00 -->
+    <section class="section reveal" id="s0">
+      <div class="sec-head"><div class="sec-num">00</div><h2>How to read this document</h2></div>
+      <div class="prose">
+        <p>Document 01 answered <strong>what Autoverse is and in what order we build it</strong>. The Model Delivery Spec defines <strong>how finished 3D models are handed into the system</strong>. This document answers the remaining question: <strong>what makes it safe to run in production for paying clients</strong> — and it is the strictest of the set. It governs the <strong>engine</strong> (hosting, structured asset storage, data, security, leads, content, webhooks) and every application built on it: the configurator, digital brochure, virtual showroom, brand dashboard, and admin portal now; the Autoverse consumer platform and any later app inherit the same contract.</p>
+        <p>The vision, the five surfaces, the configurator model, the tech stack and the phase order from v1.0 all stand unchanged. What changes is the standard applied to each: v1.0 said <em>we will test, log, and gate</em>. This document defines exactly what that means, makes each one blocking, and specifies the proof.</p>
+      </div>
+      <div class="callout">
+        <div class="label">The rule that governs this document</div>
+        <p><strong>A guarantee without a mechanism is a wish. A mechanism without a test is a rumour.</strong> Nothing enters this plan unless it can be enforced by construction and demonstrated on demand. Where something cannot yet be proven, it is written down as a risk in §20 rather than assumed away.</p>
+      </div>
+      <p class="prose"><span class="pill mvp">Blocking</span> means the pipeline stops. <span class="pill later">Tracked</span> means it is measured and reviewed, but does not stop a release.</p>
+    </section>
+
+    <!-- 01 -->
+    <section class="section reveal" id="s1">
+      <div class="sec-head"><div class="sec-num">01</div><h2>The production doctrine</h2></div>
+      <div class="prose"><p>Five non-negotiables. Every section that follows exists to serve one of them.</p></div>
+      <div class="grid cols-2">
+        <div class="card"><div class="co">01</div><h4>The pipeline is never broken</h4><p>Main is always deployable. A red build is the highest-priority work in the company — no new feature work starts while the pipeline is red.</p></div>
+        <div class="card"><div class="co">02</div><h4>A feature is working or it does not exist</h4><p>Shipped-but-broken is worse than absent. Everything reaches users through a flag, and every flag has a verified kill path.</p></div>
+        <div class="card"><div class="co">03</div><h4>Nothing happens unobserved</h4><p>Every request, job, event and failure emits a structured, correlated log. If we cannot reconstruct what happened from telemetry alone, the feature is not done.</p></div>
+        <div class="card"><div class="co">04</div><h4>Failure is contained, never total</h4><p>Every external dependency has a timeout, a retry policy, and a defined degraded mode. One dependency failing must never take the page down.</p></div>
+        <div class="card"><div class="co">05</div><h4>No flow is missed</h4><p>Every business-critical flow is inventoried, end-to-end tested, and monitored in production. Data loss is treated as a severity-one incident.</p></div>
+        <div class="card"><div class="co">06</div><h4>Tenant isolation is absolute</h4><p>No brand can ever see another brand's data. Enforced at the database, proven by mandatory tests, and re-proven on every schema change.</p></div>
+      </div>
+      <div class="callout dark">
+        <div class="label">Standing priority — amended</div>
+        <p>v1.0 ranked <strong>ship speed → premium feel → scalable architecture</strong>. That still holds for design decisions. It does <strong>not</strong> hold against this doctrine: <strong>correctness, isolation and observability outrank ship speed, always.</strong> We cut scope to go faster. We never cut gates.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="section reveal" id="s2">
+      <div class="sec-head"><div class="sec-num">02</div><h2>The guarantee model</h2></div>
+      <div class="prose"><p>This is the contract in one table. Each row is a promise, the thing that makes it true, and the artefact that proves it. Anything we cannot fill all three columns for does not get promised — to a client, or to ourselves.</p></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Guarantee</th><th>Enforcing mechanism</th><th>Proof artefact</th></tr></thead>
+          <tbody>
+            <tr><td>No cross-tenant data access</td><td>RLS on every brand-scoped table; no service key in any user-facing runtime</td><td>Isolation test suite — asserts cross-tenant reads and writes fail. Blocking in CI.</td></tr>
+            <tr><td>No broken deploy reaches users</td><td>Full gate suite on PR; preview deploy as staging; flags default off</td><td>CI run + preview URL attached to every PR; deploy log.</td></tr>
+            <tr><td>No silent failure</td><td>Structured logging contract; unhandled-error capture; alert on error-rate burn</td><td>Trace ID reproducible in Sentry + logs for any reported issue.</td></tr>
+            <tr><td>No lost analytics event</td><td>Idempotent ingest, retry with backoff, dead-letter queue, daily reconciliation</td><td>Gap report: events emitted vs. persisted, per model per day.</td></tr>
+            <tr><td>No lost lead</td><td>Lead write is transactional + acknowledged; failure surfaces to the user; DLQ + alert</td><td>Lead reconciliation job; zero-tolerance alert on any DLQ entry.</td></tr>
+            <tr><td>No unversioned schema change</td><td>All DB change via reviewed migrations, staging-first</td><td>Migration history; security-review sign-off on the PR.</td></tr>
+            <tr><td>No untested critical flow</td><td>Flow inventory (§11) with mandatory E2E coverage</td><td>Coverage map: every flow → its test → last green run.</td></tr>
+            <tr><td>No inaccessible interface</td><td>Contrast pairing invariant + axe gate on every component</td><td>Storybook a11y run in CI; zero AA violations.</td></tr>
+            <tr><td>No render job lost or silently stalled</td><td>Job queue with states; output-folder watcher computes progress; stall threshold raises an alert</td><td>Pipeline activity log; expected-vs-present frame count per job.</td></tr>
+            <tr><td>No unapproved AI content published</td><td>Content state machine — only assets in the approved state are referenceable by any surface</td><td>State-transition test; publish blocked on unapproved reference.</td></tr>
+            <tr><td>No unrecoverable release</td><td>Instant rollback + flag kill switch, both rehearsed</td><td>Rollback drill recorded once per phase.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="section reveal" id="s3">
+      <div class="sec-head"><div class="sec-num">03</div><h2>System shape &amp; boundaries</h2></div>
+      <div class="prose">
+        <p>Unchanged from v1.0 in shape; tightened in its boundaries. The five surfaces — public website, mobile app, brand dashboard, Autoverse internal dashboard, admin/CMS — sit on one shared data core. What follows is the rule set for what may talk to what.</p>
+      </div>
+      <div class="blueprint">
+        <div class="bp-label">Boundary map — the engine and what stands on it</div>
+<pre>  APPLICATIONS (Phase 1)                                  (Phase 2+)
+  ┌──────────┬──────────┬────────────┬───────────┬───────┐ ┌─────────┐
+  │ Virtual  │ Digital  │Configurator│ Brand     │ Admin │ │Autoverse│
+  │ Showroom │ Brochure │ page       │ dashboard │ portal│ │platform │
+  └────┬─────┴────┬─────┴─────┬──────┴─────┬─────┴───┬───┘ └────┬────┘
+       │  <span class="hl">typed data-access layer only — no ad-hoc queries</span>   │         │
+       ▼          ▼           ▼            ▼         ▼          ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  THE ENGINE                                                      │
+  │  Postgres · RLS = tenancy boundary · brands/models/trims/markets │
+  │  leads · events · entitlements · tiers · flags · audit           │
+  │  ingest &amp; lead Edge Functions · job queue · rollups · webhooks   │
+  │  <span class="hl">structured asset file system (S3/R2)</span>: 3D files · rendered      │
+  │  multiples · generated content — content-hashed, checksummed     │
+  └───────┬──────────────────────┬───────────────────┬───────────────┘
+          │ job trigger +        │ conditioning       │ session URL +
+          │ folder watch         │ renders out        │ metering
+  ┌───────┴────────┐   ┌─────────┴────────┐   ┌───────┴────────────┐
+  │ UNREAL RENDER  │   │ AI GENERATION    │   │ PIXEL-STREAM HOST  │
+  │ FARM (in-house │   │ PROVIDER         │   │ (managed provider; │
+  │ HW, job-queue  │   │ receives renders │   │  engine owns the   │
+  │ triggered)     │   │ <span class="hl">never PII</span>        │   │  embed + metering) │
+  └────────────────┘   └──────────────────┘   └────────────────────┘</pre>
+      </div>
+      <h3>3.1 Boundary rules <span class="pill mvp">Blocking</span></h3>
+      <ul class="list">
+        <li><strong>The iframe never touches data.</strong> No Supabase key of any kind reaches the render surface. It receives commands and emits signals — nothing else.</li>
+        <li><strong>Browsers never write directly to tables.</strong> All writes from consumer surfaces route through an Edge Function that validates, rate-limits, and stamps provenance.</li>
+        <li><strong>The service role key exists in exactly two places:</strong> CI migration runs and server-side jobs. It is never present in any browser bundle, mobile binary, or Edge Function reachable by an anonymous caller.</li>
+        <li><strong>No component queries the database.</strong> Data access flows through a typed layer with one owner per entity.</li>
+        <li><strong>Every cross-boundary payload is validated at the boundary</strong> with a schema (Zod), on both sides — inbound and outbound.</li>
+        <li><strong>The render farm is reached only through the job queue and the bucket.</strong> The engine writes a job, the farm writes frames; farm hardware holds nothing beyond a scoped bucket write key, so the serving platform never depends on a workstation being reachable.</li>
+        <li><strong>The AI generation provider receives renders and prompts — never PII, never lead data.</strong> Its output enters the system only through the approval state machine.</li>
+        <li><strong>Assets are immutable once written:</strong> content-hashed paths, checksums recorded at upload, re-renders create new versions rather than overwriting.</li>
+      </ul>
+    </section>
+
+    <!-- 04 -->
+    <section class="section reveal" id="s4">
+      <div class="sec-head"><div class="sec-num">04</div><h2>Tenancy &amp; data integrity</h2></div>
+      <div class="prose"><p>Row-level security remains the keystone: one mechanism delivering multi-tenancy, RBAC and confidentiality at the layer no application bug can bypass. This section makes it un-skippable.</p></div>
+      <h3>4.1 The RLS discipline <span class="pill mvp">Blocking</span></h3>
+      <ul class="list">
+        <li>Every table carrying brand-scoped data has <code>brand_id</code> and an RLS policy <strong>created in the same migration</strong>. A migration adding a table without a policy fails review automatically.</li>
+        <li><strong>Deny by default.</strong> Policies grant; nothing is open unless granted. New tables start with RLS enabled and no permissive policy.</li>
+        <li>Every policy ships with a paired isolation test: as brand A, attempt read/write on brand B's rows; assert failure. These tests are <strong>blocking and may never be skipped</strong>.</li>
+        <li>Role and permission resolution is data-driven and unit-tested; tier gating is enforced server-side, never by hiding UI.</li>
+      </ul>
+      <h3>4.2 Integrity rules</h3>
+      <ul class="list">
+        <li><strong>Constraints in the database, not just the app:</strong> foreign keys, not-null, unique, and check constraints encode the invariants. The application is not the last line of defence.</li>
+        <li><strong>Immutable event data.</strong> The raw events table is append-only; corrections are new rows, never edits. Aggregates are derived and rebuildable from raw.</li>
+        <li><strong>Audit log</strong> on every sensitive mutation: who, what, when, before/after, trace ID. Admin and billing actions always. Append-only.</li>
+        <li><strong>Backups &amp; restore:</strong> automated backups plus point-in-time recovery. A restore drill is performed once per phase and recorded — an untested backup is not a backup.</li>
+        <li><strong>Retention is declared per table</strong> in the schema documentation, and enforced by a scheduled job.</li>
+      </ul>
+    </section>
+
+    <!-- 05 -->
+    <section class="section reveal" id="s5">
+      <div class="sec-head"><div class="sec-num">05</div><h2>The configurator contract</h2></div>
+      <div class="prose">
+        <p>Document 03 defines the protocol. This section defines how we keep it from silently breaking once brands and models multiply. The configurator is built in-house, but it stays deliberately decoupled behind this versioned protocol — platform and render surface must be able to evolve, deploy, and fail independently.</p>
+      </div>
+      <div class="callout">
+        <div class="label">The model, restated</div>
+        <p>The configurator is a <strong>TV screen</strong>; Autoverse is the <strong>remote control</strong>. We own every control, every CTA, every form, and all PII. It renders what it is told and reports back only what happens inside its own canvas. Commands out: <code>init</code>, <code>set_option</code>, <code>apply_config</code>, <code>set_view</code>, <code>set_lighting</code>, <code>play_feature</code>, <code>request_snapshot</code>, <code>preload</code>, <code>reset</code>. Signals in: <code>ready</code> + manifest, <code>state_applied</code>, <code>loading</code>, <code>error</code>, <code>canvas_interaction</code>, <code>session</code>, <code>snapshot</code>.</p>
+      </div>
+      <h3>5.1 Hardening the contract <span class="pill mvp">Blocking</span></h3>
+      <ul class="list">
+        <li><strong>The protocol is versioned.</strong> Every message carries a protocol version. Autoverse refuses to initialise a configurator declaring an unsupported version and renders the fallback experience instead of a blank frame.</li>
+        <li><strong>Origin is locked both ways.</strong> We validate the sender origin on every inbound message and target a specific origin on every outbound one. Never <code>*</code>. Unknown origins are dropped and logged.</li>
+        <li><strong>Every inbound signal is schema-validated</strong> before it reaches application code. Malformed messages are dropped, counted, and alerted on — never trusted.</li>
+        <li><strong>Manifest drift is a monitored failure.</strong> Our CMS is the source of truth for the option vocabulary. On <code>ready</code>, we diff the configurator's manifest against our catalogue; any mismatch raises a drift alert naming the model and the offending option IDs, and disables the affected controls rather than sending commands that will fail.</li>
+        <li><strong>Every command has a deadline.</strong> If <code>state_applied</code> does not arrive within the budget, we log a timeout with the model and command, surface a non-blocking notice, and keep the UI responsive.</li>
+        <li><strong>Contract tests run in CI</strong> against a mock configurator implementing the spec — covering handshake, each command, each signal, malformed input, wrong origin, wrong version, and timeout. The bridge is never tested only by hand.</li>
+      </ul>
+      <h3>5.2 Degraded modes</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Failure</th><th>User sees</th><th>System does</th></tr></thead>
+          <tbody>
+            <tr><td>Iframe fails to load</td><td>Static gallery of the model, controls hidden</td><td>Log + alert on rate; page fully usable, CTAs intact</td></tr>
+            <tr><td>No <code>ready</code> within budget</td><td>Fallback imagery, "3D view unavailable" notice</td><td>Timeout logged with model ID; retry once</td></tr>
+            <tr><td>Manifest drift</td><td>Affected options hidden, rest of the configurator works</td><td>Drift alert to Slack naming model + options</td></tr>
+            <tr><td>Pixel-stream session unavailable</td><td>Light configurator remains; 360 entry disabled with reason</td><td>Session failure logged; capacity signal tracked</td></tr>
+            <tr><td>Configurator errors mid-session</td><td>Last good state retained; no blank canvas</td><td><code>error</code> signal captured with context</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose"><strong>The rule:</strong> the model page must remain useful — specs readable, CTAs working, lead capture functional — with the configurator entirely absent. Lead capture never depends on 3D.</p>
+    </section>
+
+    <!-- 06 -->
+    <section class="section reveal" id="s6">
+      <div class="sec-head"><div class="sec-num">06</div><h2>Event pipeline &amp; delivery guarantees</h2></div>
+      <div class="prose"><p>"Capture every possible data bit" is only credible if we can prove nothing was dropped. This is how the data layer earns that claim.</p></div>
+      <h3>6.1 The path an event takes</h3>
+      <div class="blueprint">
+        <div class="bp-label">Ingest path</div>
+<pre>  control click / canvas signal / page view
+        │  (client buffers; batches; survives navigation via sendBeacon)
+        ▼
+  <span class="hl">event envelope</span>  { event_id(uuid v4) · schema_version · brand_id · model_id
+                     session_id · trace_id · occurred_at · payload }
+        ▼
+  Edge Function ingest ── validate schema ── rate limit ── stamp received_at
+        │                      │                                │
+        │ reject ──────────────┴──> counted + logged (never silently dropped)
+        ▼
+  <span class="hl">events</span> table  ── append-only ── UNIQUE(event_id) = idempotent retry
+        │
+        ├──> scheduled rollups ──> aggregated views (dashboards read these)
+        └──> failures ──> <span class="hl">dead-letter table</span> ──> alert + replay tool</pre>
+      </div>
+      <h3>6.2 The guarantees <span class="pill mvp">Blocking</span></h3>
+      <ul class="list">
+        <li><strong>Idempotency.</strong> Every event carries a client-generated <code>event_id</code>; the table enforces uniqueness. Retries are therefore always safe and never double-count.</li>
+        <li><strong>At-least-once delivery.</strong> Clients retry with exponential backoff; unsent batches persist across page navigation. Combined with idempotency this yields effectively-once storage.</li>
+        <li><strong>Nothing is dropped silently.</strong> A rejected event is written to the dead-letter table with its reason. An empty DLQ is a monitored condition; entries raise an alert.</li>
+        <li><strong>Daily reconciliation.</strong> A scheduled job compares emitted counts (client-side counters) against persisted counts per brand and model, and posts a gap report to Slack. A gap above threshold is an incident.</li>
+        <li><strong>Schema versioning.</strong> Every event type has a versioned schema in the shared types package — one source of truth for producer, validator, and consumer. Adding an event without registering its schema fails the build.</li>
+        <li><strong>Aggregates are rebuildable.</strong> Rollups can be recomputed from raw events at any time. Dashboards never read a number that cannot be reconstructed.</li>
+        <li><strong>Leads are stricter than events.</strong> A lead write is synchronous and acknowledged; failure is shown to the user with a retry, never swallowed. Any lead in the DLQ is a zero-tolerance, immediate alert.</li>
+        <li><strong>Consent-aware.</strong> Analytics respect the consumer's consent state; PII never enters the events table — leads are a separate, access-controlled entity.</li>
+      </ul>
+    </section>
+
+    <!-- 07 -->
+    <section class="section reveal" id="s7">
+      <div class="sec-head"><div class="sec-num">07</div><h2>The observability standard</h2></div>
+      <div class="prose"><p>"Absence of logs" is treated here as a defect class, not an oversight. This section is the instrumentation contract every feature is built against.</p></div>
+      <h3>7.1 The logging contract <span class="pill mvp">Blocking</span></h3>
+      <ul class="list">
+        <li><strong>Structured JSON only.</strong> No free-text logging. Every line carries: <code>timestamp</code>, <code>level</code>, <code>service</code>, <code>env</code>, <code>trace_id</code>, <code>brand_id</code> (where applicable), <code>event</code>, <code>duration_ms</code>, <code>outcome</code>.</li>
+        <li><strong>One trace ID, end to end.</strong> Generated at the edge, propagated through every call, returned in response headers, and attached to client errors — so any user report resolves to a single trace.</li>
+        <li><strong>Every boundary crossing is logged</strong> at entry and exit with an outcome: HTTP handlers, Edge Functions, database mutations, scheduled jobs, and every configurator message.</li>
+        <li><strong>Every catch block either handles or re-raises — and always logs.</strong> A swallowed exception is a review failure. An empty catch is a merge blocker.</li>
+        <li><strong>No PII in logs, ever.</strong> Names, emails, phone numbers and identifiers are redacted at the logger, not by convention. A log-scrubbing test asserts this against known PII patterns.</li>
+        <li><strong>Correlation with product analytics:</strong> PostHog for behaviour, Sentry for errors and performance, structured logs for system truth — all joined by trace and session ID.</li>
+      </ul>
+      <h3>7.2 What must be instrumented before a feature is done</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Signal type</th><th>Required for every feature</th></tr></thead>
+          <tbody>
+            <tr><td>Logs</td><td>Entry/exit of each boundary, all errors with context, all rejected input</td></tr>
+            <tr><td>Metrics</td><td>Request rate, error rate, latency (p50/p95/p99), and one business counter</td></tr>
+            <tr><td>Traces</td><td>The full path of the flow, including database and external calls</td></tr>
+            <tr><td>Product events</td><td>The user-visible actions the feature introduces, with a registered schema</td></tr>
+            <tr><td>Alerts</td><td>At least one condition that would tell us this feature is failing in production</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout dark">
+        <div class="label">The observability test</div>
+        <p>Before a feature is marked done, answer this: <strong>if this breaks at 3am for one brand only, would our telemetry alone tell us what happened, for whom, and why?</strong> If the answer is no, the feature is not done — regardless of whether the code works.</p>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section class="section reveal" id="s8">
+      <div class="sec-head"><div class="sec-num">08</div><h2>SLOs, alerts &amp; on-call</h2></div>
+      <div class="prose"><p>Objectives are deliberately few and defensible by one engineer. Alert on symptoms users feel, not on every anomaly — noisy alerting is how real failures get missed.</p></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Service level objective</th><th>Target</th><th>Alert when</th></tr></thead>
+          <tbody>
+            <tr><td>Public site availability</td><td>99.9% monthly</td><td>Error rate breaches budget over a rolling window</td></tr>
+            <tr><td>Model page LCP (p75, mobile)</td><td>Under 2.5s</td><td>Sustained regression beyond budget</td></tr>
+            <tr><td>Lead submission success</td><td>99.9%</td><td><strong>Any</strong> failed lead — page immediately</td></tr>
+            <tr><td>Event ingest success</td><td>99.5%</td><td>DLQ entries appear, or reconciliation gap exceeds threshold</td></tr>
+            <tr><td>Dashboard query latency (p95)</td><td>Under 1.5s</td><td>Sustained breach — signals aggregate strategy is failing</td></tr>
+            <tr><td>Configurator ready rate</td><td>99% of sessions</td><td>Ready failures spike for any single model</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>8.1 Alert discipline</h3>
+      <ul class="list">
+        <li><strong>Three severities.</strong> <em>Page</em> (revenue or data loss — leads failing, tenant isolation anomaly, site down). <em>Notify</em> (degradation — configurator errors, drift, DLQ, budget burn). <em>Digest</em> (trends, cost, weekly rollup).</li>
+        <li><strong>Every alert names its runbook.</strong> An alert with no documented response is deleted or given one — no exceptions.</li>
+        <li><strong>Alert fatigue is a tracked defect.</strong> Any alert that fires without action twice is tuned or removed at the next review.</li>
+        <li><strong>Slack is the single pane:</strong> deploys, CI failures, alerts, drift reports, reconciliation gaps, cost rollups, weekly digest — separate channels by severity so the noisy ones never bury the urgent ones.</li>
+      </ul>
+    </section>
+
+    <!-- 09 -->
+    <section class="section reveal" id="s9">
+      <div class="sec-head"><div class="sec-num">09</div><h2>Environments &amp; release pipeline</h2></div>
+      <h3>9.1 Environments</h3>
+      <div class="grid cols-3">
+        <div class="card"><div class="co">Local</div><h4>Development</h4><p>Supabase local or a dedicated branch. Never pointed at production data.</p></div>
+        <div class="card"><div class="co">Preview</div><h4>Per-PR staging</h4><p>Vercel preview + Supabase branch. Every change is QA-able at a real URL with real migrations applied.</p></div>
+        <div class="card"><div class="co">Production</div><h4>Live</h4><p>Deployed only from main, only after all gates pass. Exposure controlled by flags, independent of deploy.</p></div>
+      </div>
+      <h3>9.2 Release sequence <span class="pill mvp">Blocking</span></h3>
+      <div class="blueprint">
+        <div class="bp-label">Every change, no exceptions</div>
+<pre>  spec ─> branch ─> build behind flag ─> self-gate (lint · types · tests · secret-scan)
+       ─> subagent review (code-reviewer + security-review)
+       ─> PR ─> <span class="hl">full CI gate suite</span> ─> preview deploy + migration on branch DB
+       ─> QA on preview URL ─> merge to main
+       ─> production deploy + migration ─> <span class="hl">smoke tests against production</span>
+       ─> flag enabled progressively ─> monitor burn ─> docs entry ─> Slack notify</pre>
+      </div>
+      <h3>9.3 Migration safety</h3>
+      <ul class="list">
+        <li><strong>Expand → migrate → contract.</strong> Never a destructive change in the same release as the code that depends on it. Add the new shape, backfill, switch, then remove — separate releases.</li>
+        <li><strong>Every migration is reversible</strong> or has a documented recovery path. Irreversible migrations require an explicit written decision and a fresh backup verified beforehand.</li>
+        <li><strong>Migrations run on a staging branch first,</strong> always, and are reviewed by the security-review subagent for RLS coverage.</li>
+        <li><strong>Rollback is rehearsed, not theorised.</strong> Vercel instant rollback for code; flags for behaviour; a documented database recovery path. Drilled once per phase.</li>
+      </ul>
+      <h3>9.4 Post-deploy verification</h3>
+      <p class="prose">A deploy is not complete when it finishes — it is complete when it is verified. Production smoke tests run automatically after every deploy against the critical flows in §11. A failed smoke test triggers automatic rollback and a page.</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="section reveal" id="s10">
+      <div class="sec-head"><div class="sec-num">10</div><h2>The merge wall</h2></div>
+      <div class="prose"><p>The complete list of blocking gates. Nothing merges with any of these red. There is no override, no "just this once," and no direct push to main.</p></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Gate</th><th>Fails when</th></tr></thead>
+          <tbody>
+            <tr><td>Type check</td><td>Any TypeScript error; any un-justified <code>any</code></td></tr>
+            <tr><td>Lint &amp; format</td><td>Rule violation, empty catch block, hardcoded design token, forbidden import</td></tr>
+            <tr><td>Unit tests</td><td>Any failure; business logic, permissions, or billing transitions uncovered</td></tr>
+            <tr><td>Integration tests</td><td>Any failure across API routes and Edge Functions</td></tr>
+            <tr><td>Tenant isolation tests</td><td><strong>Any</strong> cross-tenant read or write succeeds</td></tr>
+            <tr><td>Contract tests</td><td>Configurator bridge deviates from the v1.1 protocol</td></tr>
+            <tr><td>E2E critical flows</td><td>Any inventoried critical flow fails</td></tr>
+            <tr><td>Accessibility</td><td>Any WCAG AA violation; any unpaired surface token; motion ignoring reduced-motion</td></tr>
+            <tr><td>Performance budget</td><td>Bundle ceiling or Core Web Vitals budget exceeded</td></tr>
+            <tr><td>Secret scan</td><td>Any credential-shaped string in the diff</td></tr>
+            <tr><td>Migration review</td><td>New brand-scoped table without an RLS policy in the same migration</td></tr>
+            <tr><td>Observability check</td><td>New boundary, job, or event without logging and a registered schema</td></tr>
+            <tr><td>Build</td><td>Application or Storybook build fails</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <div class="label">Branch protection</div>
+        <p>Main is protected: no direct pushes, all gates required, review required. The one engineer plus Claude still opens a PR for every change — the wall exists precisely because there is no second pair of human eyes.</p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="section reveal" id="s11">
+      <div class="sec-head"><div class="sec-num">11</div><h2>Testing strategy &amp; the flow inventory</h2></div>
+      <div class="prose"><p>"No missed flow" requires knowing what the flows <em>are</em>. This inventory is the authority: every entry has a test, and the list is reviewed at every phase boundary.</p></div>
+      <h3>11.1 Critical flow inventory <span class="pill mvp">Blocking</span></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Flow</th><th>Coverage required</th></tr></thead>
+          <tbody>
+            <tr><td>Browse → brand → model detail</td><td>E2E + performance budget</td></tr>
+            <tr><td>Configure → option change → render updates</td><td>E2E with mock configurator + contract tests</td></tr>
+            <tr><td>Request a quote / test drive → lead stored → brand sees it</td><td>E2E + integration + isolation test</td></tr>
+            <tr><td>Consumer account → favorite → persists</td><td>E2E</td></tr>
+            <tr><td>Brand user logs in → sees only own data</td><td>E2E + isolation test (mandatory)</td></tr>
+            <tr><td>Tier gating → locked feature stays locked server-side</td><td>Integration + unit</td></tr>
+            <tr><td>Admin creates brand + model → appears publicly</td><td>E2E</td></tr>
+            <tr><td>Event emitted → ingested → appears in aggregate</td><td>Integration + reconciliation</td></tr>
+            <tr><td>Billing state transition (free period → billable)</td><td>Unit (state machine) + integration</td></tr>
+            <tr><td>Flag off → feature invisible and unreachable</td><td>Integration</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>11.2 The pyramid</h3>
+      <ul class="list">
+        <li><strong>Unit (Vitest)</strong> — business logic, permission and tier resolution, billing state machine, data-layer functions, event schema validation.</li>
+        <li><strong>Integration</strong> — API routes, Edge Functions, and RLS behaviour against a real database branch. This layer is the backbone of the confidentiality claim.</li>
+        <li><strong>Contract</strong> — the configurator bridge against a spec-compliant mock, including every failure mode.</li>
+        <li><strong>End-to-end (Playwright)</strong> — the inventory above, run in CI and as production smoke tests after deploy.</li>
+        <li><strong>Accessibility</strong> — axe across every Storybook story, both surface themes, both text directions, and reduced-motion.</li>
+        <li><strong>Performance</strong> — Lighthouse and bundle analysis in CI against fixed budgets.</li>
+        <li><strong>Visual regression</strong> <span class="pill later">Tracked</span> — Chromatic once components stabilise.</li>
+      </ul>
+      <p class="prose"><strong>Coverage rule:</strong> we do not chase a global percentage. We require that every entry in the flow inventory, every permission branch, and every error path in the ingest pipeline is covered — and we treat an untested error path as an untested feature.</p>
+    </section>
+
+    <!-- 12 -->
+    <section class="section reveal" id="s12">
+      <div class="sec-head"><div class="sec-num">12</div><h2>Failure handling &amp; degradation</h2></div>
+      <div class="prose"><p>Every external call is assumed to fail eventually. The architecture's job is to make that boring.</p></div>
+      <h3>12.1 Standing rules <span class="pill mvp">Blocking</span></h3>
+      <ul class="list">
+        <li><strong>No call without a timeout.</strong> An unbounded call is a merge blocker.</li>
+        <li><strong>Retries only where safe.</strong> Idempotent operations retry with exponential backoff and jitter; non-idempotent ones fail fast and surface.</li>
+        <li><strong>Circuit-break repeat offenders.</strong> A dependency failing consistently is bypassed to its degraded mode rather than retried into the ground.</li>
+        <li><strong>Errors are typed and boundaried.</strong> Every surface has error boundaries; users see an actionable message, never a stack trace or a blank screen.</li>
+        <li><strong>Never fail a page for a non-essential dependency.</strong> Analytics, snapshots, and recommendations degrade silently; specs, CTAs, and lead capture never do.</li>
+      </ul>
+      <h3>12.2 Degradation matrix</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Dependency down</th><th>Degraded behaviour</th><th>Severity</th></tr></thead>
+          <tbody>
+            <tr><td>Configurator / pixel stream</td><td>Static gallery; all specs and CTAs intact</td><td>Notify</td></tr>
+            <tr><td>Analytics ingest</td><td>Client buffers and retries; browsing unaffected</td><td>Notify</td></tr>
+            <tr><td>Lead write</td><td>User sees explicit failure + retry; DLQ + immediate page</td><td><strong>Page</strong></td></tr>
+            <tr><td>Auth provider</td><td>Public browsing continues; accounts and dashboards unavailable with clear notice</td><td>Page</td></tr>
+            <tr><td>Database read (dashboards)</td><td>Cached aggregate served with a staleness indicator</td><td>Notify</td></tr>
+            <tr><td>CMS content missing</td><td>Model omitted from listings rather than rendered broken</td><td>Notify</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section class="section reveal" id="s13">
+      <div class="sec-head"><div class="sec-num">13</div><h2>Feature flags &amp; progressive delivery</h2></div>
+      <ul class="list">
+        <li><strong>Every user-facing change ships behind a flag,</strong> default off. Deploy and release are separate events.</li>
+        <li><strong>Flags are data,</strong> managed in the admin portal, scoped globally, per brand, or per tier — the same mechanism that powers tier gating.</li>
+        <li><strong>Enforcement is server-side.</strong> A flag that only hides UI is not a flag; the API refuses the call too.</li>
+        <li><strong>Every flag has an owner, a purpose, and an expiry date.</strong> Stale flags are removed at each phase boundary — flag debt is tracked like code debt.</li>
+        <li><strong>The kill path is tested.</strong> Turning a flag off must fully remove the feature with no deploy and no residue. Verified when the flag is created, not when it is needed.</li>
+        <li><strong>Progressive exposure:</strong> internal → one pilot brand → all brands, watching error budget between steps.</li>
+      </ul>
+    </section>
+
+    <!-- 14 -->
+    <section class="section reveal" id="s14">
+      <div class="sec-head"><div class="sec-num">14</div><h2>Security &amp; confidentiality</h2></div>
+      <ul class="list">
+        <li><strong>Isolation:</strong> RLS at the database with mandatory cross-tenant tests; least-privilege RBAC; tier gating enforced server-side.</li>
+        <li><strong>Secrets:</strong> environment config only; secret-scanning hook blocks commits; keys rotated on any suspicion; service role never in a client runtime.</li>
+        <li><strong>PII:</strong> minimised, never in URLs or logs, encrypted in transit and at rest, visible only to the owning brand and authorised staff. Retention declared and enforced.</li>
+        <li><strong>Input:</strong> validated at every boundary with schemas; parameterised queries only; output escaped by default.</li>
+        <li><strong>Embeds:</strong> sandboxed iframes, origin-locked postMessage both directions, strict content security policy, no keys crossing the boundary.</li>
+        <li><strong>Audit:</strong> append-only log of sensitive changes with actor, trace, and before/after.</li>
+        <li><strong>Dependencies:</strong> automated vulnerability scanning in CI; a critical advisory blocks release.</li>
+        <li><strong>Client-facing posture</strong> <span class="pill later">Tracked</span> — a data processing agreement, security whitepaper, and data-flow diagram, with SOC 2 / ISO 27001 as the maturity path. Distinguish clearly between what we <em>will not</em> do (contractual, audited) and what we <em>cannot</em> do (technical). Regulatory position for Egypt to be confirmed with counsel.</li>
+      </ul>
+    </section>
+
+    <!-- 15 -->
+    <section class="section reveal" id="s15">
+      <div class="sec-head"><div class="sec-num">15</div><h2>Performance budgets</h2></div>
+      <div class="prose"><p>Porsche remains the qualitative benchmark; these are the quantitative gates that keep us honest about it. Budgets are enforced in CI — a regression fails the build.</p></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Budget</th><th>Target</th><th>Applies to</th></tr></thead>
+          <tbody>
+            <tr><td>LCP (p75, mobile)</td><td>Under 2.5s</td><td>Public site pages</td></tr>
+            <tr><td>INP</td><td>Under 200ms</td><td>All interactive surfaces</td></tr>
+            <tr><td>CLS</td><td>Under 0.1</td><td>All pages</td></tr>
+            <tr><td>Initial JS (route)</td><td>Fixed ceiling per route</td><td>Public site</td></tr>
+            <tr><td>Control feedback</td><td>Immediate — optimistic, never awaits the iframe</td><td>Configurator controls</td></tr>
+            <tr><td>Animation</td><td>60fps; transform/opacity only; never blocks input</td><td>All motion</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">Heavy embeds are lazy-loaded and excluded from initial-load budgets. Render images are content-hashed and immutably cached; likely-next states are preloaded via the <code>preload</code> command; the option catalogue is served from our own backend so controls never wait on the configurator.</p>
+    </section>
+
+    <!-- 16 -->
+    <section class="section reveal" id="s16">
+      <div class="sec-head"><div class="sec-num">16</div><h2>Design system &amp; motion</h2></div>
+      <div class="prose"><p>The neutral monochrome system is locked: Mist canvas, Onyx ink, Gunmetal surfaces, Slate, Platinum — no chromatic accent, so brand colour and the car itself carry all colour. Google Sans Flex and Cairo, both under the open font licence, self-hosted, with automatic switching for Arabic and right-to-left.</p></div>
+      <ul class="list">
+        <li><strong>Contrast is structural.</strong> Every surface token is paired with its required foreground; a component on a dark surface sets its own text colour. An invariant test rejects any unpaired surface, and axe verifies every rendered story. Dark-on-dark is made unrepresentable rather than merely forbidden.</li>
+        <li><strong>Storybook is the source of truth</strong> for the component library, documented and testable, with surface, direction, and reduced-motion toggles.</li>
+        <li><strong>Motion is a system, not decoration.</strong> Tokenised durations, easings and springs; a semantic layer that names motions by purpose so components never improvise; reduced-motion enforced as a blocking gate exactly like contrast. Motion must guide attention, communicate state, or preserve spatial continuity — otherwise it is removed.</li>
+        <li><strong>Responsiveness outranks smoothness.</strong> No animation may compete with the configurator render or delay input.</li>
+      </ul>
+    </section>
+
+    <!-- 17 -->
+    <section class="section reveal" id="s17">
+      <div class="sec-head"><div class="sec-num">17</div><h2>Runbooks &amp; incident response</h2></div>
+      <h3>17.1 Required runbooks <span class="pill mvp">Blocking</span></h3>
+      <p class="prose">Each is a short document: symptom, how to confirm, immediate mitigation, root-cause path, and how to verify recovery.</p>
+      <ul class="list">
+        <li>Site down or deploy failed · <strong>rollback procedure</strong></li>
+        <li>Lead submission failing · DLQ inspection and replay</li>
+        <li>Event ingest gap detected · reconciliation and backfill</li>
+        <li>Configurator not loading for a model · drift, version, or origin diagnosis</li>
+        <li>Suspected cross-tenant exposure · <strong>containment first</strong>, then investigation</li>
+        <li>Database restore from backup</li>
+        <li>Secret leaked · rotation sequence</li>
+        <li>Cost spike · identification and throttle</li>
+      </ul>
+      <h3>17.2 Incident procedure</h3>
+      <ol class="list">
+        <li><strong>Declare.</strong> Post in the incident channel with severity — declaring early is always correct.</li>
+        <li><strong>Mitigate before diagnosing.</strong> Flag off, roll back, or degrade. Restore service first.</li>
+        <li><strong>Communicate</strong> to affected brands if their data or service was involved, within the committed window.</li>
+        <li><strong>Resolve and verify</strong> with telemetry, not assumption.</li>
+        <li><strong>Write it up within 48 hours</strong> — blameless: timeline, cause, why our gates missed it, and the specific new gate or test that would catch it. <strong>Every incident ends by strengthening the wall.</strong></li>
+      </ol>
+    </section>
+
+    <!-- 18 -->
+    <section class="section reveal" id="s18">
+      <div class="sec-head"><div class="sec-num">18</div><h2>Definition of Done</h2></div>
+      <div class="callout dark">
+        <div class="label">A feature is done only when every line is true</div>
+        <p><strong>Spec met</strong> · types strict, no unjustified <code>any</code> · unit + integration tests pass · <strong>RLS policy present and isolation test proving it</strong> · every critical flow it touches covered E2E · <strong>structured logging at every boundary</strong> · metrics and at least one alert defined · product events registered with schemas · error paths handled with timeouts and a degraded mode · lint and format clean · <strong>performance budget met</strong> · <strong>contrast AA and reduced-motion respected</strong> · behind a flag with a verified kill path · docs entry written · runbook updated if it introduces a new failure mode · Slack notified.</p>
+      </div>
+      <p class="prose">The <code>code-reviewer</code> and <code>security-review</code> subagents check every diff against this list before merge. A feature that works but is unobserved, untested, or unflagged is <strong>not done</strong> — it is a liability that happens to function today.</p>
+    </section>
+
+    <!-- 19 -->
+    <section class="section reveal" id="s19">
+      <div class="sec-head"><div class="sec-num">19</div><h2>Roadmap &amp; production gates</h2></div>
+      <div class="prose"><p>Phase 1 delivers the engine and its five applications, proven end to end with one brand and one model in full production hardening, with multi-tenant and multi-market structure built in from the first migration. Each sub-phase ends at a <strong>production gate</strong> — a specific, demonstrable condition. A phase is not complete because its features exist; it is complete when its gate is passed.</p></div>
+      <div class="timeline">
+        <div class="phase">
+          <div class="ptag">Phase 1·A</div>
+          <h4>Engine core</h4>
+          <p>Tenancy spine with markets and entitlements as first-class entities; structured asset bucket with checksum discipline; job queue; ingest and lead pipeline with DLQ and reconciliation; flags; audit.</p>
+          <span class="mile"><b>Gate</b> Isolation suite green; an event and a lead survive an induced failure and reconcile to zero gap.</span>
+        </div>
+        <div class="phase">
+          <div class="ptag">Phase 1·B</div>
+          <h4>Production pipeline &amp; admin</h4>
+          <p>Pipeline board brief → publish; upload detection; render orchestration with folder-computed progress and stall alerts; AI content generation with the approval state machine; catalogue and data-fill; RBAC and audit.</p>
+          <span class="mile"><b>Gate</b> One real model travels brief → rendered matrix → approved content → published, entirely through the admin.</span>
+        </div>
+        <div class="phase">
+          <div class="ptag">Phase 1·C</div>
+          <h4>Consumer surfaces</h4>
+          <p>Virtual showroom, digital brochure with the light configurator, configurator page with the streamed session, CTA and lead layer — per-brand, per-market URLs resolving entitlements.</p>
+          <span class="mile"><b>Gate</b> Performance budgets green; every journey event of the capture map lands; the page converts with the stream entirely absent.</span>
+        </div>
+        <div class="phase">
+          <div class="ptag">Phase 1·D</div>
+          <h4>Brand dashboard &amp; hardening</h4>
+          <p>Tier-gated analytics on aggregates, leads with journey history and rules-based scoring, exports; runbooks, drills, both documentation portals; cost and session metering live.</p>
+          <span class="mile"><b>Gate</b> A paying brand can be onboarded end to end; rollback and restore rehearsed; docs portals published.</span>
+        </div>
+        <div class="phase">
+          <div class="ptag">Phase 2</div>
+          <h4>Autoverse platform &amp; beyond</h4>
+          <p>The multi-brand consumer platform built on the engine's accumulated data and content; further apps as they come. ML lead scoring, checkout, lead-resale workflows (behind legal and consent), custom domains, per-model fine-tuned generation.</p>
+          <span class="mile"><b>Gate</b> Defined when Phase 1 closes; the engine contract in this document applies unchanged.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 20 -->
+    <section class="section reveal" id="s20">
+      <div class="sec-head"><div class="sec-num">20</div><h2>Risk register</h2></div>
+      <div class="prose"><p>Tracked openly and reviewed at every phase boundary. A risk with no owner and no mitigation date is escalated.</p></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Model delivery contract and shared vocabulary not locked with the studio</strong></td><td>Blocks the pipeline at its entry point; naming drift breaks automation per model</td><td>Deliver the Model Delivery Spec and manifest template; agree the shared ID list and its change process in writing</td></tr>
+            <tr><td>Option vocabulary drift between CMS, manifests and configurator</td><td>Broken controls, silently, per model</td><td>Manifest diff on every handshake with alerting; CMS as sole source of truth</td></tr>
+            <tr><td>Pixel-streaming hosting concentration</td><td>Per-session economics and regional latency set the configurator's unit cost; incumbent publishes no SLA</td><td>Decided: incumbent flat-rate provider for launch (Europe zone suits Egypt routing); regional provider adopted at Gulf expansion; re-evaluate self-hosting near ~50 sustained concurrent streams; no published SLA — accepted as a known risk on the basis of an established vendor relationship, to be revisited if client contracts carry uptime commitments; fallback provider kept configured; session lifecycle designed provider-agnostic</td></tr>
+            <tr><td>Render farm as a single hardware dependency</td><td>Pipeline stalls if farm hardware is down or output drifts from the declared matrix</td><td>Queue with stall alerts; expected-vs-present verification; failed-frame retry; no studio dependency at serve time</td></tr>
+            <tr><td>AI content quality below brand standard</td><td>Brochures blocked or brand trust damaged</td><td>Human approval gate on every asset; brochure renders without content blocks; prompt set versioned and improvable</td></tr>
+            <tr><td>Delivery timeline compression</td><td>Fixed 45-day window against full production hardening</td><td>Scope is cut, gates never; one brand one model end-to-end defines done; Later items documented in place</td></tr>
+            <tr><td>Single-engineer bus factor</td><td>No second pair of eyes on any change</td><td>The merge wall, project memory, runbooks, and documentation as the compensating control</td></tr>
+            <tr><td>Alert fatigue masking a real failure</td><td>A genuine incident goes unnoticed</td><td>Three severities, separate channels, mandatory tuning review</td></tr>
+            <tr><td>Aggregate query cost at scale</td><td>Dashboard latency breach; database pressure</td><td>Materialised views, scheduled rollups, p95 latency SLO as early warning</td></tr>
+            <tr><td>Client data-confidentiality demands exceeding current posture</td><td>Lost or delayed enterprise deals</td><td>Layered posture with an honest will-not versus cannot distinction; compliance path defined</td></tr>
+            <tr><td>Regulatory position in the launch market</td><td>Compliance exposure</td><td>Confirm the applicable data protection regime with local counsel before public launch</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <div class="label">End of v2.1</div>
+        <p>This document governs how Autoverse is built and operated. Document 01 remains the vision and system reference; document 03 remains the configurator protocol. Where this document and an earlier one disagree on a standard, <strong>this one wins</strong>. Update it rather than replacing it, and record significant changes as ADRs.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="fb"><span class="dot"></span> Autoverse</div>
+    <small>Production Architecture &amp; Reliability Plan · v2.1 · Internal — confidential</small>
+  </div>
+</footer>
+
+<script>
+const prog=document.getElementById('progress');
+const onScroll=()=>{const h=document.documentElement;const sc=h.scrollTop;const max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?(sc/max*100):0)+'%';};
+document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+const toc=document.getElementById('toc');
+document.getElementById('menuBtn').addEventListener('click',()=>toc.classList.toggle('open'));
+toc.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>toc.classList.remove('open')));
+
+const links=[...toc.querySelectorAll('a')];
+const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+const io=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const a=map.get(e.target.id);if(a)a.classList.add('active');}});
+},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+document.querySelectorAll('section[id]').forEach(s=>io.observe(s));
+
+const rio=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rio.unobserve(e.target);}});},{rootMargin:'0px 0px -10% 0px',threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>rio.observe(el));
+</script>
+</body>
+</html>

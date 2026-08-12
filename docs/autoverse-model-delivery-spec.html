@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Delivery Spec — 3D Handover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400..700&family=Google+Sans+Flex:wght@300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F4F7F5;        /* mist canvas */
+  --paper-2:#ECEFEE;      /* panel */
+  --paper-3:#E1E5E3;      /* card edge */
+  --ink:#08090A;          /* onyx text */
+  --ink-soft:#3C4044;     /* body secondary */
+  --muted:#575A5E;        /* slate labels */
+  --faint:#A7A2A9;        /* platinum */
+  --line:#DBE0DD;         /* hairline */
+  --line-soft:#E7EAE9;
+  --sand:#575A5E;         /* accent on light (slate) */
+  --sand-deep:#08090A;    /* deep accent / numbers */
+  --accent-soft:#A7A2A9;  /* accent on dark (platinum) */
+  --char:#222823;         /* gunmetal surface */
+  --char-2:#2A312B;
+  --char-line:#3A413B;
+  --font-en:"Google Sans Flex","Google Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-ar:"Cairo","Google Sans Flex",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --font-label:var(--font-en);
+  --maxw:1280px;
+  --sidebar:268px;
+  --reading:74ch;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-en);
+  font-size:18px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+:lang(ar),[lang="ar"]{font-family:var(--font-ar)}
+[dir="rtl"]{direction:rtl}
+::selection{background:var(--sand);color:#fff}
+
+/* ---- scroll progress ---- */
+#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--sand);z-index:200;transition:width .08s linear}
+
+/* ---- top bar ---- */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(244,247,245,.82);backdrop-filter:saturate(140%) blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:var(--maxw);margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+.brand .dot{width:11px;height:11px;border-radius:50%;background:var(--ink);position:relative}
+.brand .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.brand b{font-family:var(--font-en);font-weight:800;letter-spacing:.14em;font-size:.82rem;text-transform:uppercase}
+.brand span{font-family:var(--font-label);font-size:.66rem;color:var(--muted);letter-spacing:.08em}
+.docnav{display:flex;gap:6px;font-family:var(--font-label);font-size:.72rem}
+.docnav a{
+  text-decoration:none;color:var(--ink-soft);padding:7px 13px;border-radius:99px;
+  border:1px solid transparent;letter-spacing:.04em;transition:.18s;
+}
+.docnav a:hover{color:var(--ink);background:var(--paper-2)}
+.docnav a.active{border-color:var(--line);background:var(--paper-2);color:var(--ink)}
+.menu-btn{display:none;font-family:var(--font-label);font-size:.72rem;background:none;border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;color:var(--ink)}
+
+/* ---- shell grid ---- */
+.shell{max-width:var(--maxw);margin:0 auto;padding:0 28px;
+  display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:54px;align-items:start}
+
+/* ---- sidebar / toc ---- */
+.toc{position:sticky;top:78px;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding:30px 0 60px}
+.toc h4{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:600}
+.toc ol{list-style:none}
+.toc li a{
+  display:flex;gap:10px;text-decoration:none;color:var(--ink-soft);
+  font-family:var(--font-en);font-size:.83rem;line-height:1.35;
+  padding:6px 10px 6px 0;border-left:2px solid transparent;padding-left:12px;transition:.16s;
+}
+.toc li a .n{font-family:var(--font-label);font-size:.66rem;color:var(--muted);min-width:20px}
+.toc li a:hover{color:var(--ink)}
+.toc li a.active{color:var(--ink);border-left-color:var(--sand);font-weight:600}
+.toc li a.active .n{color:var(--sand-deep)}
+
+/* ---- main ---- */
+main{padding:0 0 120px;min-width:0}
+
+/* ---- hero ---- */
+.hero{
+  background:var(--char);color:var(--paper);border-radius:var(--r);
+  margin-top:34px;padding:54px 50px 46px;position:relative;overflow:hidden;
+  border:1px solid var(--char-line);
+}
+.hero::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 80% at 100% 0%, rgba(167,162,169,.16), transparent 60%);pointer-events:none}
+.hero .eyebrow{font-family:var(--font-label);font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:22px}
+.hero h1{font-family:var(--font-en);font-weight:800;line-height:1.02;letter-spacing:-.02em;
+  font-size:clamp(2.3rem,5vw,3.7rem);margin-bottom:18px}
+.hero h1 em{font-style:normal;color:var(--accent-soft)}
+.hero p.lede{font-size:1.12rem;color:#cfd3d1;max-width:54ch;line-height:1.55}
+.metastrip{margin-top:34px;padding-top:24px;border-top:1px solid var(--char-line);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:22px}
+.metastrip .m .k{font-family:var(--font-label);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:#8d9290;margin-bottom:5px}
+.metastrip .m .v{font-family:var(--font-en);font-size:.92rem;font-weight:600;color:var(--paper)}
+
+/* ---- sections ---- */
+.section{padding:62px 0 8px;border-top:1px solid var(--line-soft);margin-top:34px;scroll-margin-top:84px}
+.section:first-of-type{border-top:none}
+.sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:26px}
+.sec-num{font-family:var(--font-label);font-size:.8rem;color:var(--muted);font-weight:600;padding-top:6px;letter-spacing:.04em}
+.sec-head h2{font-family:var(--font-en);font-weight:700;letter-spacing:-.015em;line-height:1.08;
+  font-size:clamp(1.5rem,3vw,2.15rem)}
+h3{font-family:var(--font-en);font-weight:600;font-size:1.18rem;letter-spacing:-.01em;margin:30px 0 12px;line-height:1.25}
+.section > p, .prose p{max-width:var(--reading);margin-bottom:16px;color:var(--ink-soft)}
+.section > p strong, .prose strong{color:var(--ink);font-weight:600}
+.prose{max-width:var(--reading)}
+a.inline{color:var(--sand-deep);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+code{font-family:var(--font-mono);font-size:.84em;background:var(--paper-3);padding:1px 6px;border-radius:5px;color:var(--ink)}
+
+ul.list,ol.list{max-width:var(--reading);margin:0 0 18px;padding-left:0;list-style:none}
+ul.list li,ol.list li{position:relative;padding-left:26px;margin-bottom:11px;color:var(--ink-soft)}
+ul.list li::before{content:"";position:absolute;left:4px;top:.62em;width:7px;height:7px;background:var(--sand);border-radius:2px;transform:rotate(45deg)}
+ol.list{counter-reset:li}
+ol.list li{counter-increment:li}
+ol.list li::before{content:counter(li,decimal-leading-zero);position:absolute;left:0;top:.05em;font-family:var(--font-label);font-size:.72rem;color:var(--sand-deep);font-weight:600}
+li strong{color:var(--ink);font-weight:600}
+
+/* pills */
+.pill{display:inline-block;font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 9px;border-radius:99px;vertical-align:middle;font-weight:600}
+.pill.mvp{background:#222823;color:var(--accent-soft)}
+.pill.later{background:var(--paper-3);color:var(--ink-soft);border:1px solid var(--line)}
+
+/* callout */
+.callout{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--sand);
+  border-radius:var(--r);padding:24px 28px;margin:26px 0;max-width:var(--reading)}
+.callout .label{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:10px}
+.callout p{margin-bottom:10px}.callout p:last-child{margin-bottom:0}
+.callout.dark{background:var(--char);border-color:var(--char-line);border-left-color:var(--sand);color:#cfd3d1}
+.callout.dark .label{color:var(--accent-soft)}.callout.dark strong{color:var(--paper)}
+.callout.dark p,.callout.dark li{color:#cfd3d1}
+
+/* cards grid */
+.grid{display:grid;gap:16px;margin:24px 0}
+.grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r);padding:22px 22px}
+.card .co{font-family:var(--font-label);font-size:.66rem;color:var(--sand-deep);letter-spacing:.08em;margin-bottom:9px;font-weight:600}
+.card h4{font-family:var(--font-en);font-size:1.02rem;font-weight:600;margin-bottom:7px;letter-spacing:-.01em}
+.card p{font-size:.92rem;color:var(--ink-soft);line-height:1.5}
+
+/* table */
+.table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;min-width:560px;background:var(--paper-2)}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-family:var(--font-label);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--paper-3)}
+td{font-size:.9rem;color:var(--ink-soft)}
+td:first-child{font-family:var(--font-en);color:var(--ink);font-weight:600;font-size:.92rem}
+tr:last-child td{border-bottom:none}
+td strong{color:var(--ink)}
+
+/* blueprint / code panel */
+.blueprint{background:var(--char);border:1px solid var(--char-line);border-radius:var(--r);
+  padding:26px 24px;margin:26px 0;overflow-x:auto}
+.blueprint .bp-label{font-family:var(--font-label);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:16px;font-weight:600}
+.blueprint pre{font-family:var(--font-mono);font-size:.74rem;line-height:1.5;color:#c4c9c6;white-space:pre}
+.blueprint pre .hl{color:var(--accent-soft)}
+
+/* timeline (roadmap) */
+.timeline{margin:28px 0;position:relative;padding-left:34px}
+.timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.phase{position:relative;margin-bottom:26px}
+.phase::before{content:"";position:absolute;left:-34px;top:4px;width:20px;height:20px;border-radius:50%;background:var(--paper);border:2px solid var(--sand);box-shadow:0 0 0 4px var(--paper)}
+.phase .ptag{font-family:var(--font-label);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:5px}
+.phase h4{font-family:var(--font-en);font-size:1.06rem;font-weight:600;margin-bottom:7px}
+.phase p{font-size:.92rem;color:var(--ink-soft);max-width:var(--reading)}
+.phase .mile{display:block;margin-top:8px;font-size:.86rem;color:var(--ink);background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:9px 13px}
+.phase .mile b{font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sand-deep);margin-right:8px}
+
+/* footer */
+.foot{background:var(--char);color:#b3b8b5;margin-top:80px;border-top:1px solid var(--char-line)}
+.foot-inner{max-width:var(--maxw);margin:0 auto;padding:40px 28px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
+.foot .fb{display:flex;align-items:center;gap:11px;color:var(--paper);font-family:var(--font-en);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.78rem}
+.foot .fb .dot{width:10px;height:10px;border-radius:50%;background:var(--paper);position:relative}
+.foot .fb .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.foot small{font-family:var(--font-label);font-size:.66rem;letter-spacing:.04em;color:#878c89}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+
+/* responsive */
+@media (max-width:1000px){
+  .shell{grid-template-columns:1fr;gap:0}
+  .toc{position:fixed;inset:58px 0 auto 0;z-index:90;background:var(--paper);max-height:0;overflow:hidden;
+    padding:0 28px;border-bottom:1px solid var(--line);max-width:none;transition:max-height .3s ease}
+  .toc.open{max-height:70vh;overflow:auto;padding:22px 28px 30px}
+  .menu-btn{display:block}
+  .docnav{display:none}
+}
+@media (max-width:680px){
+  body{font-size:17px}
+  .topbar-inner,.shell{padding-left:18px;padding-right:18px}
+  .hero{padding:38px 26px 34px;margin-top:24px}
+  .sec-head{gap:12px}
+  .callout,.blueprint{padding:20px 18px}
+  .foot-inner{padding:30px 18px}
+}
+</style>
+</head><body>
+<div id="progress"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">
+      <span class="dot"></span>
+      <span><b>Autoverse</b><br><span>Studio Handover</span></span>
+    </a>
+    <span class="docnav" style="color:var(--muted);font-family:var(--font-label);font-size:.72rem;letter-spacing:.06em">Model Delivery Spec</span>
+    <button class="menu-btn" id="menuBtn">Contents</button>
+  </div>
+</header>
+
+<div class="shell" id="top">
+  <aside class="toc" id="toc">
+    <h4>Contents</h4>
+    <ol>
+      <li><a href="#s1"><span class="n">01</span> What this is</a></li>
+      <li><a href="#s2"><span class="n">02</span> The handover</a></li>
+      <li><a href="#s3"><span class="n">03</span> The 3D file</a></li>
+      <li><a href="#s4"><span class="n">04</span> The manifest file</a></li>
+      <li><a href="#s5"><span class="n">05</span> The shared names</a></li>
+      <li><a href="#s6"><span class="n">06</span> Updates &amp; versions</a></li>
+      <li><a href="#s7"><span class="n">07</span> What happens after</a></li>
+      <li><a href="#s8"><span class="n">08</span> If something's wrong</a></li>
+      <li><a href="#s9"><span class="n">09</span> Delivery checklist</a></li>
+    </ol>
+  </aside>
+
+  <main>
+    <section class="hero reveal">
+      <div class="eyebrow">Studio Handover · Model Delivery Spec · v2.0</div>
+      <h1>Delivering a finished model takes <em>two files</em>.</h1>
+      <p class="lede">When a car model is done, the handover is one folder containing the 3D file and a short manifest that describes it. That's everything — the moment it lands, the system takes over: rendering, the configurator, and the customer-facing pages all start from this delivery.</p>
+      <div class="metastrip">
+        <div class="m"><div class="k">Audience</div><div class="v">Studio team</div></div>
+        <div class="m"><div class="k">Replaces</div><div class="v">Configurator Integration Spec v1.x</div></div>
+        <div class="m"><div class="k">You provide</div><div class="v">3D file + manifest.yaml</div></div>
+        <div class="m"><div class="k">We provide</div><div class="v">Everything after upload</div></div>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section class="section reveal" id="s1">
+      <div class="sec-head"><div class="sec-num">01</div><h2>What this is, in one minute</h2></div>
+      <div class="prose">
+        <p>Your work ends where the platform's work begins: a finished, agreed car model. This document describes the <strong>only interface between us</strong> — how that model is handed over. There is deliberately nothing else in it: no rendering settings, no configurator behaviour, no website details. Those are all handled on the platform side, automatically, starting from your upload.</p>
+        <p>Why so strict about the format? Because <strong>nobody is watching an inbox.</strong> A machine detects your delivery, reads the manifest, works out everything that needs to be produced, and notifies the team. If the delivery follows this spec, a model goes from your folder to a live, configurable car with zero back-and-forth. If it doesn't, the system stops and asks questions — which costs everyone a round-trip.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="section reveal" id="s2">
+      <div class="sec-head"><div class="sec-num">02</div><h2>The handover</h2></div>
+      <div class="prose"><p>One delivery = <strong>one folder per model</strong> in the shared upload location (access details are provided separately, not in this document), containing exactly two things:</p></div>
+      <div class="grid cols-2">
+        <div class="card"><div class="co">File 1</div><h4>The 3D model file</h4><p>The packaged model, in the format agreed with our rendering team (§03). One model per delivery — trims and colours are variants <em>inside</em> it, described by the manifest.</p></div>
+        <div class="card"><div class="co">File 2</div><h4>manifest.yaml</h4><p>A short fill-in-the-blanks text file, from the template we provide, that tells the system what the model contains: its trims, exterior colours, and interiors (§04).</p></div>
+      </div>
+      <div class="callout">
+        <div class="label">The one rule</div>
+        <p><strong>A delivery without a manifest doesn't exist.</strong> The system only reacts when both files are present — the manifest is what turns a file in a folder into an instruction it can act on.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="section reveal" id="s3">
+      <div class="sec-head"><div class="sec-num">03</div><h2>The 3D file</h2></div>
+      <ul class="list">
+        <li><strong>Format and packaging as agreed with the rendering team.</strong> The technical requirements (format, structure, naming inside the package) are settled directly between your artists and our rendering engineer and may evolve; this document doesn't restate them so it can't drift out of date.</li>
+        <li><strong>One file per model.</strong> All trims and variants ship inside the one package; the manifest declares which ones exist.</li>
+        <li><strong>The filename you upload must match the filename written in the manifest</strong> — that's how the system pairs them.</li>
+      </ul>
+    </section>
+
+    <!-- 04 -->
+    <section class="section reveal" id="s4">
+      <div class="sec-head"><div class="sec-num">04</div><h2>The manifest file</h2></div>
+      <div class="prose"><p>The manifest is the model's birth certificate. The system reads it and computes everything that must be produced — <strong>every trim × every exterior colour × every interior</strong>. Whatever is listed gets rendered and becomes choosable by customers. Whatever is not listed <strong>does not exist</strong>: it won't be rendered, won't appear in the configurator, and can't be sold. A filled example:</p></div>
+      <div class="blueprint">
+        <div class="bp-label">manifest.yaml — filled example (the template has instructions on every line)</div>
+<pre>brand: "brand-x"                  <span class="hl"># IDs agreed with us — lowercase, dashes</span>
+model: "model-a"
+model_display_name: "Model A"     <span class="hl"># the name customers see</span>
+market_availability: ["EG"]
+
+file:
+  filename: "model-a_v3.zip"      <span class="hl"># must match the uploaded file exactly</span>
+  version: 3                      <span class="hl"># bump on every re-delivery (§06)</span>
+
+trims:
+  - trim: "sport"
+    trim_display_name: "Sport"
+    exterior_colors: ["phantom-black", "glacier-silver", "carmine-red"]
+    interiors: ["onyx-leather", "carbon-alcantara"]
+  - trim: "gt"
+    trim_display_name: "GT"
+    exterior_colors: ["phantom-black", "chalk-white"]
+    interiors: ["carbon-alcantara"]</pre>
+      </div>
+      <p class="prose">Filling it takes minutes: copy the template, one block per trim, list the colour and interior IDs. That's the whole job.</p>
+    </section>
+
+    <!-- 05 -->
+    <section class="section reveal" id="s5">
+      <div class="sec-head"><div class="sec-num">05</div><h2>The shared names</h2></div>
+      <div class="prose"><p>The IDs in the manifest — brand, model, trims, colours, interiors — come from <strong>one shared list we maintain together</strong>. Exact spelling, always: <code>phantom-black</code>, never "Black", "Phantom BLK", or "phantom black". The system matches names literally; to a machine, those are four different colours.</p></div>
+      <ul class="list">
+        <li><strong>New colour or interior?</strong> It's added to the shared list <em>first</em>, then used in a manifest. A name the system doesn't recognise stops the delivery (§08) rather than guessing.</li>
+        <li><strong>Why this matters so much:</strong> these same IDs drive the rendered image sets, the configurator options, the customer's saved builds, and the analytics brands pay for. One consistent name, end to end, is what keeps all of that automatic.</li>
+      </ul>
+    </section>
+
+    <!-- 06 -->
+    <section class="section reveal" id="s6">
+      <div class="sec-head"><div class="sec-num">06</div><h2>Updates &amp; versions</h2></div>
+      <ul class="list">
+        <li><strong>Re-delivering the same model</strong> (fix, improvement, new variants): same folder, new file, and <strong>bump <code>version</code></strong> in the manifest. Nothing is ever overwritten — every version is kept, and the platform switches to the new one only when its processing completes.</li>
+        <li><strong>Adding a trim or colour to a live model</strong> is just a re-delivery: updated model file if needed, updated manifest listing the new variants, version bumped. The system works out what's new and produces only that.</li>
+        <li><strong>Removing a variant:</strong> delete it from the manifest on the next delivery — it stops being offered to customers from then on.</li>
+      </ul>
+    </section>
+
+    <!-- 07 -->
+    <section class="section reveal" id="s7">
+      <div class="sec-head"><div class="sec-num">07</div><h2>What happens after you upload</h2></div>
+      <div class="prose"><p>So you know your delivery landed and what it triggers — all of this is automatic, none of it needs anything further from you:</p></div>
+      <ol class="list">
+        <li><strong>Detection.</strong> The system spots the new delivery, verifies both files are present and paired, and records it.</li>
+        <li><strong>Validation.</strong> The manifest is read and every ID is checked against the shared list.</li>
+        <li><strong>Team notification.</strong> The operations team is notified and starts the production run — rendering every combination the manifest declares.</li>
+        <li><strong>Live.</strong> Once processing and review complete, the model appears in the brand's configurator and pages. If anything is needed from the studio, you'll hear from us with specifics — silence means all is well.</li>
+      </ol>
+    </section>
+
+    <!-- 08 -->
+    <section class="section reveal" id="s8">
+      <div class="sec-head"><div class="sec-num">08</div><h2>If something's wrong</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Problem</th><th>What happens</th><th>The fix</th></tr></thead>
+          <tbody>
+            <tr><td>Manifest missing</td><td>Delivery isn't processed — the system waits</td><td>Add <code>manifest.yaml</code> to the folder</td></tr>
+            <tr><td>Filename in manifest ≠ uploaded file</td><td>Delivery flagged, processing stops</td><td>Correct the <code>filename</code> line or the file name</td></tr>
+            <tr><td>Unknown colour / interior / trim ID</td><td>Delivery flagged with the exact offending name</td><td>Fix the spelling, or add the new ID to the shared list first, then re-deliver</td></tr>
+            <tr><td>Version not bumped on re-delivery</td><td>Delivery flagged as a duplicate</td><td>Increment <code>version</code> and re-upload the manifest</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose"><strong>The principle: the system fails loudly and specifically, never silently.</strong> A flagged delivery names exactly what's wrong; nothing half-processes, and a mistake can never leak to customers.</p>
+    </section>
+
+    <!-- 09 -->
+    <section class="section reveal" id="s9">
+      <div class="sec-head"><div class="sec-num">09</div><h2>Delivery checklist</h2></div>
+      <div class="callout dark">
+        <div class="label">Before you upload — two minutes</div>
+        <p>One folder per model · the 3D file, packaged as agreed · <code>manifest.yaml</code> filled from the template · <code>filename</code> matches the uploaded file · every ID from the shared list, exact spelling · <code>version</code> bumped if this is a re-delivery. Done — upload both, and the system takes it from there.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="fb"><span class="dot"></span> Autoverse</div>
+    <small>Model Delivery Spec · v2.0 · Confidential</small>
+  </div>
+</footer>
+
+<script>
+const prog=document.getElementById('progress');
+const onScroll=()=>{const h=document.documentElement;const sc=h.scrollTop;const max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?(sc/max*100):0)+'%';};
+document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+const toc=document.getElementById('toc');
+document.getElementById('menuBtn').addEventListener('click',()=>toc.classList.toggle('open'));
+toc.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>toc.classList.remove('open')));
+const links=[...toc.querySelectorAll('a')];
+const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+const io=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const a=map.get(e.target.id);if(a)a.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+document.querySelectorAll('section[id]').forEach(s=>io.observe(s));
+const rio=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rio.unobserve(e.target);}});},{rootMargin:'0px 0px -10% 0px',threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>rio.observe(el));
+</script>
+</body>
+</html>

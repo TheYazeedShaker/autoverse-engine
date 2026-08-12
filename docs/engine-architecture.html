@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autoverse — Engine Architecture Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400..700&family=Google+Sans+Flex:wght@300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F4F7F5;        /* mist canvas */
+  --paper-2:#ECEFEE;      /* panel */
+  --paper-3:#E1E5E3;      /* card edge */
+  --ink:#08090A;          /* onyx text */
+  --ink-soft:#3C4044;     /* body secondary */
+  --muted:#575A5E;        /* slate labels */
+  --faint:#A7A2A9;        /* platinum */
+  --line:#DBE0DD;         /* hairline */
+  --line-soft:#E7EAE9;
+  --sand:#575A5E;         /* accent on light (slate) */
+  --sand-deep:#08090A;    /* deep accent / numbers */
+  --accent-soft:#A7A2A9;  /* accent on dark (platinum) */
+  --char:#222823;         /* gunmetal surface */
+  --char-2:#2A312B;
+  --char-line:#3A413B;
+  --font-en:"Google Sans Flex","Google Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-ar:"Cairo","Google Sans Flex",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --font-label:var(--font-en);
+  --maxw:1280px;
+  --sidebar:268px;
+  --reading:74ch;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-en);
+  font-size:18px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+:lang(ar),[lang="ar"]{font-family:var(--font-ar)}
+[dir="rtl"]{direction:rtl}
+::selection{background:var(--sand);color:#fff}
+
+/* ---- scroll progress ---- */
+#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--sand);z-index:200;transition:width .08s linear}
+
+/* ---- top bar ---- */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(244,247,245,.82);backdrop-filter:saturate(140%) blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:var(--maxw);margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+.brand .dot{width:11px;height:11px;border-radius:50%;background:var(--ink);position:relative}
+.brand .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.brand b{font-family:var(--font-en);font-weight:800;letter-spacing:.14em;font-size:.82rem;text-transform:uppercase}
+.brand span{font-family:var(--font-label);font-size:.66rem;color:var(--muted);letter-spacing:.08em}
+.docnav{display:flex;gap:6px;font-family:var(--font-label);font-size:.72rem}
+.docnav a{
+  text-decoration:none;color:var(--ink-soft);padding:7px 13px;border-radius:99px;
+  border:1px solid transparent;letter-spacing:.04em;transition:.18s;
+}
+.docnav a:hover{color:var(--ink);background:var(--paper-2)}
+.docnav a.active{border-color:var(--line);background:var(--paper-2);color:var(--ink)}
+.menu-btn{display:none;font-family:var(--font-label);font-size:.72rem;background:none;border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;color:var(--ink)}
+
+/* ---- shell grid ---- */
+.shell{max-width:var(--maxw);margin:0 auto;padding:0 28px;
+  display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:54px;align-items:start}
+
+/* ---- sidebar / toc ---- */
+.toc{position:sticky;top:78px;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding:30px 0 60px}
+.toc h4{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:600}
+.toc ol{list-style:none}
+.toc li a{
+  display:flex;gap:10px;text-decoration:none;color:var(--ink-soft);
+  font-family:var(--font-en);font-size:.83rem;line-height:1.35;
+  padding:6px 10px 6px 0;border-left:2px solid transparent;padding-left:12px;transition:.16s;
+}
+.toc li a .n{font-family:var(--font-label);font-size:.66rem;color:var(--muted);min-width:20px}
+.toc li a:hover{color:var(--ink)}
+.toc li a.active{color:var(--ink);border-left-color:var(--sand);font-weight:600}
+.toc li a.active .n{color:var(--sand-deep)}
+
+/* ---- main ---- */
+main{padding:0 0 120px;min-width:0}
+
+/* ---- hero ---- */
+.hero{
+  background:var(--char);color:var(--paper);border-radius:var(--r);
+  margin-top:34px;padding:54px 50px 46px;position:relative;overflow:hidden;
+  border:1px solid var(--char-line);
+}
+.hero::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 80% at 100% 0%, rgba(167,162,169,.16), transparent 60%);pointer-events:none}
+.hero .eyebrow{font-family:var(--font-label);font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:22px}
+.hero h1{font-family:var(--font-en);font-weight:800;line-height:1.02;letter-spacing:-.02em;
+  font-size:clamp(2.3rem,5vw,3.7rem);margin-bottom:18px}
+.hero h1 em{font-style:normal;color:var(--accent-soft)}
+.hero p.lede{font-size:1.12rem;color:#cfd3d1;max-width:54ch;line-height:1.55}
+.metastrip{margin-top:34px;padding-top:24px;border-top:1px solid var(--char-line);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:22px}
+.metastrip .m .k{font-family:var(--font-label);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:#8d9290;margin-bottom:5px}
+.metastrip .m .v{font-family:var(--font-en);font-size:.92rem;font-weight:600;color:var(--paper)}
+
+/* ---- sections ---- */
+.section{padding:62px 0 8px;border-top:1px solid var(--line-soft);margin-top:34px;scroll-margin-top:84px}
+.section:first-of-type{border-top:none}
+.sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:26px}
+.sec-num{font-family:var(--font-label);font-size:.8rem;color:var(--muted);font-weight:600;padding-top:6px;letter-spacing:.04em}
+.sec-head h2{font-family:var(--font-en);font-weight:700;letter-spacing:-.015em;line-height:1.08;
+  font-size:clamp(1.5rem,3vw,2.15rem)}
+h3{font-family:var(--font-en);font-weight:600;font-size:1.18rem;letter-spacing:-.01em;margin:30px 0 12px;line-height:1.25}
+.section > p, .prose p{max-width:var(--reading);margin-bottom:16px;color:var(--ink-soft)}
+.section > p strong, .prose strong{color:var(--ink);font-weight:600}
+.prose{max-width:var(--reading)}
+a.inline{color:var(--sand-deep);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+code{font-family:var(--font-mono);font-size:.84em;background:var(--paper-3);padding:1px 6px;border-radius:5px;color:var(--ink)}
+
+ul.list,ol.list{max-width:var(--reading);margin:0 0 18px;padding-left:0;list-style:none}
+ul.list li,ol.list li{position:relative;padding-left:26px;margin-bottom:11px;color:var(--ink-soft)}
+ul.list li::before{content:"";position:absolute;left:4px;top:.62em;width:7px;height:7px;background:var(--sand);border-radius:2px;transform:rotate(45deg)}
+ol.list{counter-reset:li}
+ol.list li{counter-increment:li}
+ol.list li::before{content:counter(li,decimal-leading-zero);position:absolute;left:0;top:.05em;font-family:var(--font-label);font-size:.72rem;color:var(--sand-deep);font-weight:600}
+li strong{color:var(--ink);font-weight:600}
+
+/* pills */
+.pill{display:inline-block;font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 9px;border-radius:99px;vertical-align:middle;font-weight:600}
+.pill.mvp{background:#222823;color:var(--accent-soft)}
+.pill.later{background:var(--paper-3);color:var(--ink-soft);border:1px solid var(--line)}
+
+/* callout */
+.callout{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--sand);
+  border-radius:var(--r);padding:24px 28px;margin:26px 0;max-width:var(--reading)}
+.callout .label{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:10px}
+.callout p{margin-bottom:10px}.callout p:last-child{margin-bottom:0}
+.callout.dark{background:var(--char);border-color:var(--char-line);border-left-color:var(--sand);color:#cfd3d1}
+.callout.dark .label{color:var(--accent-soft)}.callout.dark strong{color:var(--paper)}
+.callout.dark p,.callout.dark li{color:#cfd3d1}
+
+/* cards grid */
+.grid{display:grid;gap:16px;margin:24px 0}
+.grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r);padding:22px 22px}
+.card .co{font-family:var(--font-label);font-size:.66rem;color:var(--sand-deep);letter-spacing:.08em;margin-bottom:9px;font-weight:600}
+.card h4{font-family:var(--font-en);font-size:1.02rem;font-weight:600;margin-bottom:7px;letter-spacing:-.01em}
+.card p{font-size:.92rem;color:var(--ink-soft);line-height:1.5}
+
+/* table */
+.table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;min-width:560px;background:var(--paper-2)}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-family:var(--font-label);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--paper-3)}
+td{font-size:.9rem;color:var(--ink-soft)}
+td:first-child{font-family:var(--font-en);color:var(--ink);font-weight:600;font-size:.92rem}
+tr:last-child td{border-bottom:none}
+td strong{color:var(--ink)}
+
+/* blueprint / code panel */
+.blueprint{background:var(--char);border:1px solid var(--char-line);border-radius:var(--r);
+  padding:26px 24px;margin:26px 0;overflow-x:auto}
+.blueprint .bp-label{font-family:var(--font-label);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:16px;font-weight:600}
+.blueprint pre{font-family:var(--font-mono);font-size:.74rem;line-height:1.5;color:#c4c9c6;white-space:pre}
+.blueprint pre .hl{color:var(--accent-soft)}
+
+/* timeline (roadmap) */
+.timeline{margin:28px 0;position:relative;padding-left:34px}
+.timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.phase{position:relative;margin-bottom:26px}
+.phase::before{content:"";position:absolute;left:-34px;top:4px;width:20px;height:20px;border-radius:50%;background:var(--paper);border:2px solid var(--sand);box-shadow:0 0 0 4px var(--paper)}
+.phase .ptag{font-family:var(--font-label);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:5px}
+.phase h4{font-family:var(--font-en);font-size:1.06rem;font-weight:600;margin-bottom:7px}
+.phase p{font-size:.92rem;color:var(--ink-soft);max-width:var(--reading)}
+.phase .mile{display:block;margin-top:8px;font-size:.86rem;color:var(--ink);background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:9px 13px}
+.phase .mile b{font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sand-deep);margin-right:8px}
+
+/* footer */
+.foot{background:var(--char);color:#b3b8b5;margin-top:80px;border-top:1px solid var(--char-line)}
+.foot-inner{max-width:var(--maxw);margin:0 auto;padding:40px 28px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
+.foot .fb{display:flex;align-items:center;gap:11px;color:var(--paper);font-family:var(--font-en);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.78rem}
+.foot .fb .dot{width:10px;height:10px;border-radius:50%;background:var(--paper);position:relative}
+.foot .fb .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.foot small{font-family:var(--font-label);font-size:.66rem;letter-spacing:.04em;color:#878c89}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+
+/* responsive */
+@media (max-width:1000px){
+  .shell{grid-template-columns:1fr;gap:0}
+  .toc{position:fixed;inset:58px 0 auto 0;z-index:90;background:var(--paper);max-height:0;overflow:hidden;
+    padding:0 28px;border-bottom:1px solid var(--line);max-width:none;transition:max-height .3s ease}
+  .toc.open{max-height:70vh;overflow:auto;padding:22px 28px 30px}
+  .menu-btn{display:block}
+  .docnav{display:none}
+}
+@media (max-width:680px){
+  body{font-size:17px}
+  .topbar-inner,.shell{padding-left:18px;padding-right:18px}
+  .hero{padding:38px 26px 34px;margin-top:24px}
+  .sec-head{gap:12px}
+  .callout,.blueprint{padding:20px 18px}
+  .foot-inner{padding:30px 18px}
+}
+</style>
+</head><body>
+<div id="progress"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">
+      <span class="dot"></span>
+      <span><b>Autoverse</b><br><span>Internal Documentation</span></span>
+    </a>
+    <span class="docnav" style="color:var(--muted);font-family:var(--font-label);font-size:.72rem;letter-spacing:.06em">Engine · Architecture Reference</span>
+    <button class="menu-btn" id="menuBtn">Contents</button>
+  </div>
+</header>
+
+<div class="shell" id="top">
+  <aside class="toc" id="toc">
+    <h4>Contents</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span> Names &amp; how to read</a></li>
+      <li><a href="#s1"><span class="n">01</span> What the Engine is</a></li>
+      <li><a href="#s2"><span class="n">02</span> Commercial model</a></li>
+      <li><a href="#s3"><span class="n">03</span> System overview</a></li>
+      <li><a href="#s4"><span class="n">04</span> Engine subsystems</a></li>
+      <li><a href="#s5"><span class="n">05</span> The applications</a></li>
+      <li><a href="#s6"><span class="n">06</span> Production pipeline</a></li>
+      <li><a href="#s7"><span class="n">07</span> Content generation</a></li>
+      <li><a href="#s8"><span class="n">08</span> Data &amp; leads</a></li>
+      <li><a href="#s9"><span class="n">09</span> Tenancy &amp; security</a></li>
+      <li><a href="#s10"><span class="n">10</span> Integration surface</a></li>
+      <li><a href="#s11"><span class="n">11</span> Experience &amp; design system</a></li>
+      <li><a href="#s12"><span class="n">12</span> Technology stack</a></li>
+      <li><a href="#s13"><span class="n">13</span> Repository &amp; delivery</a></li>
+      <li><a href="#s14"><span class="n">14</span> Phases</a></li>
+      <li><a href="#s15"><span class="n">15</span> Document map</a></li>
+    </ol>
+  </aside>
+
+  <main>
+    <section class="hero reveal">
+      <div class="eyebrow">The Engine · Architecture Reference · v3.0</div>
+      <h1>One <em>engine</em>. Every product built on it.</h1>
+      <p class="lede">The Engine is the shared infrastructure layer beneath everything Autoverse ships: the data, the assets, the pipeline, the security, and the guarantees. This document is the system reference — what exists, where the boundaries are, and how the pieces fit.</p>
+      <div class="metastrip">
+        <div class="m"><div class="k">Version</div><div class="v">3.0 · Engine-first</div></div>
+        <div class="m"><div class="k">Supersedes</div><div class="v">Architecture v1.x</div></div>
+        <div class="m"><div class="k">Repo</div><div class="v">autoverse-engine</div></div>
+        <div class="m"><div class="k">Governance</div><div class="v">Production Plan v2.1</div></div>
+      </div>
+    </section>
+
+    <!-- 00 -->
+    <section class="section reveal" id="s0">
+      <div class="sec-head"><div class="sec-num">00</div><h2>Names, and how to read this</h2></div>
+      <div class="prose">
+        <p>Two names, kept precise throughout: <strong>Autoverse</strong> is the company — and also the name of the consumer platform product the company will build in a later phase, in its own repository. <strong>The Engine</strong> is the infrastructure layer this document describes, living in the <code>autoverse-engine</code> repository. It deliberately has no product name: it is not a product, it is the layer every product stands on. When this document says "the platform," it means the Engine plus the applications running on it today.</p>
+        <p>This is the reference for <em>what the system is</em>. Its two siblings govern <em>how it is run</em> (the Production Plan — guarantees, gates, observability, failure handling; it wins any conflict) and <em>what the experience is</em> (the Journey Blueprint — approved screens, flows, and events). §15 maps the full set.</p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section class="section reveal" id="s1">
+      <div class="sec-head"><div class="sec-num">01</div><h2>What the Engine is</h2></div>
+      <div class="prose">
+        <p>The Engine is the layer that makes every product possible and no product in particular: <strong>hosting, the structured asset store, the data core, tenancy and security, event ingestion, leads, content, entitlements and tiers, jobs, and the integration surface.</strong> Applications are thin by design — they render experiences and capture interactions; everything durable lives in the engine.</p>
+        <p>The division of labor with the studio is a single clean line: <strong>Nmesis creates and delivers 3D models; everything from the upload event onward is the Engine</strong> — rendering on the in-house Unreal farm, the configurator, content generation, publishing, data, and monetization. The delivery contract (two files: the model and its manifest) is specified in the Model Delivery Spec; nothing upstream of that handover is modeled here.</p>
+      </div>
+      <div class="grid cols-3">
+        <div class="card"><div class="co">Phase 1</div><h4>The engine + three apps</h4><p>The Engine itself, plus the consumer app (three gated surfaces), the brand dashboard, and the admin portal — proven end-to-end with one brand, one model, production-hardened.</p></div>
+        <div class="card"><div class="co">Phase 2</div><h4>The Autoverse platform</h4><p>The multi-brand consumer product, built on the data and content the Engine accumulates — a separate repository consuming the same engine.</p></div>
+        <div class="card"><div class="co">Beyond</div><h4>Any future app</h4><p>New products plug into the same data core, asset store, entitlements, and guarantees — the engine is the moat; apps are interchangeable.</p></div>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="section reveal" id="s2">
+      <div class="sec-head"><div class="sec-num">02</div><h2>Commercial model</h2></div>
+      <ul class="list">
+        <li><strong>The Configurator is the base SKU.</strong> Every deal includes it; the Digital Brochure and Virtual Showroom attach to it and are never sold alone.</li>
+        <li><strong>Two independent flag axes.</strong> <em>Entitlements</em> decide which consumer surfaces a brand's URL exposes. <em>Tiers</em> decide which dashboard modules the brand sees. Both are data, resolved server-side, changeable without deploys.</li>
+        <li><strong>Capture is never gated.</strong> Every brand generates full data from day one regardless of tier; upgrading reveals history retroactively — the product's strongest built-in upsell.</li>
+        <li><strong>Markets are first-class.</strong> A brand operates per market (currency, language and direction, consent defaults, pricing); one brand may run several markets, each with its own URL. MENA first, structurally global.</li>
+        <li><strong>Brand URLs:</strong> one per brand per market, subdomain-based; custom domains are a later, additive feature.</li>
+        <li><strong>Billing:</strong> operator-controlled free periods per brand, then subscription billing (manual invoicing first, gateway later). Every billing state transition is audit-logged.</li>
+      </ul>
+    </section>
+
+    <!-- 03 -->
+    <section class="section reveal" id="s3">
+      <div class="sec-head"><div class="sec-num">03</div><h2>System overview</h2></div>
+      <div class="blueprint">
+        <div class="bp-label">The shape of the system</div>
+<pre>  APPLICATIONS
+  ┌───────────────────────────┬──────────────┬─────────────┐   (Phase 2+)
+  │ apps/consumer — ONE app   │ apps/        │ apps/       │  ┌──────────┐
+  │ Showroom · Brochure ·     │ dashboard    │ admin       │  │ Autoverse│
+  │ Configurator (gated)      │ (brands)     │ (operator)  │  │ platform │
+  └─────────────┬─────────────┴──────┬───────┴──────┬──────┘  └────┬─────┘
+                │   <span class="hl">typed data-access only — no ad-hoc queries</span>       │
+                ▼                    ▼              ▼              ▼
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  THE ENGINE                                                │
+  │  Postgres · RLS = tenancy boundary                                   │
+  │  brands · markets · models · trims · options · content · leads       │
+  │  events · entitlements · tiers · flags · subscriptions · audit       │
+  │  edge functions: ingest · leads · upload-watcher · orchestrators     │
+  │  job queue · rollups · webhooks &amp; partner API                        │
+  │  <span class="hl">structured asset store</span>: models · renders · generated content        │
+  │  (content-hashed · checksummed · immutable · versioned)              │
+  └──────┬──────────────────┬─────────────────────┬──────────────────────┘
+         │ job + folder     │ renders out /        │ session URL
+         │ watch            │ assets back          │ + metering
+  ┌──────┴───────┐  ┌───────┴────────┐  ┌──────────┴─────────┐
+  │ UNREAL RENDER│  │ GENERATION     │  │ PIXEL-STREAM HOST  │
+  │ FARM         │  │ PROVIDERS      │  │ (managed; engine   │
+  │ (in-house HW,│  │ (image · video │  │  owns embed +      │
+  │ queue-driven)│  │ · text, behind │  │  metering)         │
+  │              │  │ one adapter)   │  │                    │
+  └──────────────┘  └────────────────┘  └────────────────────┘</pre>
+      </div>
+      <ul class="list">
+        <li><strong>Apps never touch the database directly</strong> — all access flows through the typed data-access layer in <code>engine-core</code>, one owner per entity.</li>
+        <li><strong>External systems are reached only through narrow, engine-owned channels:</strong> the farm via the job queue and a scoped bucket key; generation providers via one adapter that receives renders and prompts, never PII; the stream host via session URL and metering. The configurator iframe receives commands and emits signals — no keys, no PII, no data access.</li>
+        <li><strong>Every cross-boundary payload is schema-validated on both sides.</strong></li>
+      </ul>
+    </section>
+
+    <!-- 04 -->
+    <section class="section reveal" id="s4">
+      <div class="sec-head"><div class="sec-num">04</div><h2>Engine subsystems</h2></div>
+      <div class="grid cols-2">
+        <div class="card"><div class="co">Data core</div><h4>Postgres + RLS</h4><p>The keystone: row-level security is the tenancy boundary, delivering multi-tenancy, RBAC, and confidentiality at the layer no application bug can bypass. Every brand-scoped table carries its policy from birth; constraints live in the database; raw events are append-only; aggregates are derived and rebuildable.</p></div>
+        <div class="card"><div class="co">Asset store</div><h4>Structured object storage</h4><p>The single home of 3D deliveries, rendered multiples, and generated content. Content-hashed immutable paths, checksums at write, versions never overwritten. Serving is CDN-cached; the store's layout (§07) is what makes page generation automatic.</p></div>
+        <div class="card"><div class="co">Ingest</div><h4>Event pipeline</h4><p>Validated, rate-limited edge ingestion; idempotent event IDs; at-least-once delivery with client buffering; dead-letter queue; daily reconciliation. Nothing is dropped silently — the analytics product stands on this claim.</p></div>
+        <div class="card"><div class="co">Leads</div><h4>Stricter than events</h4><p>Synchronous, acknowledged writes; failures surface to the user and page the operator. A lead carries its entire journey history — the data that makes it scoreable and sellable-quality.</p></div>
+        <div class="card"><div class="co">Jobs</div><h4>Queue + orchestrators</h4><p>Render jobs, generation jobs, rollups, retention enforcement — all queued, stateful, observable, with stall detection. The upload-watcher turns a studio delivery into a pipeline run.</p></div>
+        <div class="card"><div class="co">Control</div><h4>Entitlements · tiers · flags</h4><p>One flag mechanism powers feature rollout, surface entitlements, and tier gating — data-driven, server-enforced, kill-path-tested, auditable.</p></div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="section reveal" id="s5">
+      <div class="sec-head"><div class="sec-num">05</div><h2>The applications</h2></div>
+      <h3>5.1 <code>apps/consumer</code> — one app, three gated surfaces</h3>
+      <div class="prose"><p>The Showroom, Brochure, and Configurator are <strong>one application</strong> because they are one journey: one session, one analytics trail, one attribution chain from first touch to lead. Entitlement flags decide which routes a brand's URL exposes; disabled surfaces simply don't exist for that brand. Splitting them into separate apps would fragment sessions exactly where the product's value — the unbroken journey record — is created.</p></div>
+      <ul class="list">
+        <li><strong>Virtual Showroom</strong> — the brand's range: filterable, searchable models with trims beneath; each trim exits deeper (brochure) or straight to configuration.</li>
+        <li><strong>Digital Brochure</strong> — one trim told richly: generated content and renders, in-place trim switching, the <em>light configurator</em> (instant pre-rendered image swapping, no streaming), specs, CTAs, same-brand recommendations.</li>
+        <li><strong>Configurator</strong> — the streamed Unreal session in an iframe, wrapped in engine-owned controls, build summary, and CTAs (configurable per brand). Controls render from the engine's own option catalog and never wait on the stream; the page converts fully with the stream absent.</li>
+      </ul>
+      <h3>5.2 <code>apps/dashboard</code> — the brand product</h3>
+      <p class="prose">Tenant-isolated by RLS, tier-gated by flags: overview, journey funnel, model and trim insights, leads with per-lead journey history and scoring, exports, settings (CTA configuration, notifications, team RBAC). Reads aggregates only. Locked modules are visible but inert — the upgrade path is part of the interface, and the server refuses locked data regardless.</p>
+      <h3>5.3 <code>apps/admin</code> — the operator portal</h3>
+      <p class="prose">The pipeline board (§06), catalogue management (brands, markets, models, options — the source-of-truth vocabulary), generated-content review, commercial control (tiers, subscriptions, free periods, finance), cross-brand analytics, leads oversight, ops (logs, jobs, DLQs, costs), staff RBAC, audit.</p>
+      <h3>5.4 The configurator contract</h3>
+      <p class="prose">The render surface is built in-house but stays <strong>deliberately decoupled behind a versioned message protocol</strong> (commands in: <code>init</code>, <code>set_option</code>, <code>set_view</code>, <code>preload</code>…; signals out: <code>ready</code>+manifest, <code>state_applied</code>, <code>canvas_interaction</code>, <code>session</code>…), origin-locked both ways, schema-validated, drift-checked against the catalog on every handshake. Platform and render surface must be able to evolve, deploy, and fail independently.</p>
+    </section>
+
+    <!-- 06 -->
+    <section class="section reveal" id="s6">
+      <div class="sec-head"><div class="sec-num">06</div><h2>The production pipeline</h2></div>
+      <div class="prose"><p>The pipeline manufactures the consumer experience. It begins at the upload event and ends at publish; every stage is a state on the admin board, every transition logged, every failure loud.</p></div>
+      <div class="flow" style="display:flex;gap:12px 6px;align-items:stretch;flex-wrap:wrap;margin:22px 0">
+        <div class="phase" style="margin:0;flex:1;min-width:150px"><div class="ptag">1 · Upload</div><p>3D file + <code>manifest.yaml</code> detected; manifest validated against the shared vocabulary; operator notified. The manifest's declarations define the expected render matrix.</p></div>
+        <div class="phase" style="margin:0;flex:1;min-width:150px"><div class="ptag">2 · Render</div><p>Operator starts the run; the farm renders trims × colors × interiors × views; progress = files present ÷ expected; stalls alert.</p></div>
+        <div class="phase" style="margin:0;flex:1;min-width:150px"><div class="ptag">3 · Configurator ready</div><p>Matrix complete → configurator registered → protocol handshake verified.</p></div>
+        <div class="phase" style="margin:0;flex:1;min-width:150px"><div class="ptag">4 · Content</div><p>Generation runs per trim (§07): images, video, copy — from versioned prompts, conditioned on this trim's renders.</p></div>
+        <div class="phase" style="margin:0;flex:1;min-width:150px"><div class="ptag">5 · Approve</div><p>Human review of every generated asset and copy block; nothing unapproved can publish.</p></div>
+        <div class="phase" style="margin:0;flex:1;min-width:150px"><div class="ptag">6 · Data fill</div><p>Specs, prices per market, filters, CTA configuration.</p></div>
+        <div class="phase" style="margin:0;flex:1;min-width:150px"><div class="ptag">7 · Publish</div><p>Surfaces go live behind the brand's entitlement flags. Per-trim: a trim publishes only when complete; siblings unaffected.</p></div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="section reveal" id="s7">
+      <div class="sec-head"><div class="sec-num">07</div><h2>Content generation</h2></div>
+      <div class="prose">
+        <p>The brochure's hero imagery, its cinematic banner video, and the page copy are <strong>manufactured, not commissioned</strong> — generated per trim from the trim's own renders, so accuracy is inherited from the pipeline rather than hoped for. The design principle: <strong>renders are the identity; generation adds the world around them.</strong></p>
+      </div>
+      <h3>7.1 The three-stage chain</h3>
+      <ul class="list">
+        <li><strong>Images.</strong> An image model generates scene imagery <em>conditioned on the trim's approved renders</em> (image-to-image / reference-based): new environments, lighting, and moods around the actual car geometry. Inputs: the trim's hero renders + a <strong>fixed, versioned prompt set</strong> maintained in the admin (prompts are data — refining them upgrades every future model with zero code). Fixed count per trim.</li>
+        <li><strong>Video.</strong> Approved generated images seed an image-to-video model to produce one or two short cinematic clips per trim, at the exact aspect ratios the brochure banner consumes. <strong>Approval sits between the stages by design:</strong> video is the expensive step, and it only ever runs on images a human has already accepted.</li>
+        <li><strong>Copy.</strong> A text model generates the page's written content per brand × model × trim — headline, subcopy, feature blocks, specs framing — as <strong>structured blocks, not prose files</strong>, from the manifest, the filled specs, and a per-brand <em>voice profile</em> (tone, vocabulary, things never to say). Generated in every market language (English and Arabic from day one). Copy passes the same approval gate as imagery.</li>
+      </ul>
+      <h3>7.2 Provider strategy</h3>
+      <ul class="list">
+        <li><strong>One adapter, swappable providers.</strong> All generation flows through the engine's <code>content-generation</code> service, which speaks to managed model providers behind a single interface (submit job → poll/webhook → fetch asset). Model vendors in this space change monthly; the adapter makes the choice reversible and per-stage (the image provider, video provider, and text provider are independent decisions).</li>
+        <li><strong>Selection criteria:</strong> API + webhook maturity, commercial usage rights over outputs, per-asset cost visibility, reference/image-conditioning quality on automotive subjects, and output-resolution ceilings. The current provider choices are recorded as ADRs, not in this document — the architecture outlives them.</li>
+        <li><strong>Providers receive renders and prompts — never PII, never lead or analytics data.</strong></li>
+      </ul>
+      <h3>7.3 Asset store layout — where everything lands</h3>
+      <div class="blueprint">
+        <div class="bp-label">Naming convention (content-hashed serving paths derive from this)</div>
+<pre>assets/{brand}/{model}/v{version}/
+  source/                        ← the delivered 3D file + manifest.yaml
+  renders/{trim}/{exterior}/{interior}/{view}.png
+  content/{trim}/
+    images/{promptset-v}/{prompt-id}-{seq}.jpg      ← generated stills
+    videos/banner-{aspect}.mp4                      ← cinematic clips
+    copy/{locale}.json                              ← structured text blocks
+</pre>
+      </div>
+      <ul class="list">
+        <li><strong>The layout is the automation:</strong> page generation reads this tree by convention — a brochure assembles itself from <code>renders/</code>, approved <code>content/</code>, and the filled catalog data, with zero manual placement.</li>
+        <li><strong>Generation state lives in the database, assets in the store:</strong> every asset row tracks provider, prompt version, seed inputs, cost, and approval state (<code>generated → approved | rejected | regenerating</code>). The brochure can only reference <code>approved</code>.</li>
+        <li><strong>Degradation:</strong> content blocks are optional by design — a brochure renders complete from renders + copy alone if generation is late, rejected, or down.</li>
+      </ul>
+    </section>
+
+    <!-- 08 -->
+    <section class="section reveal" id="s8">
+      <div class="sec-head"><div class="sec-num">08</div><h2>Data &amp; leads</h2></div>
+      <ul class="list">
+        <li><strong>Capture everything, atomically.</strong> The journey emits fine-grained events (per the Blueprint's capture map): every filter, view, trim switch, swatch touch, configurator command, canvas interaction, session state, and CTA step — each with full context (brand, market, model, trim, session, source) and paired enter/leave events so every duration is derived, not guessed.</li>
+        <li><strong>Questions are queries, not features.</strong> "Most-tried color," funnel drop-off, comparison patterns — all answerable from raw events without new instrumentation. Dashboards read scheduled aggregates; raw events remain the rebuildable source of truth.</li>
+        <li><strong>Leads are the conversion product:</strong> a lead = contact + consent + the entire journey behind it. Scoring starts rules-based (weighted funnel-depth and engagement signals, per brand), with model-based scoring as a later, additive upgrade. Export for brands; operator oversight across brands.</li>
+        <li><strong>Consent is captured at the form, per market,</strong> stored with the lead. Any future secondary use of lead data is gated on its own explicit consent and legal review — structurally separated from serving the brand.</li>
+        <li><strong>The cross-brand view</strong> (operator only) is the compounding asset: market-level automotive interest data that no single brand sees — and the foundation the Phase-2 platform is built on.</li>
+      </ul>
+    </section>
+
+    <!-- 09 -->
+    <section class="section reveal" id="s9">
+      <div class="sec-head"><div class="sec-num">09</div><h2>Tenancy, security &amp; confidentiality</h2></div>
+      <ul class="list">
+        <li><strong>Isolation is absolute and database-enforced:</strong> RLS on every brand-scoped table, deny-by-default, with mandatory cross-tenant tests that block any merge on failure. No brand can ever see another brand's data — proven, not promised.</li>
+        <li><strong>Key discipline:</strong> the service-role key exists only in CI migrations and server-side jobs; browsers write only through validating edge functions; the iframe and generation providers receive no keys and no PII.</li>
+        <li><strong>PII is minimized, never in logs or URLs,</strong> encrypted in transit and at rest, visible only to the owning brand and authorized staff; retention declared per table and enforced by schedule.</li>
+        <li><strong>Everything sensitive is audited:</strong> append-only log with actor, trace, and before/after on admin, billing, and data-affecting actions.</li>
+        <li>Full mechanics, gates, SLOs, and incident procedure: the Production Plan. Client-facing posture (processing terms, security overview, compliance path): the client documentation portal (§10).</li>
+      </ul>
+    </section>
+
+    <!-- 10 -->
+    <section class="section reveal" id="s10">
+      <div class="sec-head"><div class="sec-num">10</div><h2>Integration surface &amp; documentation</h2></div>
+      <ul class="list">
+        <li><strong>Outbound webhooks</strong> per brand: lead created, lead updated, threshold events — signed, retried, replayable.</li>
+        <li><strong>Partner API</strong> (token-scoped per brand, tier-gated): read access to the brand's own leads and aggregates for CRM and martech integration. Same RLS guarantees apply to API tokens as to dashboard users.</li>
+        <li><strong>Two documentation portals, one source:</strong> an <em>internal portal</em> (architecture, decisions, runbooks, data dictionary, how-and-why — the onboarding path for any future hire) and a <em>client portal</em> (security and confidentiality posture, webhook and API reference with auth and response shapes, what each tier includes). Both generated from the repo's docs so they cannot drift from reality.</li>
+      </ul>
+    </section>
+
+    <!-- 11 -->
+    <section class="section reveal" id="s11">
+      <div class="sec-head"><div class="sec-num">11</div><h2>Experience &amp; design system</h2></div>
+      <ul class="list">
+        <li><strong>Quality bar:</strong> the consumer surfaces compete on feel — fast, precise, premium. Performance budgets are CI-enforced; the car, not the interface, carries the color.</li>
+        <li><strong>The design system lives in code</strong> (<code>design-tokens</code> + <code>ui</code>, documented in Storybook): locked monochrome palette with a minimal semantic sub-palette for state feedback; structural surface↔foreground contrast pairing with an invariant test; self-hosted bilingual typography (Latin + Arabic, RTL-aware); Radix-based accessible primitives; a semantic motion layer with a restrained, precise character and reduced-motion enforced as a blocking gate.</li>
+        <li><strong>Design workflow:</strong> the system is imported from this repository into the design tool; approved page designs return as locked specs; the same components implement them. One system, no drift, at every step from mockup to production.</li>
+      </ul>
+    </section>
+
+    <!-- 12 -->
+    <section class="section reveal" id="s12">
+      <div class="sec-head"><div class="sec-num">12</div><h2>Technology stack</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Database · auth · RLS</td><td>Supabase Postgres</td><td>One mechanism collapses tenancy, RBAC, and confidentiality at the data layer</td></tr>
+            <tr><td>Applications</td><td>Next.js (Turborepo monorepo, pnpm)</td><td>One framework across all three apps; shared packages; per-PR previews</td></tr>
+            <tr><td>Hosting · CI/CD</td><td>Vercel + GitHub Actions</td><td>Preview-per-PR staging; the gate wall in CI; instant rollback</td></tr>
+            <tr><td>Asset store · CDN</td><td>S3-compatible object storage + CDN</td><td>The structured, immutable, content-hashed store of §07</td></tr>
+            <tr><td>Server logic</td><td>Edge functions + queued jobs</td><td>Validated writes, orchestrators, rollups — no browser-to-table writes ever</td></tr>
+            <tr><td>Pixel streaming</td><td>Managed host behind the session layer</td><td>Provider decisions are operational (see Hosting Decision Report); the embed, lifecycle, and metering are engine-owned and provider-agnostic</td></tr>
+            <tr><td>Generation</td><td>Managed model providers behind one adapter</td><td>§7.2 — swappable per stage, recorded as ADRs</td></tr>
+            <tr><td>Observability</td><td>Structured logs + Sentry + PostHog</td><td>One trace ID end-to-end; behavior, errors, and system truth joined</td></tr>
+            <tr><td>UI system</td><td>Tokens + Radix + motion/react + Storybook</td><td>§11 — accessible, enforced, documented in code</td></tr>
+            <tr><td>Comms</td><td>Slack</td><td>Deploys, alerts, pipeline notifications, reconciliation reports — one pane</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section class="section reveal" id="s13">
+      <div class="sec-head"><div class="sec-num">13</div><h2>Repository &amp; delivery</h2></div>
+      <div class="blueprint">
+        <div class="bp-label">autoverse-engine</div>
+<pre>packages/design-tokens    tokens · fonts · pairing invariant
+packages/ui               Storybook + primitive library
+packages/types            entities · event schemas · configurator protocol
+packages/engine-core      typed data access · entitlements · flags
+apps/consumer             showroom · brochure · configurator (gated routes)
+apps/dashboard            brand dashboard
+apps/admin                operator portal
+services/                 ingest · leads · upload-watcher · render + content
+                          orchestrators
+supabase/migrations/      all schema change · RLS in every migration
+docs/  specs/  .claude/  .github/</pre>
+      </div>
+      <p class="prose">Every change travels one road: spec → branch → flag → gates → review → PR → CI wall → preview with branch-database migration → merge → production → smoke tests → progressive flag enable → docs → notification. The full gate list, migration safety rules, and rollback drills are the Production Plan's; the repo's <code>CLAUDE.md</code> binds them for the build agent, and <code>PROGRESS.md</code> carries session state.</p>
+    </section>
+
+    <!-- 14 -->
+    <section class="section reveal" id="s14">
+      <div class="sec-head"><div class="sec-num">14</div><h2>Phases</h2></div>
+      <ul class="list">
+        <li><strong>Phase 1 — the Engine + the three applications</strong>, delivered through the Production Plan's sub-phases (engine core → pipeline &amp; admin → consumer surfaces → dashboard &amp; hardening), each closing at a demonstrable production gate. Done means: one brand, one model, the full journey, production-hardened, with multi-tenant and multi-market structure in place from the first migration.</li>
+        <li><strong>Phase 2 — the Autoverse platform</strong>, its own repository on the engine's accumulated data — plus the deferred upgrades, each documented where it belongs: model-based lead scoring, checkout, secondary lead monetization (behind consent and legal), custom domains, per-model fine-tuned generation.</li>
+      </ul>
+    </section>
+
+    <!-- 15 -->
+    <section class="section reveal" id="s15">
+      <div class="sec-head"><div class="sec-num">15</div><h2>Document map</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Document</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Engine Architecture (this)</strong></td><td>What the system is — the reference</td></tr>
+            <tr><td>Production Plan v2.1</td><td>How it is run — guarantees, gates, SLOs, incidents. Wins conflicts.</td></tr>
+            <tr><td>Journey Blueprint v1.0</td><td>What the experience is — approved flows, screens, events, packaging</td></tr>
+            <tr><td>Model Delivery Spec v2.0</td><td>The studio handover contract (file + manifest)</td></tr>
+            <tr><td>Hosting Decision Report</td><td>Pixel-streaming provider analysis and staged decision</td></tr>
+            <tr><td>Build specs (<code>specs/</code>)</td><td>Per-task instructions for the build agent</td></tr>
+            <tr><td><code>CLAUDE.md</code> / <code>PROGRESS.md</code></td><td>Permanent standards / living session state</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <div class="label">End of v3.0</div>
+        <p>This document supersedes all earlier architecture versions. Update it in place when the system changes; record significant choices as ADRs. Where it and the Production Plan disagree on a standard, the Production Plan wins.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="fb"><span class="dot"></span> Autoverse</div>
+    <small>The Engine · Architecture Reference · v3.0 · Internal — confidential</small>
+  </div>
+</footer>
+
+<script>
+const prog=document.getElementById('progress');
+const onScroll=()=>{const h=document.documentElement;const sc=h.scrollTop;const max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?(sc/max*100):0)+'%';};
+document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+const toc=document.getElementById('toc');
+document.getElementById('menuBtn').addEventListener('click',()=>toc.classList.toggle('open'));
+toc.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>toc.classList.remove('open')));
+const links=[...toc.querySelectorAll('a')];
+const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+const io=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const a=map.get(e.target.id);if(a)a.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+document.querySelectorAll('section[id]').forEach(s=>io.observe(s));
+const rio=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rio.unobserve(e.target);}});},{rootMargin:'0px 0px -10% 0px',threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>rio.observe(el));
+</script>
+</body>
+</html>

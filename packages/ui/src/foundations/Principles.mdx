@@ -1,0 +1,36 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Principles" />
+
+# Principles
+
+Autoverse's design system is a **cool neutral monochrome** — Mist, Onyx, Gunmetal, Slate, Platinum —
+with **no chromatic accent**, so it never clashes with a tenant brand's colours. Type is **Google Sans
+Flex** (Latin) + **Cairo** (Arabic), self-hosted and bilingual with first-class RTL.
+
+Everything here comes from `@autoverse/tokens`. Components reference tokens only — **never** a raw hex or
+font name. The token package is the single source of truth, mirrored as typed TS values and CSS variables.
+
+## The contrast rule is law
+
+> **A foreground is never placed on a same-luminance surface. Every surface is its own variant that
+> carries its required foreground — never a `.dark` modifier layered over a light-assuming base.**
+
+This is enforced structurally, not by vigilance:
+
+- **At the token layer** — every registered surface declares a paired `fg` + `fgMute`, and an invariant
+  test (`@autoverse/tokens`) fails the build if any pair misses **WCAG AA** (≥ 4.5:1 text, ≥ 3:1 large/UI),
+  across both the typed registry and the canonical CSS. See the **Color** page for the live proof.
+- **At the story layer** — every story runs through the a11y addon (axe, WCAG 2.1 AA) on **both** surface
+  themes and **both** writing directions; colour-contrast violations fail.
+
+So "dark-on-dark" is unrepresentable: you can't add a surface without a passing foreground, and you can't
+ship a story that renders one.
+
+## How we work
+
+- Run the **accessibility-review** skill before any UI component is considered done.
+- The **code-reviewer** subagent checks every diff against the Definition of Done (strict TS, tokens-only,
+  contrast AA, tests + docs).
+- Status feedback (error/success/warning/info) is the one sanctioned, AA-checked extension to the monochrome
+  palette — scoped strictly to feedback, never decoration (see **Color → Status**).

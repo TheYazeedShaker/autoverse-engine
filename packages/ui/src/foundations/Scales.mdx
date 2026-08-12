@@ -1,0 +1,31 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { SpacingScale, RadiusScale, ElevationScale, MotionScale } from "./blocks";
+
+<Meta title="Foundations/Spacing · Radius · Elevation · Motion" />
+
+# Spacing · Radius · Elevation · Motion
+
+The non-colour scales, all from `@autoverse/tokens`. Components consume these — never raw px.
+
+## Spacing
+
+A 4px-based scale keyed by px value (`--av-space-<px>`). Used for padding, gap, and layout rhythm.
+
+<SpacingScale />
+
+## Radius
+
+<RadiusScale />
+
+## Elevation
+
+Soft, low-contrast shadows tuned for the Mist canvas — premium, not heavy.
+
+<ElevationScale />
+
+## Motion & breakpoints
+
+Durations + the standard easing are the Framer-Motion contract (named from day one so motion is tokenized).
+Breakpoints drive the responsive Container / Grid primitives.
+
+<MotionScale />

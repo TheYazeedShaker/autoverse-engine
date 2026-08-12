@@ -1,0 +1,35 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { PaletteGrid, SurfaceMatrix, StatusSolids } from "./blocks";
+
+<Meta title="Foundations/Color" />
+
+# Color
+
+The locked neutral palette, the surface↔foreground pairs, and the muted status sub-palette. The ratios
+below are **computed live** with the same WCAG helper the `@autoverse/tokens` invariant test uses — this
+page is the visual counterpart to that test.
+
+## Palette
+
+The raw monochrome scale. Each chip renders via its CSS variable (`--av-<name>`); the hex is the canonical
+value from `@autoverse/tokens`.
+
+<PaletteGrid />
+
+## Surfaces ↔ foreground (live AA)
+
+Every surface is its own variant carrying its paired `fg` (primary) and `fgMute` (muted). The badges show
+the **computed contrast ratio** and AA pass/fail for each pair on that surface — the structural enforcement
+of the contrast rule, made visible. Toggle the **surface** and **direction** toolbars; nothing here can drop
+below AA without failing the build.
+
+<SurfaceMatrix />
+
+## Status (feedback only)
+
+The chromatic-free palette has one sanctioned exception: a **muted semantic sub-palette** for state feedback
+(form validation, Alert) — never a brand accent, never decoration. Solids are used for borders / icons /
+strong state text and clear AA-large on the Mist canvas; the paired subtle surfaces appear in the matrix
+above (`errorSubtle`, `successSubtle`, …). Decision recorded in **ADR-0005** (`docs/adr/`).
+
+<StatusSolids />

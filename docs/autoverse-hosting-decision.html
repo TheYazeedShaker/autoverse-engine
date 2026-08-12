@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autoverse — Pixel-Streaming Hosting: Vendor Decision Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400..700&family=Google+Sans+Flex:wght@300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F4F7F5;        /* mist canvas */
+  --paper-2:#ECEFEE;      /* panel */
+  --paper-3:#E1E5E3;      /* card edge */
+  --ink:#08090A;          /* onyx text */
+  --ink-soft:#3C4044;     /* body secondary */
+  --muted:#575A5E;        /* slate labels */
+  --faint:#A7A2A9;        /* platinum */
+  --line:#DBE0DD;         /* hairline */
+  --line-soft:#E7EAE9;
+  --sand:#575A5E;         /* accent on light (slate) */
+  --sand-deep:#08090A;    /* deep accent / numbers */
+  --accent-soft:#A7A2A9;  /* accent on dark (platinum) */
+  --char:#222823;         /* gunmetal surface */
+  --char-2:#2A312B;
+  --char-line:#3A413B;
+  --font-en:"Google Sans Flex","Google Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-ar:"Cairo","Google Sans Flex",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --font-label:var(--font-en);
+  --maxw:1280px;
+  --sidebar:268px;
+  --reading:74ch;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-en);
+  font-size:18px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+:lang(ar),[lang="ar"]{font-family:var(--font-ar)}
+[dir="rtl"]{direction:rtl}
+::selection{background:var(--sand);color:#fff}
+
+/* ---- scroll progress ---- */
+#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--sand);z-index:200;transition:width .08s linear}
+
+/* ---- top bar ---- */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(244,247,245,.82);backdrop-filter:saturate(140%) blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:var(--maxw);margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+.brand .dot{width:11px;height:11px;border-radius:50%;background:var(--ink);position:relative}
+.brand .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.brand b{font-family:var(--font-en);font-weight:800;letter-spacing:.14em;font-size:.82rem;text-transform:uppercase}
+.brand span{font-family:var(--font-label);font-size:.66rem;color:var(--muted);letter-spacing:.08em}
+.docnav{display:flex;gap:6px;font-family:var(--font-label);font-size:.72rem}
+.docnav a{
+  text-decoration:none;color:var(--ink-soft);padding:7px 13px;border-radius:99px;
+  border:1px solid transparent;letter-spacing:.04em;transition:.18s;
+}
+.docnav a:hover{color:var(--ink);background:var(--paper-2)}
+.docnav a.active{border-color:var(--line);background:var(--paper-2);color:var(--ink)}
+.menu-btn{display:none;font-family:var(--font-label);font-size:.72rem;background:none;border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;color:var(--ink)}
+
+/* ---- shell grid ---- */
+.shell{max-width:var(--maxw);margin:0 auto;padding:0 28px;
+  display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:54px;align-items:start}
+
+/* ---- sidebar / toc ---- */
+.toc{position:sticky;top:78px;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding:30px 0 60px}
+.toc h4{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:600}
+.toc ol{list-style:none}
+.toc li a{
+  display:flex;gap:10px;text-decoration:none;color:var(--ink-soft);
+  font-family:var(--font-en);font-size:.83rem;line-height:1.35;
+  padding:6px 10px 6px 0;border-left:2px solid transparent;padding-left:12px;transition:.16s;
+}
+.toc li a .n{font-family:var(--font-label);font-size:.66rem;color:var(--muted);min-width:20px}
+.toc li a:hover{color:var(--ink)}
+.toc li a.active{color:var(--ink);border-left-color:var(--sand);font-weight:600}
+.toc li a.active .n{color:var(--sand-deep)}
+
+/* ---- main ---- */
+main{padding:0 0 120px;min-width:0}
+
+/* ---- hero ---- */
+.hero{
+  background:var(--char);color:var(--paper);border-radius:var(--r);
+  margin-top:34px;padding:54px 50px 46px;position:relative;overflow:hidden;
+  border:1px solid var(--char-line);
+}
+.hero::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 80% at 100% 0%, rgba(167,162,169,.16), transparent 60%);pointer-events:none}
+.hero .eyebrow{font-family:var(--font-label);font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:22px}
+.hero h1{font-family:var(--font-en);font-weight:800;line-height:1.02;letter-spacing:-.02em;
+  font-size:clamp(2.3rem,5vw,3.7rem);margin-bottom:18px}
+.hero h1 em{font-style:normal;color:var(--accent-soft)}
+.hero p.lede{font-size:1.12rem;color:#cfd3d1;max-width:54ch;line-height:1.55}
+.metastrip{margin-top:34px;padding-top:24px;border-top:1px solid var(--char-line);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:22px}
+.metastrip .m .k{font-family:var(--font-label);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:#8d9290;margin-bottom:5px}
+.metastrip .m .v{font-family:var(--font-en);font-size:.92rem;font-weight:600;color:var(--paper)}
+
+/* ---- sections ---- */
+.section{padding:62px 0 8px;border-top:1px solid var(--line-soft);margin-top:34px;scroll-margin-top:84px}
+.section:first-of-type{border-top:none}
+.sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:26px}
+.sec-num{font-family:var(--font-label);font-size:.8rem;color:var(--muted);font-weight:600;padding-top:6px;letter-spacing:.04em}
+.sec-head h2{font-family:var(--font-en);font-weight:700;letter-spacing:-.015em;line-height:1.08;
+  font-size:clamp(1.5rem,3vw,2.15rem)}
+h3{font-family:var(--font-en);font-weight:600;font-size:1.18rem;letter-spacing:-.01em;margin:30px 0 12px;line-height:1.25}
+.section > p, .prose p{max-width:var(--reading);margin-bottom:16px;color:var(--ink-soft)}
+.section > p strong, .prose strong{color:var(--ink);font-weight:600}
+.prose{max-width:var(--reading)}
+a.inline{color:var(--sand-deep);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+code{font-family:var(--font-mono);font-size:.84em;background:var(--paper-3);padding:1px 6px;border-radius:5px;color:var(--ink)}
+
+ul.list,ol.list{max-width:var(--reading);margin:0 0 18px;padding-left:0;list-style:none}
+ul.list li,ol.list li{position:relative;padding-left:26px;margin-bottom:11px;color:var(--ink-soft)}
+ul.list li::before{content:"";position:absolute;left:4px;top:.62em;width:7px;height:7px;background:var(--sand);border-radius:2px;transform:rotate(45deg)}
+ol.list{counter-reset:li}
+ol.list li{counter-increment:li}
+ol.list li::before{content:counter(li,decimal-leading-zero);position:absolute;left:0;top:.05em;font-family:var(--font-label);font-size:.72rem;color:var(--sand-deep);font-weight:600}
+li strong{color:var(--ink);font-weight:600}
+
+/* pills */
+.pill{display:inline-block;font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 9px;border-radius:99px;vertical-align:middle;font-weight:600}
+.pill.mvp{background:#222823;color:var(--accent-soft)}
+.pill.later{background:var(--paper-3);color:var(--ink-soft);border:1px solid var(--line)}
+
+/* callout */
+.callout{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--sand);
+  border-radius:var(--r);padding:24px 28px;margin:26px 0;max-width:var(--reading)}
+.callout .label{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:10px}
+.callout p{margin-bottom:10px}.callout p:last-child{margin-bottom:0}
+.callout.dark{background:var(--char);border-color:var(--char-line);border-left-color:var(--sand);color:#cfd3d1}
+.callout.dark .label{color:var(--accent-soft)}.callout.dark strong{color:var(--paper)}
+.callout.dark p,.callout.dark li{color:#cfd3d1}
+
+/* cards grid */
+.grid{display:grid;gap:16px;margin:24px 0}
+.grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r);padding:22px 22px}
+.card .co{font-family:var(--font-label);font-size:.66rem;color:var(--sand-deep);letter-spacing:.08em;margin-bottom:9px;font-weight:600}
+.card h4{font-family:var(--font-en);font-size:1.02rem;font-weight:600;margin-bottom:7px;letter-spacing:-.01em}
+.card p{font-size:.92rem;color:var(--ink-soft);line-height:1.5}
+
+/* table */
+.table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;min-width:560px;background:var(--paper-2)}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-family:var(--font-label);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--paper-3)}
+td{font-size:.9rem;color:var(--ink-soft)}
+td:first-child{font-family:var(--font-en);color:var(--ink);font-weight:600;font-size:.92rem}
+tr:last-child td{border-bottom:none}
+td strong{color:var(--ink)}
+
+/* blueprint / code panel */
+.blueprint{background:var(--char);border:1px solid var(--char-line);border-radius:var(--r);
+  padding:26px 24px;margin:26px 0;overflow-x:auto}
+.blueprint .bp-label{font-family:var(--font-label);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:16px;font-weight:600}
+.blueprint pre{font-family:var(--font-mono);font-size:.74rem;line-height:1.5;color:#c4c9c6;white-space:pre}
+.blueprint pre .hl{color:var(--accent-soft)}
+
+/* timeline (roadmap) */
+.timeline{margin:28px 0;position:relative;padding-left:34px}
+.timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.phase{position:relative;margin-bottom:26px}
+.phase::before{content:"";position:absolute;left:-34px;top:4px;width:20px;height:20px;border-radius:50%;background:var(--paper);border:2px solid var(--sand);box-shadow:0 0 0 4px var(--paper)}
+.phase .ptag{font-family:var(--font-label);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:5px}
+.phase h4{font-family:var(--font-en);font-size:1.06rem;font-weight:600;margin-bottom:7px}
+.phase p{font-size:.92rem;color:var(--ink-soft);max-width:var(--reading)}
+.phase .mile{display:block;margin-top:8px;font-size:.86rem;color:var(--ink);background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:9px 13px}
+.phase .mile b{font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sand-deep);margin-right:8px}
+
+/* footer */
+.foot{background:var(--char);color:#b3b8b5;margin-top:80px;border-top:1px solid var(--char-line)}
+.foot-inner{max-width:var(--maxw);margin:0 auto;padding:40px 28px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
+.foot .fb{display:flex;align-items:center;gap:11px;color:var(--paper);font-family:var(--font-en);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.78rem}
+.foot .fb .dot{width:10px;height:10px;border-radius:50%;background:var(--paper);position:relative}
+.foot .fb .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
+.foot small{font-family:var(--font-label);font-size:.66rem;letter-spacing:.04em;color:#878c89}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+
+/* responsive */
+@media (max-width:1000px){
+  .shell{grid-template-columns:1fr;gap:0}
+  .toc{position:fixed;inset:58px 0 auto 0;z-index:90;background:var(--paper);max-height:0;overflow:hidden;
+    padding:0 28px;border-bottom:1px solid var(--line);max-width:none;transition:max-height .3s ease}
+  .toc.open{max-height:70vh;overflow:auto;padding:22px 28px 30px}
+  .menu-btn{display:block}
+  .docnav{display:none}
+}
+@media (max-width:680px){
+  body{font-size:17px}
+  .topbar-inner,.shell{padding-left:18px;padding-right:18px}
+  .hero{padding:38px 26px 34px;margin-top:24px}
+  .sec-head{gap:12px}
+  .callout,.blueprint{padding:20px 18px}
+  .foot-inner{padding:30px 18px}
+}
+</style>
+</head><body>
+<div id="progress"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">
+      <span class="dot"></span>
+      <span><b>Autoverse</b><br><span>Internal Documentation</span></span>
+    </a>
+    <span class="docnav" style="color:var(--muted);font-family:var(--font-label);font-size:.72rem;letter-spacing:.06em">Pixel-Streaming Hosting · Vendor Decision</span>
+    <button class="menu-btn" id="menuBtn">Contents</button>
+  </div>
+</header>
+
+<div class="shell" id="top">
+  <aside class="toc" id="toc">
+    <h4>Contents</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span> TL;DR</a></li>
+      <li><a href="#s1"><span class="n">01</span> Key findings</a></li>
+      <li><a href="#s2"><span class="n">02</span> StreamPixel (incumbent)</a></li>
+      <li><a href="#s3"><span class="n">03</span> Vagon Streams</a></li>
+      <li><a href="#s4"><span class="n">04</span> Eagle 3D Streaming</a></li>
+      <li><a href="#s5"><span class="n">05</span> Arcware Cloud</a></li>
+      <li><a href="#s6"><span class="n">06</span> AWS GameLift Streams</a></li>
+      <li><a href="#s7"><span class="n">07</span> Self-hosted on EC2</a></li>
+      <li><a href="#s8"><span class="n">08</span> Other providers</a></li>
+      <li><a href="#s9"><span class="n">09</span> Cost modeling</a></li>
+      <li><a href="#s10"><span class="n">10</span> Comparison matrix</a></li>
+      <li><a href="#s11"><span class="n">11</span> MENA latency</a></li>
+      <li><a href="#s12"><span class="n">12</span> Recommendations</a></li>
+      <li><a href="#s13"><span class="n">13</span> Caveats</a></li>
+    </ol>
+  </aside>
+
+  <main>
+    <section class="hero reveal">
+      <div class="eyebrow">Infrastructure Research · Vendor Decision Report</div>
+      <h1>Pixel-streaming hosting for the <em>configurator</em>.</h1>
+      <p class="lede">Six hosting options for the Unreal-based automotive configurator, compared on verified pricing, MENA latency, session APIs, and operational burden — with a staged recommendation for the Egypt launch, Gulf expansion, and the self-hosting threshold.</p>
+      <div class="metastrip">
+        <div class="m"><div class="k">Scope</div><div class="v">MENA · Egypt → KSA/UAE</div></div>
+        <div class="m"><div class="k">Incumbent</div><div class="v">StreamPixel</div></div>
+        <div class="m"><div class="k">Method</div><div class="v">Primary sources · flags on unverified</div></div>
+        <div class="m"><div class="k">Status</div><div class="v">Decision-ready</div></div>
+      </div>
+    </section>
+
+    <!-- 00 -->
+    <section class="section reveal" id="s0">
+      <div class="sec-head"><div class="sec-num">00</div><h2>TL;DR</h2></div>
+      <ul class="list">
+        <li><strong>Stay on StreamPixel for the 45-day Egypt launch.</strong> Its flat €99/month-per-project model (2 concurrent users included, unlimited streaming minutes, +€45/CCU to scale) on RTX 6000 Ada GPUs in its Germany zone is the cheapest and lowest-effort option for Egypt, where internet routing naturally favors Frankfurt/Europe. It is the price leader at every one of the three concurrency scenarios once utilization is moderate.</li>
+        <li><strong>For Gulf (KSA/UAE) expansion, move to Vagon Streams.</strong> It is the only managed vendor with in-region GPUs (Bahrain and Dubai datacenters), sub-5-second "Instant Connection," a real REST API for per-session start/assign metering, and iframe + JS SDK two-way messaging. AWS GameLift Streams has no Middle East region at all.</li>
+        <li><strong>Self-hosting and GameLift Streams are not cost-justified below roughly 50 sustained concurrent streams.</strong> StreamPixel's blended ~$48/CCU/month is far below the ~$480+/month cost of one always-on AWS GPU. Self-host only when you need Gulf data residency, 4K, full IP control, or per-session margin control — not to save money at small scale.</li>
+      </ul>
+    </section>
+
+    <!-- 01 -->
+    <section class="section reveal" id="s1">
+      <div class="sec-head"><div class="sec-num">01</div><h2>Key findings</h2></div>
+      <ol class="list">
+        <li><strong>StreamPixel is dramatically underpriced per concurrent slot.</strong> €99/month per project includes 2 CCU and unlimited minutes; extra concurrency is €45/CCU/month. Because minutes are unlimited, it wins on cost as soon as each concurrent slot streams more than ~1,390 minutes/month.</li>
+        <li><strong>Vagon Streams is the per-minute alternative and the MENA-latency play.</strong> Billed per streamed minute by GPU tier plus a $0.67/day app-maintenance fee; Bahrain and Dubai are in its region list. Best when utilization per slot is low (spiky traffic).</li>
+        <li><strong>AWS GameLift Streams caps at a 1080p/60 pixel budget and has no ME region; its billing is per allocated capacity-hour (including idle/warm buffer), which punishes spiky consumer traffic.</strong> (A July 2026 AWS update adds custom aspect ratios from 320 to 4096 pixels per dimension, but still within a 1080p total pixel budget, so the 1080p ceiling holds.)</li>
+        <li><strong>Self-hosting on EC2 gives you Bahrain (g4dn) and UAE (g5) GPUs but imposes a real solo-engineer ops burden</strong> (signalling server, matchmaker/orchestrator, autoscaling, TURN, monitoring).</li>
+        <li><strong>Egypt's routing genuinely favors Europe.</strong> Egypt hosts roughly 16–20 international subsea cables that make a ~100-mile land crossing and break out into the Mediterranean toward Europe; an estimated 17% of the world's internet traffic transits Egypt (CSIS puts Egypt's share of global connectivity at 17–30%). A Frankfurt/Germany zone is therefore the right launch target for Cairo users.</li>
+      </ol>
+    </section>
+
+    <!-- 02 -->
+    <section class="section reveal" id="s2">
+      <div class="sec-head"><div class="sec-num">02</div><h2>StreamPixel <span class="pill mvp">Incumbent</span></h2></div>
+      <ul class="list">
+        <li><strong>Pricing (verified, streampixel.io/pricing):</strong> €99/month per project, flat. Includes <strong>2 concurrent users</strong> and <strong>unlimited streaming minutes</strong>; scale at <strong>€45/month per additional CCU</strong>. Operated by Vardexa OÜ (Estonia), "by InfinityVoid." 2-day free trial, no credit card.</li>
+        <li><strong>Hardware:</strong> NVIDIA RTX 6000 Ada (48 GB VRAM, ~RTX 4090-class), 24-core CPUs — strong for a graphics-heavy automotive scene. Dedicated GPU per session.</li>
+        <li><strong>Regions/zones:</strong> India (Asia-Pacific), Germany (Europe), USA (America). No Gulf region. Germany zone serves Egypt well.</li>
+        <li><strong>Embed &amp; API:</strong> iframe embed with <code>postMessage</code>/JSON messaging; Web SDK for a custom JS player; REST API with webhooks for CI/CD; real-time analytics dashboard tracking usage/sessions.</li>
+        <li><strong>Cold start:</strong> "Instant startup, no cold starts."</li>
+        <li><strong>UE support:</strong> Any Unreal Engine build with the Pixel Streaming plugin (UE5). 4K streaming included.</li>
+        <li><strong>SLA/contract:</strong> No published uptime SLA (flag). Month-to-month implied. White-label/enterprise via contact.</li>
+      </ul>
+    </section>
+
+    <!-- 03 -->
+    <section class="section reveal" id="s3">
+      <div class="sec-head"><div class="sec-num">03</div><h2>Vagon Streams</h2></div>
+      <ul class="list">
+        <li><strong>Pricing:</strong> Pay-per-minute by GPU performance tier, plus <strong>application maintenance cost of $0.67/day</strong> (~$20/month per app) and outbound data transfer at <strong>$1.50 per additional 10 GB after the first 10 GB/month</strong>. Exact per-minute Streams rates sit behind the calculator; third-party listings cite roughly $0.025/min (T4 "Starter") to $0.035/min (T4 "Pro"), with RTX tiers higher. <strong>(Flag: exact Streams per-minute unverified from primary source.)</strong></li>
+        <li><strong>Regions (verified region-prices page):</strong> 20+ datacenters including <strong>Bahrain and Dubai</strong> (Middle East), Frankfurt, Mumbai, plus US/EU/APAC. Bahrain and Dubai make Vagon the standout for Gulf latency.</li>
+        <li><strong>Embed &amp; API:</strong> iframe with <code>&lt;iframe id="vagonFrame" …&gt;</code>; JS SDK (<code>window.Vagon.*</code> methods: resolution match, focus, quality set, session info); Unreal Engine SDK over WebSocket; <strong>REST API</strong> (<code>/streams/{id}/start-machine</code>, <code>/assign-machine</code>) for per-visitor session assignment and metering; visitor-stats analytics; <strong>budget limits</strong>; white-labeling as a premium feature.</li>
+        <li><strong>Queueing/capacity:</strong> Capacity methods (Cost Optimized / Balanced / Availability Optimized); "Instant Connection" keeps warm server pools for sub-5-second starts across regions including MENA; "Instant Installation" removes app-install time.</li>
+        <li><strong>UE support:</strong> Unreal + Unity + any Windows desktop app; up to 4K/60.</li>
+      </ul>
+    </section>
+
+    <!-- 04 -->
+    <section class="section reveal" id="s4">
+      <div class="sec-head"><div class="sec-num">04</div><h2>Eagle 3D Streaming</h2></div>
+      <ul class="list">
+        <li><strong>Pricing (verified):</strong> Free trial (60 lifetime minutes, 1 stream). <strong>Core: $29/month, 300 minutes included, 10 GB storage, up to 10 concurrent streams; overage $0.10/additional minute</strong> (minutes reset monthly, no rollover). Enterprise: custom, up to 1,000 concurrent streams, 4K, analytics, SSO, self-hosted options.</li>
+        <li><strong>Regions:</strong> Primary datacenters in <strong>US (Texas) and EU</strong> for self-serve; can deploy on GCP/AWS/Azure for enterprise. No dedicated Gulf POP.</li>
+        <li><strong>Embed &amp; metering:</strong> Stream-times analytics with per-device/location CSV export; project versioning; control panel with minute caps.</li>
+        <li><strong>Concurrency:</strong> Self-serve capped at 15 CCU; beyond that requires enterprise. Epic MegaGrant + AWS Imagine Grant recipient; explicitly serves automotive/configurator use cases.</li>
+      </ul>
+    </section>
+
+    <!-- 05 -->
+    <section class="section reveal" id="s5">
+      <div class="sec-head"><div class="sec-num">05</div><h2>Arcware Cloud</h2></div>
+      <ul class="list">
+        <li><strong>Pricing (verified arcware.com/pricing):</strong> 15-day free trial (60 min, 2 CCS). <strong>Lite €10/month, €0.15/min, 1 project, 2 CCS, 1080p.</strong> <strong>Core €89/month, ≤€0.10/min, 5–15 projects, 3–10 CCS, 1080p</strong> (calculator shows €89 + €0.10/min; e.g., 500 min = €139). <strong>Custom: ≤€0.08/min, unlimited projects/CCS, up to 4K (3840×2160).</strong> "Cost per minute decreases as you stream more."</li>
+        <li><strong>Servers:</strong> Munich, Germany and Los Angeles, USA. No Gulf region. Munich serves Egypt reasonably.</li>
+        <li><strong>Embed &amp; API:</strong> Web SDK (<code>@arcware-cloud/pixelstreaming-websdk</code> on npm) for custom HTML frontends; analytics (connections, viewing time, time-till-ready). Notice period 15 days (Lite/Core), 60 days (Custom).</li>
+      </ul>
+    </section>
+
+    <!-- 06 -->
+    <section class="section reveal" id="s6">
+      <div class="sec-head"><div class="sec-num">06</div><h2>AWS Amazon GameLift Streams</h2></div>
+      <ul class="list">
+        <li><strong>Billing model (verified aws pricing page):</strong> Charged per <strong>allocated stream-capacity-second</strong> (always-on + on-demand + target-idle warm buffer), regardless of whether actively streaming, plus per-GB-month content storage. This model penalizes spiky consumer traffic because instant-start requires paid idle capacity.</li>
+        <li><strong>Verified stream-class rates:</strong> gen4n_high (multi-tenant, T4) <strong>$0.4982/hr Oregon, $0.6571/hr Frankfurt</strong>; gen6n_ultra_win2022 <strong>$1.82/hr Oregon</strong>; gen6n_small <strong>$0.16/hr Ohio</strong>. Single-tenant Windows classes recommended for heavy Unreal (gen5n_win2022 runs on a g5.2xlarge/A10G) have <strong>no publicly published hourly rate — only obtainable via the AWS Pricing Calculator/console (flag as unverified).</strong></li>
+        <li><strong>Regions (12, verified):</strong> us-east-1, us-east-2, us-west-2, Mumbai, Tokyo, Seoul, Sydney, Frankfurt, Ireland, London, Stockholm, São Paulo. <strong>No Middle East region</strong> — nearest are Frankfurt and Mumbai.</li>
+        <li><strong>Resolution:</strong> up to <strong>1080p/60fps</strong> total pixel budget (a real ceiling vs 4K options).</li>
+        <li><strong>UE support:</strong> UE 4.27 and UE5 up through 5.5 (Windows gen5n; DirectX 11/12).</li>
+        <li><strong>Embed/API:</strong> WebRTC Web SDK, full session-management APIs, AWS CLI. Most control but most integration effort.</li>
+      </ul>
+    </section>
+
+    <!-- 07 -->
+    <section class="section reveal" id="s7">
+      <div class="sec-head"><div class="sec-num">07</div><h2>Self-hosted Unreal Pixel Streaming on EC2</h2></div>
+      <ul class="list">
+        <li><strong>Verified GPU on-demand (Linux) rates:</strong> g4dn.xlarge (T4) <strong>$0.645/hr Bahrain (me-south-1), $0.658/hr Frankfurt</strong>; g5.xlarge (A10G) <strong>$1.234/hr UAE (me-central-1), $1.258/hr Frankfurt</strong>; g5.2xlarge <strong>$1.4867/hr UAE</strong>. g5 is <strong>not</strong> offered in Bahrain; UAE (me-central-1) is the Gulf home for A10G.</li>
+        <li><strong>Stack required:</strong> Unreal build + signalling/web server + TURN (CoTURN) + matchmaker/orchestrator + frontend. Options: Epic's reference Cirrus + Matchmaker (starter only, not scale-ready), the <code>aws-samples/pixel-streaming-at-scale</code> framework (SQS FIFO queue, Lambda poller, autoscaling), or TensorWorks' Scalable Pixel Streaming framework.</li>
+        <li><strong>Effective per-stream-hour:</strong> ~$0.66 (Frankfurt g4dn) or ~$1.26 (Frankfurt g5) compute + ~$0.40–0.50 egress (≈4.5 GB/hr at 10 Mbps 1080p, egress ~$0.09–0.11/GB) ≈ <strong>$1.10–1.75/stream-hour</strong>, before ops.</li>
+        <li><strong>Ops burden:</strong> High for a solo engineer — provisioning, autoscaling, elastic IPs, cold starts, TURN, monitoring, security, no vendor SLA.</li>
+      </ul>
+    </section>
+
+    <!-- 08 -->
+    <section class="section reveal" id="s8">
+      <div class="sec-head"><div class="sec-num">08</div><h2>Other credible providers</h2></div>
+      <ul class="list">
+        <li><strong>PureWeb (Reality):</strong> Fully managed, enterprise-grade, UE5 Lumen/Nanite support, 2-second launch, SOC 2, explicitly markets automotive car configurators. Annual/quotation pricing only (no public per-minute) — enterprise budget, less startup-friendly. No public Gulf POP claim.</li>
+        <li>Others (Arcane Mirage, and various niche providers) exist but are less proven for MENA; keep out of shortlist.</li>
+      </ul>
+    </section>
+
+    <!-- 09 -->
+    <section class="section reveal" id="s9">
+      <div class="sec-head"><div class="sec-num">09</div><h2>Cost modeling at the three scenarios</h2></div>
+      <p class="prose">Monthly, USD; €→$ ≈ 1.08.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Scenario</th><th>StreamPixel</th><th>Vagon (~$0.035/min)</th><th>Eagle 3D</th><th>Arcware</th><th>GameLift (Frankfurt)</th><th>Self-host EC2 (Frankfurt)</th></tr></thead>
+          <tbody>
+            <tr><td><strong>(a) 2 CCU, 2,000 min</strong></td><td><strong>$107</strong> (2 CCU)</td><td>~$90</td><td>$199 (Core)</td><td>$312 (Core)</td><td>~$22 on-demand / ~$959 always-on</td><td>~$37 on-demand + ops / ~$960 warm</td></tr>
+            <tr><td><strong>(b) 10 CCU, 20,000 min</strong></td><td><strong>$496</strong> (10 CCU)</td><td>~$720</td><td>$1,999 (Core, 10-CCU cap)</td><td>$2,256 (Core, 10-CCS cap)</td><td>~$219 on-demand / ~$4,797 always-on</td><td>~$366 on-demand + ops</td></tr>
+            <tr><td><strong>(c) 50 CCU, 150,000 min</strong></td><td><strong>$2,440</strong> (50 CCU)</td><td>~$5,270</td><td>Enterprise (custom; ~$15k nominal)</td><td>Custom ≤€0.08/min (~$13k nominal)</td><td>~$1,643 on-demand / ~$23,984 always-on</td><td>~$2,750 on-demand + ops</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Reading the table</h3>
+      <ul class="list">
+        <li><strong>StreamPixel is the price leader at (b) and (c)</strong> and essentially tied with Vagon at (a). Its flat per-CCU/unlimited-minutes model crushes per-minute vendors once slots are well-utilized.</li>
+        <li><strong>GameLift/self-host "on-demand" columns look cheap but assume near-perfect utilization with no warm buffer</strong> — unrealistic for instant-start consumer sessions. The "always-on" columns are the honest comparison for a good UX, and there StreamPixel is 4–10× cheaper.</li>
+        <li><strong>Crossover:</strong> StreamPixel's €45 (~$48.6)/CCU vs Vagon ~$0.035/min breaks even at <strong>~1,390 streamed minutes per concurrent slot per month (~23 hours)</strong>. Below that (very spiky, low usage), per-minute Vagon wins; above it, StreamPixel wins. Scenario (a) sits near the line (~1,000 min/CCU → Vagon marginally cheaper); (b) and (c) are well above it → StreamPixel.</li>
+      </ul>
+    </section>
+
+    <!-- 10 -->
+    <section class="section reveal" id="s10">
+      <div class="sec-head"><div class="sec-num">10</div><h2>Comparison matrix (qualitative)</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Dimension</th><th>StreamPixel</th><th>Vagon Streams</th><th>Eagle 3D</th><th>Arcware</th><th>GameLift Streams</th><th>Self-host EC2</th></tr></thead>
+          <tbody>
+            <tr><td>Pricing model</td><td>Flat €99 + €45/CCU, unlimited min</td><td>Per-minute + $0.67/day</td><td>$29 + $0.10/min overage</td><td>€10–89 + €0.08–0.15/min</td><td>Per capacity-hour</td><td>Per instance-hour + egress</td></tr>
+            <tr><td>MENA/Gulf region</td><td>No (Germany best)</td><td><strong>Bahrain + Dubai</strong></td><td>No (US/EU)</td><td>No (Munich/LA)</td><td><strong>No ME region</strong></td><td><strong>Bahrain + UAE</strong></td></tr>
+            <tr><td>GPU class</td><td>RTX 6000 Ada</td><td>T4→RTX tiers</td><td>Cloud GPU (US/EU)</td><td>Munich/LA GPUs</td><td>T4/A10G/L4</td><td>T4 (Bahrain), A10G (UAE)</td></tr>
+            <tr><td>Max resolution</td><td>4K</td><td>4K/60</td><td>4K (enterprise)</td><td>4K (Custom)</td><td>1080p budget</td><td>Your choice</td></tr>
+            <tr><td>Session/metering API</td><td>REST + webhooks</td><td><strong>REST start/assign + visitor stats</strong></td><td>CSV analytics</td><td>SDK analytics</td><td>Full session APIs</td><td>You build it</td></tr>
+            <tr><td>iframe + 2-way msg</td><td>Yes (postMessage/JSON)</td><td>Yes (JS SDK)</td><td>Yes</td><td>Yes (Web SDK)</td><td>Web SDK</td><td>You build it</td></tr>
+            <tr><td>Cold start</td><td>Instant</td><td>Sub-5s (Instant Connection)</td><td>Standard</td><td>Low</td><td>Warm buffer (paid)</td><td>You manage</td></tr>
+            <tr><td>UE 5.x</td><td>Yes</td><td>Yes</td><td>Yes (5.5)</td><td>Yes</td><td>≤5.5</td><td>Any</td></tr>
+            <tr><td>SLA</td><td>None published</td><td>Terms available</td><td>Enterprise</td><td>Enterprise</td><td>AWS</td><td>Self</td></tr>
+            <tr><td>Ops burden (solo eng)</td><td>Minimal</td><td>Minimal</td><td>Minimal</td><td>Minimal</td><td>Moderate</td><td><strong>High</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="section reveal" id="s11">
+      <div class="sec-head"><div class="sec-num">11</div><h2>MENA latency</h2></div>
+      <ul class="list">
+        <li><strong>Egypt → Frankfurt/Europe</strong> is the correct path: roughly 16–20 regional subsea cables transit Egypt over a ~100-mile land crossing and break out into the Mediterranean toward Europe, and Telecom Egypt — the country's dominant telecom and one of MENA's largest subsea operators, involved in 13+ subsea cables — controls that corridor. Gulf-routed hosting would send Cairo traffic eastward against the grain. So <strong>StreamPixel (Germany), Vagon (Frankfurt), or Arcware (Munich) are all good for the Egypt launch.</strong></li>
+        <li><strong>Gulf (KSA/UAE):</strong> Only <strong>Vagon (Bahrain, Dubai)</strong> and <strong>self-host EC2 (Bahrain me-south-1, UAE me-central-1)</strong> put GPUs physically in-region. StreamPixel/Eagle/Arcware/GameLift would serve the Gulf from Europe (higher RTT). This is the single biggest reason to shift vendors for Gulf expansion.</li>
+        <li><strong>Resilience note:</strong> the Egypt corridor is a known single point of failure — in March 2024 four Red Sea cables were severed (traced to the Houthi-struck carrier <em>Rubymar</em>'s dragging anchor damaging AAE-1, EIG and SEACOM), disrupting an estimated 25% of Asia–Europe–Africa traffic, with a further cut in September 2025. An in-region Gulf presence partially hedges this for KSA/UAE users.</li>
+      </ul>
+    </section>
+
+    <!-- 12 -->
+    <section class="section reveal" id="s12">
+      <div class="sec-head"><div class="sec-num">12</div><h2>Recommendations</h2></div>
+      <h3>Stage 1 — 45-day production launch, Egypt (now)</h3>
+      <ul class="list">
+        <li><strong>Stay on StreamPixel.</strong> Lowest cost at your expected concurrency, unlimited minutes (protects you from spiky traffic cost blowouts), RTX 6000 Ada is ample for a configurator, Germany zone is optimal for Cairo routing, and iframe + postMessage + REST/webhooks already cover your embed and per-session metering needs. Zero migration risk inside the 45-day window.</li>
+        <li><strong>Provision CCUs to peak concurrency per brand</strong> (start at 2, add €45 slots as brands onboard). Instrument session start/end via the Web SDK/webhooks to meter cost-per-session.</li>
+        <li><strong>Mitigate the SLA gap:</strong> get StreamPixel's uptime commitment and build-IP/data-protection terms in writing before signing a brand; keep a Vagon Frankfurt fallback configured.</li>
+      </ul>
+      <h3>Stage 2 — Gulf (KSA/UAE) expansion</h3>
+      <ul class="list">
+        <li><strong>Adopt Vagon Streams for Gulf traffic</strong>, routing KSA/UAE users to Bahrain/Dubai while Egypt stays on Frankfurt (either StreamPixel or Vagon Frankfurt). Vagon's <code>assign-machine</code> API gives you clean per-visitor session metering and queue control; budget limits cap per-brand spend.</li>
+        <li><strong>Benchmark before committing:</strong> run a 2-week A/B of real RTT/QoE from Riyadh, Jeddah, Dubai on Vagon Bahrain vs Dubai vs Frankfurt. If measured Gulf RTT on Frankfurt is acceptable (&lt;~60–80 ms), you may keep everything on one vendor and skip the Gulf migration.</li>
+        <li><strong>Watch the per-minute meter:</strong> if any Gulf brand's per-slot utilization exceeds ~1,400 min/month, price a StreamPixel-style flat-CCU arrangement or Vagon volume terms.</li>
+      </ul>
+      <h3>Stage 3 — When to self-host or use GameLift Streams</h3>
+      <ul class="list">
+        <li><strong>Threshold:</strong> economically rational only at roughly <strong>50+ sustained concurrent streams with high utilization</strong> and reserved-instance pricing, or when a driver other than cost forces it: <strong>(a) Gulf data residency/sovereignty, (b) 4K output (GameLift caps at a 1080p pixel budget), (c) full IP control over uploaded builds, or (d) per-session margin control at brand scale.</strong></li>
+        <li><strong>If triggered:</strong> self-host on EC2 <strong>UAE (me-central-1, g5)</strong> and <strong>Bahrain (me-south-1, g4dn)</strong> using the <code>aws-samples/pixel-streaming-at-scale</code> framework; budget for a dedicated DevOps hire — a solo engineer cannot safely run autoscaled 24/7 GPU streaming with an SLA. Prefer GameLift Streams over raw self-host only if you want AWS to own orchestration and can tolerate the 1080p budget and no ME region (Frankfurt/Mumbai).</li>
+      </ul>
+    </section>
+
+    <!-- 13 -->
+    <section class="section reveal" id="s13">
+      <div class="sec-head"><div class="sec-num">13</div><h2>Caveats</h2></div>
+      <ul class="list">
+        <li><strong>Vagon Streams exact per-minute rates are not published on a primary page</strong>; figures used (~$0.025–0.035/min) come from third-party listings and may understate RTX-tier/region costs. Confirm via Vagon's calculator/sales before modeling Gulf economics.</li>
+        <li><strong>GameLift Streams gen5n Windows single-tenant hourly rates are not public</strong> — only via the AWS Pricing Calculator/console. The gen4n_high figures used are a floor; the class you'd actually want for a heavy Unreal automotive scene costs more.</li>
+        <li><strong>GameLift/self-host "on-demand" cost columns assume high utilization</strong>; real instant-start UX requires paid warm/always-on capacity, materially raising true cost.</li>
+        <li><strong>StreamPixel publishes no uptime SLA</strong> and its very low per-CCU pricing may reflect GPU oversubscription; validate stability under concurrent load and secure written SLA/data-protection terms.</li>
+        <li><strong>EUR/USD converted at ~1.08</strong>; AWS prices exclude VAT and data-transfer beyond the GPU compute line; Gulf-region egress is higher than Europe.</li>
+        <li><strong>Enterprise/Custom-tier costs for Eagle 3D and Arcware at scenario (c) are nominal placeholders</strong> pending direct quotes — both offer volume discounts that will materially lower the per-minute rate.</li>
+      </ul>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="fb"><span class="dot"></span> Autoverse</div>
+    <small>Pixel-Streaming Hosting · Vendor Decision Report · Internal — confidential</small>
+  </div>
+</footer>
+
+<script>
+const prog=document.getElementById('progress');
+const onScroll=()=>{const h=document.documentElement;const sc=h.scrollTop;const max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?(sc/max*100):0)+'%';};
+document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+const toc=document.getElementById('toc');
+document.getElementById('menuBtn').addEventListener('click',()=>toc.classList.toggle('open'));
+toc.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>toc.classList.remove('open')));
+const links=[...toc.querySelectorAll('a')];
+const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+const io=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const a=map.get(e.target.id);if(a)a.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+document.querySelectorAll('section[id]').forEach(s=>io.observe(s));
+const rio=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rio.unobserve(e.target);}});},{rootMargin:'0px 0px -10% 0px',threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>rio.observe(el));
+</script>
+</body>
+</html>

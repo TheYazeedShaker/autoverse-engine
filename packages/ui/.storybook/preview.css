@@ -1,0 +1,20 @@
+/* Surface theming for the Storybook canvas — driven by the data-theme toolbar (addon-themes).
+   Each surface is its own variant carrying its paired foreground (the §4.2 contrast rule). */
+html[data-theme="light"] {
+  background: var(--av-surface);
+  color: var(--av-on-surface);
+  --av-fg: var(--av-on-surface);
+  --av-fg-muted: var(--av-on-surface-muted);
+  --av-bg: var(--av-surface);
+}
+html[data-theme="dark"] {
+  background: var(--av-surface-dark);
+  color: var(--av-on-dark);
+  --av-fg: var(--av-on-dark);
+  --av-fg-muted: var(--av-on-dark-muted);
+  --av-bg: var(--av-surface-dark);
+}
+body {
+  font-family: var(--av-font-en);
+}
+/* Arabic context uses Cairo via the token rule in tokens.css ([lang="ar"]). */

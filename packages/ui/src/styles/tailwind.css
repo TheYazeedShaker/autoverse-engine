@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* Bridge Autoverse design tokens → Tailwind v4 utilities, so components style with tokens
+   (e.g. `bg-surface`, `text-on-surface`, `rounded-md`, `font-sans`) and never raw hex/px.
+   `inline` makes each utility reference the live --av-* var (set by @autoverse/tokens/css),
+   so surface theming keeps working. The --av-* vars themselves come from tokens.css, imported
+   alongside this file by the consumer (Storybook preview / the app). */
+@theme inline {
+  /* surfaces + foregrounds (the §4.2 pairs) */
+  --color-surface: var(--av-surface);
+  --color-surface-panel: var(--av-surface-panel);
+  --color-surface-card: var(--av-surface-card);
+  --color-surface-dark: var(--av-surface-dark);
+  /* contextual "current surface" pair → `bg-fg` / `text-fg` / `border-fg` / `text-fg-muted` / `text-bg`.
+     These invert with the surface, so an inverting control (primary Button = `bg-fg text-bg`) is correct
+     on any surface. The vars are set per surface (tokens.css :root, the Surface component, SB themes). */
+  --color-fg: var(--av-fg);
+  --color-fg-muted: var(--av-fg-muted);
+  --color-bg: var(--av-bg);
+  --color-on-surface: var(--av-on-surface);
+  --color-on-surface-soft: var(--av-on-surface-soft);
+  --color-on-surface-muted: var(--av-on-surface-muted);
+  --color-on-dark: var(--av-on-dark);
+  --color-on-dark-soft: var(--av-on-dark-soft);
+  --color-on-dark-muted: var(--av-on-dark-muted);
+  --color-border: var(--av-border);
+  --color-accent: var(--av-accent);
+
+  /* status (feedback-only, muted) */
+  --color-error: var(--av-status-error);
+  --color-success: var(--av-status-success);
+  --color-warning: var(--av-status-warning);
+  --color-info: var(--av-status-info);
+  --color-surface-error: var(--av-surface-error);
+  --color-on-error: var(--av-on-error);
+  --color-surface-success: var(--av-surface-success);
+  --color-on-success: var(--av-on-success);
+
+  /* radius */
+  --radius-sm: var(--av-radius-sm);
+  --radius-md: var(--av-radius-md);
+  --radius-lg: var(--av-radius-lg);
+  --radius-xl: var(--av-radius-xl);
+
+  /* type */
+  --font-sans: var(--av-font-en);
+  --font-ar: var(--av-font-ar);
+  --font-mono: var(--av-font-mono);
+  --text-xs: var(--av-text-xs);
+  --text-sm: var(--av-text-sm);
+  --text-base: var(--av-text-base);
+  --text-lg: var(--av-text-lg);
+  --text-xl: var(--av-text-xl);
+  --text-2xl: var(--av-text-2xl);
+  --text-3xl: var(--av-text-3xl);
+  --text-4xl: var(--av-text-4xl);
+
+  /* elevation */
+  --shadow-sm: var(--av-shadow-sm);
+  --shadow-md: var(--av-shadow-md);
+  --shadow-lg: var(--av-shadow-lg);
+}
+
+/* Breakpoints — bridged so the responsive variants (sm:, md:, lg:, …) key off the Autoverse breakpoint
+   tokens instead of Tailwind's defaults. This block is intentionally NON-inline: CSS media-query
+   conditions cannot resolve var(), so breakpoints must be build-time literals. They mirror --av-bp-* in
+   @autoverse/tokens (tokens.css + the `breakpoints` map in tokens.ts) — keep the three in sync.
+   (The spacing scale stays on Tailwind's default rem-based scale — it matches our 4px --av-space-* tokens
+   1:1 at the base font size and, being rem, scales with the user's font preference; revisit only if we
+   ever need px-exact spacing utilities.) */
+@theme {
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* Safelist the responsive column-span utilities the Grid/Col primitives compose from a numeric prop.
+   They are standard Tailwind utilities, but because Col builds the class name from `span` at runtime the
+   source scanner can't see them — so generate col-span-1…12 across the base + each breakpoint variant. */
+@source inline("{sm:,md:,lg:,xl:,}col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");

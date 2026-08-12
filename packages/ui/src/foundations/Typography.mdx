@@ -1,0 +1,29 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { TypeScale, FontFamilies, ArabicSpecimen } from "./blocks";
+
+<Meta title="Foundations/Typography" />
+
+# Typography
+
+Two self-hosted variable families: **Google Sans Flex** for Latin, **Cairo** for Arabic. Both load from
+`@autoverse/tokens` (no CDN), split by `unicode-range` so each loads only for its script.
+
+## Type scale
+
+Sizes are tokens (`--av-text-*`), from `xs` to `4xl`.
+
+<TypeScale />
+
+## Weights — Google Sans Flex (variable)
+
+One variable file covers the weight axis; pick any weight 1–1000. Common stops:
+
+<FontFamilies />
+
+## Arabic — Cairo, RTL
+
+Wrapping content in `lang="ar"` switches the family to Cairo (the token rule in `tokens.css`), and `dir="rtl"`
+flips direction. Use the **Direction** toolbar (RTL · العربية) to see every story under RTL; here is a
+standalone specimen:
+
+<ArabicSpecimen />

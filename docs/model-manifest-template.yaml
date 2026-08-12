@@ -1,0 +1,41 @@
+# Model Upload Manifest — Template
+#
+# Fill one file per model and upload it in the same folder as the 3D file,
+# named exactly:  manifest.yaml
+# Everything after a "#" is a comment/instruction — you can delete these lines.
+# The system reads this file to know what to render and how to verify completion.
+
+brand: "brand-x"              # brand ID as agreed with Autoverse (lowercase, dashes)
+model: "model-a"              # model ID (lowercase, dashes)
+model_display_name: "Model A" # the name as it should appear to customers
+market_availability: ["EG"]   # markets this model launches in: EG, SA, AE, ...
+
+file:
+  filename: "model-a_v3.zip"  # the exact 3D file name uploaded with this manifest
+  version: 3                  # bump this number every re-upload of the same model
+
+trims:                        # one block per trim — copy/paste the block to add more
+  - trim: "base"              # trim ID (lowercase, dashes)
+    trim_display_name: "Base"
+    exterior_colors:          # EXACT option IDs — must match the agreed shared vocabulary
+      - "phantom-black"
+      - "glacier-silver"
+      - "marine-blue"
+    interiors:
+      - "onyx-leather"
+      - "sand-leather"
+
+  - trim: "sport"
+    trim_display_name: "Sport"
+    exterior_colors:
+      - "phantom-black"
+      - "glacier-silver"
+      - "carmine-red"
+    interiors:
+      - "onyx-leather"
+      - "carbon-alcantara"
+
+# That's all. The render matrix is computed automatically:
+# for each trim: exterior_colors × interiors × the standard view set.
+# If a color or interior is missing here, it will NOT be rendered or sold —
+# this file is the single source of truth for what exists.

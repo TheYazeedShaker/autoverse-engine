@@ -1,0 +1,12 @@
+# Generated / build output — not style-gated
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+.turbo/
+.vercel/
+storybook-static/
+pnpm-lock.yaml
+apps/*/next-env.d.ts
