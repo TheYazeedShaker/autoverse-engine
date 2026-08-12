@@ -27,7 +27,7 @@
 
 ## What Was Built Last Session
 
-`ENGINE-MIGRATION` steps 1–4, all local, one commit on `main` (`b32bc23`, **not pushed**).
+`ENGINE-MIGRATION` steps 1–4, pushed to `main` (`b32bc23`, `330c9a3`, `779b133`) with CI green. Step 6's trivial change sits on branch `docs/loop-proof-readme`.
 
 **Step 1 — structure.** Scaffolded exactly as `CLAUDE.md` defines: `packages/{design-tokens,ui,types,engine-core}`, `apps/{consumer,dashboard,admin}`, `services/`, `supabase/{migrations,tests}`, `docs/`, `specs/`, `.claude/`, `.github/`. `engine-core` and the three apps are empty scaffolds that build and nothing else — each app is a bare Next.js 16 app with one page; `services/README.md` sketches the five edge functions without building any. `packages/config` also carried (not in the `CLAUDE.md` tree but required to compile — it holds the shared tsconfig).
 
@@ -42,7 +42,7 @@ Two bits of wiring needed fixing to compile and pass the wall (wiring, not tests
 
 **Gates green locally:** `format:check` ✓ · `lint` ✓ · `typecheck` 7/7 ✓ · `test` 7/7 ✓ (**116 tests** — 48 tokens incl. the contrast invariant, 68 ui) · `build` 3/3 ✓ · `build-storybook` ✓.
 
-**Step 4 — Supabase.** `0001_init_tenancy.sql` and its cross-tenant isolation test copied in byte-identical; this repo is now the sole migration home. **Applying to a branch DB is blocked** — the `autoverse` project (`drkiapqwlqomysekxstd`) is `INACTIVE` and connections time out.
+**Step 4 — Supabase.** `0001_init_tenancy.sql` and its cross-tenant isolation test copied in byte-identical; this repo is now the sole migration home. Project restored and inspected: 2 empty tables, RLS on, 5 policies intact, nothing to clean. **Applying to a _branch_ DB is still outstanding** (billable — needs a cost confirmation), so acceptance criterion 3 is not yet met.
 
 **Step 8 (partial).** Tombstone `README.md` written and committed **locally** in the old repo (`ce653fc`, not pushed) pointing at `autoverse-engine`, with the was-here/now-lives-here table. The archive toggle is Yazeed's.
 
