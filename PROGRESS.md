@@ -29,16 +29,16 @@
 
 ### Phase 0-H tracker
 
-| #   | Group                                                         | Status   |
-| --- | ------------------------------------------------------------- | -------- |
-| —   | Spec housekeeping (docs only)                                 | 🔨 PR #2 |
-| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR #3 |
-| 2   | Isolation test runs in CI                                     | 🔨 PR #4 |
-| 3   | RLS security fixes                                            | 🔨 PR #5 |
-| 4   | CI gates to the full wall                                     | 🔨 PR #6 |
-| 5   | ADR-0008 obligations + repo hygiene                           | 🔨 PR    |
-| 6   | Finish the loop-proof (smoke test + one flag end to end)      | ⏳       |
-| 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | ⏳       |
+| #   | Group                                                         | Status                                     |
+| --- | ------------------------------------------------------------- | ------------------------------------------ |
+| —   | Spec housekeeping (docs only)                                 | 🔨 PR #2                                   |
+| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR #3                                   |
+| 2   | Isolation test runs in CI                                     | 🔨 PR #4                                   |
+| 3   | RLS security fixes                                            | 🔨 PR #5                                   |
+| 4   | CI gates to the full wall                                     | 🔨 PR #6                                   |
+| 5   | ADR-0008 obligations + repo hygiene                           | 🔨 PR #7                                   |
+| 6   | Finish the loop-proof (smoke test + one flag end to end)      | 🟡 PR — live flag run waits on PostHog key |
+| 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | ⏳                                         |
 
 ## What Was Built Last Session
 
@@ -49,6 +49,7 @@
 - **0-H.3 follow-up (security review: APPROVE with conditions, all addressed).** Guard trust now comes from the connection (`session_user` + the `role` setting), not from JWT presence — the old "no claims = trusted" rule would have trusted GoTrue's sign-up trigger, reopening the self-superadmin gap. Superadmin rows are off-limits to non-superadmins entirely; managers can't delete/re-create their own profile. Every negative test asserts the error message; a second CI canary removes the guard and requires the test to fail with a CRITICAL finding.
 - **0-H.4 — CI wall.** Secret scan: `.claude/hooks/secret-scan.sh` rewritten (it exited 1, which Claude Code never treats as a block; now exits 2, fails closed, blocks `.env`/key files, wider patterns) and wired as a real git **pre-commit** hook (`.githooks/`, enabled by `pnpm install`); CI `secrets` job runs gitleaks over the full history. axe on all 9 primitives (the 4 missing ones added, in LTR **and** RTL). Reduced-motion: Button/SegmentedToggle/Swatch now honour it, and a gate test fails CI on any animating class without its `motion-reduce:` counterpart (plus CSS / motion-library checks; the gate self-tests its detector). No-hardcoded-tokens lint: hex, colour functions, px strings **and** bare numbers on length props — 38 real violations fixed onto tokens; new `--av-border-width` hairline token + a CSS↔TS parity test. CI `permissions: contents: read`.
 - **0-H.5 — repo hygiene.** `.gitignore` now covers every `.env` variant (except `.env.example`), `.envrc`, keys/certs and credential JSON — verified with `git check-ignore`. Real manufacturer example values in `packages/types` replaced with fictional ones. ADRs 0001 and 0003–0007 carried over from the Phase-0 repo with paths updated, so every ADR the code cites now resolves (0002 never existed). **`docs/ADMIN-DESIGN-BRIEF.md` deliberately NOT committed yet:** it names a real manufacturer and its model line as seed data, and ADR-0008 treats a new prospect name as a publication event — held for Yazeed's call together with the visibility decision.
+- **0-H.6 — loop-proof finished (code side).** `/api/health` on the consumer app returns the deployed commit. New `smoke.yml` runs on every production deploy: it waits until the **public production domain serves that exact commit** (so it can't pass against the previous deploy), then checks health and the home page. Server-side flags via `apps/consumer/lib/flags.ts`, which **fails closed** (no key, error, timeout → off) — tested. `health_build_info` gates build details. **Still open:** the live create → off → on → kill run (`docs/runbooks/flag-kill-path.md`) needs the PostHog key in Vercel env; the smoke workflow first runs on the first production deploy after merge; auto-rollback needs a Vercel token secret.
 - **Supabase** is restored and healthy again.
 
 ## Decisions Made (must be remembered)
