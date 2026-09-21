@@ -33,7 +33,7 @@
 | --- | ------------------------------------------------------------- | -------- |
 | —   | Spec housekeeping (docs only)                                 | 🔨 PR #2 |
 | 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR    |
-| 2   | Isolation test runs in CI                                     | ⏳       |
+| 2   | Isolation test runs in CI                                     | 🔨 PR    |
 | 3   | RLS security fixes                                            | ⏳       |
 | 4   | CI gates to the full wall                                     | ⏳       |
 | 5   | ADR-0008 obligations + repo hygiene                           | ⏳       |
@@ -44,6 +44,7 @@
 
 - **Spec housekeeping.** `SPEC-engine-migration.md` moved to `specs/archive/` with a `COMPLETED 2026-08-12` header. The three Storybook specs carry a header closing them at Tier 1. The REV2 spec is committed to `specs/`.
 - **0-H.1 — migration renamed** to `20260617132328_init_tenancy.sql` (contents byte-identical) so it matches the version the remote DB recorded. Timestamp naming documented in `supabase/README.md`; the skill, the `security-review` agent and the isolation test now point at the new name. The Supabase check can only go green on `main` after merge.
+- **0-H.2 — isolation test runs in CI.** New `isolation` job: `supabase db start` boots a throwaway Supabase Postgres (real roles + `auth` schema), applies every migration, and runs every `supabase/tests/*.test.sql` with `psql -v ON_ERROR_STOP=1`. A canary step switches RLS off and requires the test to fail, proving it can still see a leak. No hosted DB, no secrets. Deliberate deviation from the spec's "against the branch DB": a fresh local database is deterministic, free, and needs no credentials on a public repo.
 - **Supabase** is restored and healthy again.
 
 ## Decisions Made (must be remembered)

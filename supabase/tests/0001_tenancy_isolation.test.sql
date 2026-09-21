@@ -5,7 +5,7 @@
 -- runs assertions as the non-privileged `authenticated` role (so RLS is ENFORCED, not
 -- bypassed), and ROLLS BACK so no fixture data persists.
 --
--- Run via the Supabase MCP execute_sql, the SQL editor, or `supabase db execute`.
+-- Runs in CI on every PR (the `isolation` job) against a throwaway local database. See supabase/README.md.
 -- A violation RAISES EXCEPTION (the whole script aborts) = a failing test.
 -- Success = it runs to COMMIT-less ROLLBACK with no exception and the NOTICEs all say PASS.
 

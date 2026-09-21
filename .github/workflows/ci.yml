@@ -19,3 +19,36 @@ jobs:
       - run: pnpm build
     # Vercel creates a preview deploy per PR automatically (that preview IS staging).
     # Merging to main triggers the production deploy.
+
+  # The mandatory cross-tenant isolation test (CLAUDE.md, "Data & tenancy").
+  # Runs against a throwaway Supabase Postgres started inside the job, with every migration
+  # in supabase/migrations applied. No hosted database and no secrets are involved.
+  isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with: { version: 2.117.0 }
+      - name: Start a throwaway Supabase Postgres and apply every migration
+        run: supabase db start
+      - name: Cross-tenant isolation tests (every supabase/tests/*.test.sql)
+        run: |
+          set -e
+          for t in supabase/tests/*.test.sql; do
+            echo "::group::$t"
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$t"
+            echo "::endgroup::"
+          done
+      # Proves the test can actually catch a leak: with RLS switched off it MUST fail.
+      # If it ever passes here, the test has gone blind and this job fails.
+      - name: Canary — the test must fail when isolation is broken
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.brands disable row level security"
+          if psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0001_tenancy_isolation.test.sql; then
+            echo "::error::The isolation test passed with RLS disabled on brands. It cannot detect a leak."
+            exit 1
+          fi
+          echo "Canary OK: the isolation test fails when RLS is switched off."
