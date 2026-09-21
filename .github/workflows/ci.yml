@@ -42,13 +42,23 @@ jobs:
             psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$t"
             echo "::endgroup::"
           done
-      # Proves the test can actually catch a leak: with RLS switched off it MUST fail.
-      # If it ever passes here, the test has gone blind and this job fails.
-      - name: Canary — the test must fail when isolation is broken
+      # Canaries: break a protection on purpose and require the matching test to fail WITH A
+      # CRITICAL finding. Passing — or failing for some unrelated reason — means the test has gone
+      # blind, and the job fails.
+      - name: Canary — the isolation test must catch RLS being switched off
         run: |
           psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.brands disable row level security"
-          if psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0001_tenancy_isolation.test.sql; then
-            echo "::error::The isolation test passed with RLS disabled on brands. It cannot detect a leak."
-            exit 1
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0001_tenancy_isolation.test.sql 2>&1); then
+            echo "::error::The isolation test passed with RLS disabled on brands. It cannot detect a leak."; exit 1
           fi
-          echo "Canary OK: the isolation test fails when RLS is switched off."
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.brands enable row level security"
+          echo "Canary OK: the isolation test catches RLS being switched off."
+      - name: Canary — the hardening test must catch the privilege guard being removed
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "drop trigger profiles_guard_privileges on public.profiles"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0002_rls_hardening.test.sql 2>&1); then
+            echo "::error::The hardening test passed with the privilege guard removed. It cannot detect escalation."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          echo "Canary OK: the hardening test catches the privilege guard being removed."

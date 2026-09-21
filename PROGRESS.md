@@ -34,7 +34,7 @@
 | —   | Spec housekeeping (docs only)                                 | 🔨 PR #2 |
 | 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR    |
 | 2   | Isolation test runs in CI                                     | 🔨 PR    |
-| 3   | RLS security fixes                                            | ⏳       |
+| 3   | RLS security fixes                                            | 🔨 PR    |
 | 4   | CI gates to the full wall                                     | ⏳       |
 | 5   | ADR-0008 obligations + repo hygiene                           | ⏳       |
 | 6   | Finish the loop-proof (smoke test + one flag end to end)      | ⏳       |
@@ -45,6 +45,7 @@
 - **Spec housekeeping.** `SPEC-engine-migration.md` moved to `specs/archive/` with a `COMPLETED 2026-08-12` header. The three Storybook specs carry a header closing them at Tier 1. The REV2 spec is committed to `specs/`.
 - **0-H.1 — migration renamed** to `20260617132328_init_tenancy.sql` (contents byte-identical) so it matches the version the remote DB recorded. Timestamp naming documented in `supabase/README.md`; the skill, the `security-review` agent and the isolation test now point at the new name. The Supabase check can only go green on `main` after merge.
 - **0-H.2 — isolation test runs in CI.** New `isolation` job: `supabase db start` boots a throwaway Supabase Postgres (real roles + `auth` schema), applies every migration, and runs every `supabase/tests/*.test.sql` with `psql -v ON_ERROR_STOP=1`. A canary step switches RLS off and requires the test to fail, proving it can still see a leak. No hosted DB, no secrets. Deliberate deviation from the spec's "against the branch DB": a fresh local database is deterministic, free, and needs no credentials on a public repo.
+- **0-H.3 — RLS hardening** (`20260921151103_rls_hardening.sql` + `0002_rls_hardening.test.sql`). Guard now fires on INSERT/UPDATE/DELETE; only superadmin + ops write brands/profiles; nobody changes their own role; only a superadmin grants/revokes/touches superadmin; helpers moved to the non-exposed `app_auth` schema; the future-table pattern is now read-only for brand users. The guard explicitly trusts no-JWT (migrations/SQL editor) and service-role contexts — otherwise extending it to INSERT would have locked edge functions out of provisioning.
 - **Supabase** is restored and healthy again.
 
 ## Decisions Made (must be remembered)
