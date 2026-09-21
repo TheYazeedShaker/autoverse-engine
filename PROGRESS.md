@@ -29,16 +29,16 @@
 
 ### Phase 0-H tracker
 
-| #   | Group                                                         | Status                                     |
-| --- | ------------------------------------------------------------- | ------------------------------------------ |
-| —   | Spec housekeeping (docs only)                                 | 🔨 PR #2                                   |
-| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR #3                                   |
-| 2   | Isolation test runs in CI                                     | 🔨 PR #4                                   |
-| 3   | RLS security fixes                                            | 🔨 PR #5                                   |
-| 4   | CI gates to the full wall                                     | 🔨 PR #6                                   |
-| 5   | ADR-0008 obligations + repo hygiene                           | 🔨 PR #7                                   |
-| 6   | Finish the loop-proof (smoke test + one flag end to end)      | 🟡 PR — live flag run waits on PostHog key |
-| 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | ⏳                                         |
+| #   | Group                                                         | Status                                        |
+| --- | ------------------------------------------------------------- | --------------------------------------------- |
+| —   | Spec housekeeping (docs only)                                 | 🔨 PR #2                                      |
+| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR #3                                      |
+| 2   | Isolation test runs in CI                                     | 🔨 PR #4                                      |
+| 3   | RLS security fixes                                            | 🔨 PR #5                                      |
+| 4   | CI gates to the full wall                                     | 🔨 PR #6                                      |
+| 5   | ADR-0008 obligations + repo hygiene                           | 🔨 PR #7                                      |
+| 6   | Finish the loop-proof (smoke test + one flag end to end)      | 🟡 PR #8 — live flag run waits on PostHog key |
+| 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | 🔨 PR — Sentry/PostHog live once keys are set |
 
 ## What Was Built Last Session
 
@@ -50,6 +50,7 @@
 - **0-H.4 — CI wall.** Secret scan: `.claude/hooks/secret-scan.sh` rewritten (it exited 1, which Claude Code never treats as a block; now exits 2, fails closed, blocks `.env`/key files, wider patterns) and wired as a real git **pre-commit** hook (`.githooks/`, enabled by `pnpm install`); CI `secrets` job runs gitleaks over the full history. axe on all 9 primitives (the 4 missing ones added, in LTR **and** RTL). Reduced-motion: Button/SegmentedToggle/Swatch now honour it, and a gate test fails CI on any animating class without its `motion-reduce:` counterpart (plus CSS / motion-library checks; the gate self-tests its detector). No-hardcoded-tokens lint: hex, colour functions, px strings **and** bare numbers on length props — 38 real violations fixed onto tokens; new `--av-border-width` hairline token + a CSS↔TS parity test. CI `permissions: contents: read`.
 - **0-H.5 — repo hygiene.** `.gitignore` now covers every `.env` variant (except `.env.example`), `.envrc`, keys/certs and credential JSON — verified with `git check-ignore`. Real manufacturer example values in `packages/types` replaced with fictional ones. ADRs 0001 and 0003–0007 carried over from the Phase-0 repo with paths updated, so every ADR the code cites now resolves (0002 never existed). **`docs/ADMIN-DESIGN-BRIEF.md` deliberately NOT committed yet:** it names a real manufacturer and its model line as seed data, and ADR-0008 treats a new prospect name as a publication event — held for Yazeed's call together with the visibility decision.
 - **0-H.6 — loop-proof finished (code side).** `/api/health` on the consumer app returns the deployed commit. New `smoke.yml` runs on every production deploy: it waits until the **public production domain serves that exact commit** (so it can't pass against the previous deploy), then checks health and the home page. Server-side flags via `apps/consumer/lib/flags.ts`, which **fails closed** (no key, error, timeout → off) — tested. `health_build_info` gates build details. **Still open:** the live create → off → on → kill run (`docs/runbooks/flag-kill-path.md`) needs the PostHog key in Vercel env; the smoke workflow first runs on the first production deploy after merge; auto-rollback needs a Vercel token secret.
+- **0-H.7 — ops closure.** Old repo's farewell README pushed (`6867f2c`; archiving is Yazeed's toggle). `CommandEnvelope` / `SignalEnvelope` are now discriminated unions — a mismatched command/data pair fails typecheck, enforced by `@ts-expect-error` tests (proven: removing one makes `tsc` fail). Sentry transplanted from the Phase-0 app into `apps/consumer` (client/server/edge, `global-error`, no PII, no-op without a DSN). PostHog client wired **privacy-conservatively** — no autocapture, no pageviews, no recording, no device storage — until the consent flow is specced (1·C); a test locks that in.
 - **Supabase** is restored and healthy again.
 
 ## Decisions Made (must be remembered)
@@ -88,4 +89,14 @@
 
 ## Next Session — Start Here
 
-**Claude Code:** continue REV2 Phase 0-H from the first group not yet merged (tracker above). One PR per group, all gates green. **Do not start any 1·A slice** until all of 0-H is merged, the Supabase check is green on `main`, and the base 1·A spec is in `specs/`.
+**Phase 0-H is fully built — 8 stacked PRs, each green. Merge them in order: #2 → #3 → #4 → #5 → #6 → #7 → #8 → the 0-H.7 PR.** Each retargets to `main` when the one below it merges.
+
+**Claude Code, after each merge:**
+
+1. After #3: confirm the **Supabase check is green on `main`** (REV2's gate for 1·A).
+2. After #4 and #6: add `isolation` and `secrets` to `main`'s required status checks alongside `verify`.
+3. After #5: confirm migration `20260921151103_rls_hardening` reached the **hosted** DB (`list_migrations`). If the Supabase integration didn't apply it, ask Yazeed before applying it by hand, then re-run the Supabase security advisors.
+4. After #8: watch the first run of `smoke.yml` on the production deploy.
+5. When the PostHog key is in Vercel env: run `docs/runbooks/flag-kill-path.md` and record the result here.
+
+**Do not start any 1·A slice** until all of 0-H is merged, the Supabase check is green on `main`, **and** the base `SPEC-engine-core-1A.md`, the theming REV and the design exports are in the repo. REV2 only amends them, and none of them are here.
