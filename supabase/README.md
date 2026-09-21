@@ -1,7 +1,9 @@
 # Supabase
 
 Migrations are forward-only. **Every brand-scoped table ships its RLS policy in the same migration
-that creates it** (see the pattern at the bottom of `20260617132328_init_tenancy.sql`).
+that creates it** — see the pattern at the bottom of `20260921151103_rls_hardening.sql` (brand users
+read-only; writes via service-role edge functions). The older pattern at the bottom of
+`20260617132328_init_tenancy.sql` is superseded and must not be copied.
 
 ## Naming — timestamps, always
 
