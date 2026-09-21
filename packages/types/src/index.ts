@@ -70,12 +70,9 @@ export type ConfiguratorCommand =
   | { command: "request_snapshot"; data: Record<string, never> }
   | { command: "reset"; data: Record<string, never> };
 
-export interface CommandEnvelope {
-  source: "autoverse";
-  version: string;
-  command: ConfiguratorCommand["command"];
-  data: ConfiguratorCommand["data"];
-}
+/** A command on the wire. Intersecting with the union keeps each command paired with its own
+ *  `data` shape — `{ command: "set_option", data: { mode: "light" } }` does not typecheck. */
+export type CommandEnvelope = { source: "autoverse"; version: string } & ConfiguratorCommand;
 
 // configurator -> Autoverse
 export type ConfiguratorSignal =
@@ -93,16 +90,15 @@ export type ConfiguratorSignal =
     }
   | { event: "snapshot"; data: { imageDataUrl: string } };
 
-export interface SignalEnvelope {
+/** A signal on the wire — same pairing guarantee as CommandEnvelope: `event` narrows `data`. */
+export type SignalEnvelope = {
   source: "nmesis-configurator";
   version: string;
   brandId: string;
   modelId: string;
   sessionId: string;
   timestamp: string; // ISO 8601
-  event: ConfiguratorSignal["event"];
-  data: ConfiguratorSignal["data"];
-}
+} & ConfiguratorSignal;
 
 /* ============================ Analytics & leads ============================ */
 export type Platform = "web" | "mobile";
