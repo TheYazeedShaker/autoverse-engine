@@ -7,11 +7,31 @@ coverage/
 .turbo/
 storybook-static/
 *.tsbuildinfo
-.env
-.env.local
-.env*.local
 .DS_Store
 .vercel
+
+# ---- secrets: never committed (this repo is PUBLIC — see docs/adr/0008) ----
+# Every .env variant, anywhere, except the placeholder template.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+.envrc
+supabase/.env
+# Keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa*
+id_ed25519*
+id_ecdsa*
+# Service-account / credential files
+*credentials*.json
+*service-account*.json
+gcp-*.json
 
 # Local, machine-specific Claude Code settings (permission grants etc.) — never shared.
 .claude/settings.local.json

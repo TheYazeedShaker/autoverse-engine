@@ -9,7 +9,7 @@ export type BillingState = "free" | "pending_activation" | "active" | "past_due"
 
 export interface Brand {
   id: string;
-  slug: string; // e.g. "soueast" — also the configurator brandId
+  slug: string; // e.g. "acme-motors" (fictional) — also the configurator brandId
   name: string;
   status: "draft" | "live" | "paused";
   tier: Tier;
@@ -44,7 +44,7 @@ export interface ModelManifest {
 }
 
 export interface Model {
-  id: string; // configurator modelId, e.g. "s07"
+  id: string; // configurator modelId, e.g. "am-7" (fictional)
   brandId: string;
   name: string;
   status: "draft" | "live";

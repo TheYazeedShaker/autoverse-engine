@@ -35,8 +35,8 @@
 | 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR #3 |
 | 2   | Isolation test runs in CI                                     | 🔨 PR #4 |
 | 3   | RLS security fixes                                            | 🔨 PR #5 |
-| 4   | CI gates to the full wall                                     | 🔨 PR    |
-| 5   | ADR-0008 obligations + repo hygiene                           | ⏳       |
+| 4   | CI gates to the full wall                                     | 🔨 PR #6 |
+| 5   | ADR-0008 obligations + repo hygiene                           | 🔨 PR    |
 | 6   | Finish the loop-proof (smoke test + one flag end to end)      | ⏳       |
 | 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | ⏳       |
 
@@ -48,6 +48,7 @@
 - **0-H.3 — RLS hardening** (`20260921151103_rls_hardening.sql` + `0002_rls_hardening.test.sql`). Guard now fires on INSERT/UPDATE/DELETE; only superadmin + ops write brands/profiles; nobody changes their own role; only a superadmin grants/revokes/touches superadmin; helpers moved to the non-exposed `app_auth` schema; the future-table pattern is now read-only for brand users. The guard explicitly trusts no-JWT (migrations/SQL editor) and service-role contexts — otherwise extending it to INSERT would have locked edge functions out of provisioning.
 - **0-H.3 follow-up (security review: APPROVE with conditions, all addressed).** Guard trust now comes from the connection (`session_user` + the `role` setting), not from JWT presence — the old "no claims = trusted" rule would have trusted GoTrue's sign-up trigger, reopening the self-superadmin gap. Superadmin rows are off-limits to non-superadmins entirely; managers can't delete/re-create their own profile. Every negative test asserts the error message; a second CI canary removes the guard and requires the test to fail with a CRITICAL finding.
 - **0-H.4 — CI wall.** Secret scan: `.claude/hooks/secret-scan.sh` rewritten (it exited 1, which Claude Code never treats as a block; now exits 2, fails closed, blocks `.env`/key files, wider patterns) and wired as a real git **pre-commit** hook (`.githooks/`, enabled by `pnpm install`); CI `secrets` job runs gitleaks over the full history. axe on all 9 primitives (the 4 missing ones added, in LTR **and** RTL). Reduced-motion: Button/SegmentedToggle/Swatch now honour it, and a gate test fails CI on any animating class without its `motion-reduce:` counterpart (plus CSS / motion-library checks; the gate self-tests its detector). No-hardcoded-tokens lint: hex, colour functions, px strings **and** bare numbers on length props — 38 real violations fixed onto tokens; new `--av-border-width` hairline token + a CSS↔TS parity test. CI `permissions: contents: read`.
+- **0-H.5 — repo hygiene.** `.gitignore` now covers every `.env` variant (except `.env.example`), `.envrc`, keys/certs and credential JSON — verified with `git check-ignore`. Real manufacturer example values in `packages/types` replaced with fictional ones. ADRs 0001 and 0003–0007 carried over from the Phase-0 repo with paths updated, so every ADR the code cites now resolves (0002 never existed). **`docs/ADMIN-DESIGN-BRIEF.md` deliberately NOT committed yet:** it names a real manufacturer and its model line as seed data, and ADR-0008 treats a new prospect name as a publication event — held for Yazeed's call together with the visibility decision.
 - **Supabase** is restored and healthy again.
 
 ## Decisions Made (must be remembered)
@@ -71,6 +72,7 @@
 ### Waiting on Yazeed
 
 - **Repo visibility decision** (keep public / go private).
+- **`docs/ADMIN-DESIGN-BRIEF.md`**: it names a real manufacturer + model line as seed data. Commit as-is, genericise that line, or keep it out of the public repo? (0-H.5 is otherwise complete.)
 - **Base 1·A spec, theming REV and design exports** — REV2 amends documents that are not in the repo. 1·A cannot start in slice order without them.
 - **Sentry DSN and PostHog project key**, set as Vercel env vars (not shared in chat). The code will be a no-op without them.
 - **PostHog connector re-authorization** — needed to create and flip the test flag in 0-H.6.
