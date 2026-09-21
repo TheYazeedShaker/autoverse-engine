@@ -1,0 +1,45 @@
+name: Smoke (post-deploy)
+
+# Runs after every successful PRODUCTION deploy that Vercel reports to GitHub. It proves the new
+# commit is actually live on the public production domain, then checks health + the home page.
+# (GitHub runs deployment_status workflows from the default branch's copy of this file.)
+on: deployment_status
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Public production domain. Per-deployment and preview URLs sit behind Vercel login.
+      PROD_URL: https://autoverse-engine-consumer.vercel.app
+      EXPECTED_SHA: ${{ github.event.deployment.sha }}
+    steps:
+      - name: Wait until production serves this exact commit
+        run: |
+          for i in $(seq 1 30); do
+            sha=$(curl -fsS --max-time 10 "$PROD_URL/api/health" | jq -r '.sha // empty' 2>/dev/null || true)
+            if [ "$sha" = "$EXPECTED_SHA" ]; then echo "Live on production: $sha"; exit 0; fi
+            echo "attempt $i: production is serving '${sha:-no answer}', waiting for $EXPECTED_SHA"
+            sleep 10
+          done
+          echo "::error::Production never served $EXPECTED_SHA within 5 minutes."
+          exit 1
+
+      - name: Smoke — health endpoint
+        run: curl -fsS --max-time 10 "$PROD_URL/api/health" | jq -e '.status == "ok"'
+
+      - name: Smoke — home page renders
+        run: |
+          code=$(curl -sS --max-time 10 -o page.html -w '%{http_code}' "$PROD_URL/")
+          [ "$code" = "200" ] || { echo "::error::Home page returned HTTP $code"; exit 1; }
+          grep -q "<main" page.html || { echo "::error::Home page rendered without a <main> landmark"; exit 1; }
+          echo "Smoke OK: $PROD_URL is healthy on $EXPECTED_SHA"
+
+      # Auto-rollback (CLAUDE.md build loop) needs a Vercel token as a repo secret, which this repo
+      # does not have yet. Until then a failed smoke fails loudly here and GitHub notifies.
