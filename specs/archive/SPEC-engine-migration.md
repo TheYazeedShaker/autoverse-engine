@@ -1,3 +1,5 @@
+> **STATUS: COMPLETED 2026-08-12**
+
 # Build Spec — Engine Migration (fresh repo, transplanted organs)
 
 **Task ID:** `ENGINE-MIGRATION`

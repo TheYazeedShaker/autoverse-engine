@@ -4,7 +4,7 @@
 
 ## Context
 
-`specs/SPEC-engine-migration.md` step 1 called for a private GitHub repository. During the migration
+`specs/archive/SPEC-engine-migration.md` step 1 called for a private GitHub repository. During the migration
 the repo was created public, and the owner chose to keep it that way.
 
 Before the decision was confirmed, a security review of the published content found that the repo

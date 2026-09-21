@@ -1,3 +1,5 @@
+> **STATUS: Tier 1 complete · Tier 2 superseded by SPEC-storybook-tier2 (forthcoming) — do not execute further.**
+
 # Revision — Component Library Scope (supersedes §2 atoms, §5 primitives, §10 sequence, §11 acceptance)
 
 **Applies to:** `AV-P1-STORYBOOK-FOUNDATIONS`

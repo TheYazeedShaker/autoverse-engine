@@ -1,3 +1,5 @@
+> **STATUS: Tier 1 complete · Tier 2 superseded by SPEC-storybook-tier2 (forthcoming) — do not execute further.**
+
 # Build Spec — Storybook: Design-System Foundations + Primitives
 
 **Task ID:** `AV-P1-STORYBOOK-FOUNDATIONS`
