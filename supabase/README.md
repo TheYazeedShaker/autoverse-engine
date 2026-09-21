@@ -23,3 +23,20 @@ Rules:
 - The `security-review` subagent must approve any migration before merge.
 - Add the mandatory cross-tenant test (a brand cannot read another brand's rows) with each new table.
 - Never disable RLS to "make it work" — fix the policy.
+
+## The isolation test
+
+`supabase/tests/*.test.sql` hold the mandatory cross-tenant tests. Each is plain SQL: a violation
+raises an exception, so the run aborts and exits non-zero.
+
+**CI runs them on every PR and every push to `main`** (the `isolation` job in
+`.github/workflows/ci.yml`): `supabase db start` boots a throwaway Postgres with the real Supabase
+roles and `auth` schema, applies every migration, then runs each test with `psql -v ON_ERROR_STOP=1`.
+A canary step then switches RLS off and requires the test to fail, which proves it can still see a
+leak. No hosted database and no secrets are involved.
+
+Run it locally (needs Docker and the Supabase CLI):
+
+    supabase db start
+    psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 \
+      -f supabase/tests/0001_tenancy_isolation.test.sql
