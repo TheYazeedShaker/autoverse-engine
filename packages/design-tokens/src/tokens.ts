@@ -106,6 +106,9 @@ export const space = {
 // Radius (§4.1).
 export const radius = { sm: 7, md: 10, lg: 14, xl: 18, pill: 999 } as const;
 
+// Border width. One hairline, used with --av-border for every divider and outline.
+export const borderWidth = { hairline: 1 } as const;
+
 // Elevation — soft, low-contrast shadows tuned for the Mist canvas (premium, not heavy).
 export const elevation = {
   sm: "0 1px 2px rgba(8, 9, 10, 0.05)",

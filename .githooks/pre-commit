@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# git pre-commit guard. Enabled automatically by `pnpm install` (the root "prepare" script sets
+# core.hooksPath to .githooks). This repo is public: a committed secret is a published secret.
+set -euo pipefail
+root=$(git rev-parse --show-toplevel)
+
+# gitleaks, if installed locally, gives the widest coverage of the staged changes.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner "$root"
+fi
+
+# The repo's own scan always runs (no install needed).
+exec "$root/.claude/hooks/secret-scan.sh"

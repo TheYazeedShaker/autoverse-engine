@@ -60,7 +60,7 @@ export const SegmentedToggle = forwardRef<HTMLDivElement, SegmentedToggleProps>(
             value={opt.value}
             disabled={opt.disabled}
             className={cn(
-              "cursor-pointer rounded-md font-medium text-fg outline-none transition-colors",
+              "cursor-pointer rounded-md font-medium text-fg outline-none transition-colors motion-reduce:transition-none",
               "hover:bg-fg/10",
               "data-[state=checked]:bg-fg data-[state=checked]:text-bg data-[state=checked]:hover:bg-fg",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg",

@@ -13,7 +13,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Sizes: Story = {
   render: () => (
-    <div style={{ display: "grid", gap: 8 }}>
+    <div style={{ display: "grid", gap: "var(--av-space-8)" }}>
       <Text size="xl">Extra large — drive the experience</Text>
       <Text size="lg">Large — drive the experience</Text>
       <Text size="base">Base — drive the experience</Text>
@@ -25,7 +25,7 @@ export const Sizes: Story = {
 
 export const Headings: Story = {
   render: () => (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: "var(--av-space-12)" }}>
       <Heading level={1}>Heading level 1</Heading>
       <Heading level={2}>Heading level 2</Heading>
       <Heading level={3}>Heading level 3</Heading>
@@ -37,7 +37,7 @@ export const Headings: Story = {
 // Wrapping in lang="ar"/dir="rtl" switches the inherited family to Cairo and flips direction.
 export const Arabic: Story = {
   render: () => (
-    <div lang="ar" dir="rtl" style={{ display: "grid", gap: 8 }}>
+    <div lang="ar" dir="rtl" style={{ display: "grid", gap: "var(--av-space-8)" }}>
       <Heading level={2}>أوتوفيرس</Heading>
       <Text size="lg">اكتشف سيارتك المثالية وصمّمها بالكامل.</Text>
     </div>

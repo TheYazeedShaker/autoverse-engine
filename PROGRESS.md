@@ -1,4 +1,4 @@
-# the Engine — Build Progress
+🔨 PR ||||
 
 > **Living document.** `CLAUDE.md` holds permanent standards. **This file changes every session** — read at session start, update at session end: fill _What Was Built Last Session_, refresh _Status_, append _Decisions_ / _Known Issues_, rewrite _Next Session — Start Here_ precisely.
 >
@@ -32,10 +32,10 @@
 | #   | Group                                                         | Status   |
 | --- | ------------------------------------------------------------- | -------- |
 | —   | Spec housekeeping (docs only)                                 | 🔨 PR #2 |
-| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR    |
-| 2   | Isolation test runs in CI                                     | 🔨 PR    |
-| 3   | RLS security fixes                                            | 🔨 PR    |
-| 4   | CI gates to the full wall                                     | ⏳       |
+| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR #3 |
+| 2   | Isolation test runs in CI                                     | 🔨 PR #4 |
+| 3   | RLS security fixes                                            | 🔨 PR #5 |
+| 4   | CI gates to the full wall                                     | 🔨 PR    |
 | 5   | ADR-0008 obligations + repo hygiene                           | ⏳       |
 | 6   | Finish the loop-proof (smoke test + one flag end to end)      | ⏳       |
 | 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | ⏳       |
@@ -46,6 +46,8 @@
 - **0-H.1 — migration renamed** to `20260617132328_init_tenancy.sql` (contents byte-identical) so it matches the version the remote DB recorded. Timestamp naming documented in `supabase/README.md`; the skill, the `security-review` agent and the isolation test now point at the new name. The Supabase check can only go green on `main` after merge.
 - **0-H.2 — isolation test runs in CI.** New `isolation` job: `supabase db start` boots a throwaway Supabase Postgres (real roles + `auth` schema), applies every migration, and runs every `supabase/tests/*.test.sql` with `psql -v ON_ERROR_STOP=1`. A canary step switches RLS off and requires the test to fail, proving it can still see a leak. No hosted DB, no secrets. Deliberate deviation from the spec's "against the branch DB": a fresh local database is deterministic, free, and needs no credentials on a public repo.
 - **0-H.3 — RLS hardening** (`20260921151103_rls_hardening.sql` + `0002_rls_hardening.test.sql`). Guard now fires on INSERT/UPDATE/DELETE; only superadmin + ops write brands/profiles; nobody changes their own role; only a superadmin grants/revokes/touches superadmin; helpers moved to the non-exposed `app_auth` schema; the future-table pattern is now read-only for brand users. The guard explicitly trusts no-JWT (migrations/SQL editor) and service-role contexts — otherwise extending it to INSERT would have locked edge functions out of provisioning.
+- **0-H.3 follow-up (security review: APPROVE with conditions, all addressed).** Guard trust now comes from the connection (`session_user` + the `role` setting), not from JWT presence — the old "no claims = trusted" rule would have trusted GoTrue's sign-up trigger, reopening the self-superadmin gap. Superadmin rows are off-limits to non-superadmins entirely; managers can't delete/re-create their own profile. Every negative test asserts the error message; a second CI canary removes the guard and requires the test to fail with a CRITICAL finding.
+- **0-H.4 — CI wall.** Secret scan: `.claude/hooks/secret-scan.sh` rewritten (it exited 1, which Claude Code never treats as a block; now exits 2, fails closed, blocks `.env`/key files, wider patterns) and wired as a real git **pre-commit** hook (`.githooks/`, enabled by `pnpm install`); CI `secrets` job runs gitleaks over the full history. axe on all 9 primitives (the 4 missing ones added, in LTR **and** RTL). Reduced-motion: Button/SegmentedToggle/Swatch now honour it, and a gate test fails CI on any animating class without its `motion-reduce:` counterpart (plus CSS / motion-library checks; the gate self-tests its detector). No-hardcoded-tokens lint: hex, colour functions, px strings **and** bare numbers on length props — 38 real violations fixed onto tokens; new `--av-border-width` hairline token + a CSS↔TS parity test. CI `permissions: contents: read`.
 - **Supabase** is restored and healthy again.
 
 ## Decisions Made (must be remembered)
