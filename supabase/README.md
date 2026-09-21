@@ -42,3 +42,10 @@ Run it locally (needs Docker and the Supabase CLI):
     supabase db start
     psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 \
       -f supabase/tests/0001_tenancy_isolation.test.sql
+
+## `app_auth` — never expose it
+
+The RLS helpers (`app_auth.current_brand_id()`, `app_auth.is_autoverse_staff()`,
+`app_auth.can_manage_tenancy()`) are `SECURITY DEFINER`. They live in `app_auth` precisely because
+the REST API does not expose that schema. **Never add `app_auth` to the API's exposed schemas** in
+the Supabase dashboard — that would make them callable at `/rest/v1/rpc/*` again.

@@ -64,25 +64,54 @@ create policy profiles_manager_delete on public.profiles
 -- (a) + (b) the privilege guard: INSERT, UPDATE and DELETE, staff included
 -- ============================================================================================
 -- RLS decides WHICH rows a caller may touch; this trigger decides which VALUES they may set
--- (WITH CHECK cannot see OLD). Triggers fire for every role, including the service role,
--- so trusted server contexts are recognised explicitly:
---   * no JWT at all  → migrations, the SQL editor, psql as the database owner;
---   * JWT role = service_role → edge functions (the sanctioned write path in CLAUDE.md).
--- Everything carrying an `anon` or `authenticated` JWT is untrusted and checked.
+-- (WITH CHECK cannot see OLD). Triggers fire for every role, so the guard must know who is
+-- really writing. Trust is decided from the CONNECTION — `session_user` and the `role` setting,
+-- neither of which an API caller can forge — never from whether JWT claims happen to be present:
+--
+--   'signup' session_user = supabase_auth_admin: GoTrue running a sign-up trigger on
+--            auth.users. It carries no JWT, and the new user controls raw_user_meta_data, so it
+--            may only create a BARE profile (no tenant, no roles).
+--   'server' the service role (edge functions — the sanctioned write path in CLAUDE.md), or a
+--            direct database session with no role switched (migrations, the SQL editor).
+--   'user'   everything else: anon/authenticated API traffic, anything unrecognised.
+--
+-- `current_setting('role')` is the SET ROLE value (PostgREST sets it per request); SECURITY
+-- DEFINER does not change it, and a caller can only SET ROLE to roles they are a member of.
+create or replace function app_auth.request_trust(p_session_user text, p_role text)
+returns text language sql immutable set search_path = '' as $$
+  select case
+    when p_session_user = 'supabase_auth_admin'                          then 'signup'
+    when p_session_user = 'authenticator' and p_role = 'service_role'   then 'server'
+    when p_session_user = 'authenticator'                                then 'user'
+    when p_role in ('anon', 'authenticated')                             then 'user'
+    when p_role = 'service_role'                                         then 'server'
+    when coalesce(p_role, 'none') = 'none'                               then 'server'
+    else 'user'
+  end
+$$;
+
 create or replace function app_auth.guard_profile_privileges()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare
-  jwt_role    text := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role';
+  trust       text := app_auth.request_trust(session_user::text, current_setting('role', true));
   caller      uuid := auth.uid();
   caller_role public.platform_role;
   is_manager  boolean;
 begin
-  -- Trusted server contexts.
-  if jwt_role is null or jwt_role = 'service_role' then
+  if trust = 'server' then
     if tg_op = 'DELETE' then return old; end if;
     return new;
   end if;
 
+  if trust = 'signup' then
+    if tg_op = 'INSERT' and new.brand_id is null and new.brand_role is null
+       and new.platform_role is null then
+      return new;
+    end if;
+    raise exception 'not allowed: sign-up may only create a bare profile (no tenant, no roles)';
+  end if;
+
+  -- trust = 'user'
   if caller is null then
     raise exception 'not allowed: anonymous callers cannot write profiles';
   end if;
@@ -93,6 +122,10 @@ begin
 
   if tg_op = 'INSERT' then
     if coalesce(is_manager, false) then
+      -- Closes the delete-then-recreate route around "nobody changes their own role".
+      if new.id = caller then
+        raise exception 'not allowed to create your own profile';
+      end if;
       if new.platform_role = 'superadmin' and caller_role <> 'superadmin' then
         raise exception 'not allowed: only a superadmin can grant superadmin';
       end if;
@@ -106,6 +139,9 @@ begin
   end if;
 
   if tg_op = 'DELETE' then
+    if old.id = caller then
+      raise exception 'not allowed to delete your own profile';
+    end if;
     if old.platform_role = 'superadmin' and caller_role is distinct from 'superadmin' then
       raise exception 'not allowed: only a superadmin can remove a superadmin';
     end if;
@@ -115,6 +151,12 @@ begin
   -- UPDATE
   if new.id is distinct from old.id then
     raise exception 'not allowed to change a profile id';
+  end if;
+
+  -- A superadmin's row is off-limits to everyone but a superadmin — any column, not just roles
+  -- (otherwise ops could, say, rename a superadmin to impersonate them).
+  if old.platform_role = 'superadmin' and caller_role is distinct from 'superadmin' then
+    raise exception 'not allowed: only a superadmin can modify a superadmin profile';
   end if;
 
   if new.brand_id      is distinct from old.brand_id
@@ -135,6 +177,9 @@ begin
   return new;
 end $$;
 
+-- Accepted risk (security review, 2026-09-21): ops may grant `ops` to any account, including a
+-- second account it controls. It cannot reach superadmin by any route.
+--
 -- Trigger functions cannot be called over RPC anyway; revoking EXECUTE is safe for them
 -- (a trigger fires regardless) and keeps the advisor quiet.
 revoke execute on function app_auth.guard_profile_privileges() from public, anon, authenticated;
