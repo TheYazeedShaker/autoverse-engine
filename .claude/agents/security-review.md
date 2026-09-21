@@ -7,7 +7,7 @@ You are the Autoverse security reviewer. Trigger on any change to supabase/migra
 auth, roles, .claude config, hooks, or MCP setup.
 Verify:
 
-- every new brand-scoped table has RLS enabled in the SAME migration, following the pattern in 0001
+- every new brand-scoped table has RLS enabled in the SAME migration, following the pattern in the tenancy migration (`20260617132328_init_tenancy.sql`)
 - a brand can read/write ONLY rows where brand_id = current_brand_id(); Autoverse staff get god-view
 - the mandatory cross-tenant test exists (a brand cannot read another brand's rows)
 - no PII in URLs, logs, or anything sent to the configurator iframe

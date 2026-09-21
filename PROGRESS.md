@@ -29,20 +29,21 @@
 
 ### Phase 0-H tracker
 
-| #   | Group                                                         | Status |
-| --- | ------------------------------------------------------------- | ------ |
-| —   | Spec housekeeping (docs only)                                 | 🔨 PR  |
-| 1   | Migrations reconcile (timestamp naming, Supabase check green) | ⏳     |
-| 2   | Isolation test runs in CI                                     | ⏳     |
-| 3   | RLS security fixes                                            | ⏳     |
-| 4   | CI gates to the full wall                                     | ⏳     |
-| 5   | ADR-0008 obligations + repo hygiene                           | ⏳     |
-| 6   | Finish the loop-proof (smoke test + one flag end to end)      | ⏳     |
-| 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | ⏳     |
+| #   | Group                                                         | Status   |
+| --- | ------------------------------------------------------------- | -------- |
+| —   | Spec housekeeping (docs only)                                 | 🔨 PR #2 |
+| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR    |
+| 2   | Isolation test runs in CI                                     | ⏳       |
+| 3   | RLS security fixes                                            | ⏳       |
+| 4   | CI gates to the full wall                                     | ⏳       |
+| 5   | ADR-0008 obligations + repo hygiene                           | ⏳       |
+| 6   | Finish the loop-proof (smoke test + one flag end to end)      | ⏳       |
+| 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | ⏳       |
 
 ## What Was Built Last Session
 
 - **Spec housekeeping.** `SPEC-engine-migration.md` moved to `specs/archive/` with a `COMPLETED 2026-08-12` header. The three Storybook specs carry a header closing them at Tier 1. The REV2 spec is committed to `specs/`.
+- **0-H.1 — migration renamed** to `20260617132328_init_tenancy.sql` (contents byte-identical) so it matches the version the remote DB recorded. Timestamp naming documented in `supabase/README.md`; the skill, the `security-review` agent and the isolation test now point at the new name. The Supabase check can only go green on `main` after merge.
 - **Supabase** is restored and healthy again.
 
 ## Decisions Made (must be remembered)
