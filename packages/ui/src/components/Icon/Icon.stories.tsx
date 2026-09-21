@@ -16,7 +16,7 @@ export const Default: Story = { args: { label: "Favorite" } };
 
 export const Sizes: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: "var(--av-space-16)", alignItems: "center" }}>
       <Icon icon={Star} size="sm" />
       <Icon icon={Star} size="md" />
       <Icon icon={Star} size="lg" />
@@ -28,7 +28,7 @@ export const Labelled: Story = { args: { icon: Gauge, label: "Performance" } };
 
 export const Set: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: 16 }}>
+    <div style={{ display: "flex", gap: "var(--av-space-16)" }}>
       <Icon icon={Car} label="Vehicle" />
       <Icon icon={Gauge} label="Performance" />
       <Icon icon={ChevronRight} />

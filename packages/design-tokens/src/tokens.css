@@ -106,6 +106,9 @@
   --av-radius-xl: 18px;
   --av-radius-pill: 999px;
 
+  /* --- border width --- */
+  --av-border-width: 1px; /* hairline — pair with --av-border */
+
   /* --- elevation (soft, low-contrast, tuned for the Mist canvas) --- */
   --av-shadow-sm: 0 1px 2px rgba(8, 9, 10, 0.05);
   --av-shadow-md: 0 4px 12px rgba(8, 9, 10, 0.08);

@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { Star } from "lucide-react";
 import { describe, expect, it } from "vitest";
 import { Icon } from "./Icon";
@@ -26,5 +27,16 @@ describe("Icon", () => {
   it("strokes with currentColor so it inherits the themed foreground", () => {
     const { container } = render(<Icon icon={Star} />);
     expect(container.querySelector("svg")).toHaveAttribute("stroke", "currentColor");
+  });
+  // a11y: axe on a realistic composition, in both reading directions (Arabic is RTL).
+  it.each(["ltr", "rtl"] as const)("has no axe violations (%s)", async (dir) => {
+    const { container } = render(
+      <div dir={dir} lang={dir === "rtl" ? "ar" : "en"}>
+        <p>
+          <Icon icon={Star} /> Rated <Icon icon={Star} label="Favorite" />
+        </p>
+      </div>,
+    );
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

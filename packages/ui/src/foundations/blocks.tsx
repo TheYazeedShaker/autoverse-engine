@@ -19,7 +19,7 @@ import {
 
 const mono: CSSProperties = { fontFamily: "var(--av-font-mono)", fontSize: "0.78rem" };
 const card: CSSProperties = {
-  border: "1px solid var(--av-border)",
+  border: "var(--av-border-width) solid var(--av-border)",
   borderRadius: "var(--av-radius)",
   overflow: "hidden",
   background: "var(--av-surface)",
@@ -31,7 +31,7 @@ function Grid({ min = 220, children }: { min?: number; children: ReactNode }) {
     <div
       style={{
         display: "grid",
-        gap: 12,
+        gap: "var(--av-space-12)",
         gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))`,
       }}
     >
@@ -57,9 +57,9 @@ export function ContrastBadge({
       style={{
         ...mono,
         display: "inline-flex",
-        gap: 6,
+        gap: "var(--av-space-8)",
         alignItems: "center",
-        padding: "2px 8px",
+        padding: "var(--av-space-2) var(--av-space-8)",
         borderRadius: "var(--av-radius-pill)",
         background: ok ? "var(--av-surface-success)" : "var(--av-surface-error)",
         color: ok ? "var(--av-on-success)" : "var(--av-on-error)",
@@ -76,8 +76,8 @@ export function PaletteGrid() {
     <Grid min={160}>
       {Object.entries(palette).map(([name, hex]) => (
         <div key={name} style={card}>
-          <div style={{ height: 64, background: hex }} />
-          <div style={{ padding: 10 }}>
+          <div style={{ height: "var(--av-space-64)", background: hex }} />
+          <div style={{ padding: "var(--av-space-12)" }}>
             <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{name}</div>
             <div style={{ ...mono, color: "var(--av-on-surface-muted)" }}>{hex}</div>
           </div>
@@ -93,13 +93,13 @@ export function SurfaceMatrix() {
     <Grid min={260}>
       {Object.entries(surfaces).map(([name, s]) => (
         <div key={name} style={{ ...card, background: s.bg, color: s.fg }}>
-          <div style={{ padding: 16, display: "grid", gap: 8 }}>
+          <div style={{ padding: "var(--av-space-16)", display: "grid", gap: "var(--av-space-8)" }}>
             <div style={{ fontWeight: 700 }}>{name}</div>
             <div style={{ fontSize: "1.5rem", lineHeight: 1.1 }}>
               Aa <span style={{ color: s.fgMute }}>Aa</span>
             </div>
             <div style={{ ...mono, opacity: 0.9 }}>bg {s.bg}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--av-space-8)" }}>
               <ContrastBadge fg={s.fg} bg={s.bg} />
               <ContrastBadge fg={s.fgMute} bg={s.bg} />
             </div>
@@ -116,9 +116,15 @@ export function StatusSolids() {
     <Grid min={160}>
       {Object.entries(status).map(([name, hex]) => (
         <div key={name} style={card}>
-          <div style={{ padding: 14, display: "grid", gap: 8 }}>
+          <div style={{ padding: "var(--av-space-16)", display: "grid", gap: "var(--av-space-8)" }}>
             <span style={{ color: hex, fontWeight: 700 }}>{name}</span>
-            <div style={{ height: 4, background: hex, borderRadius: 2 }} />
+            <div
+              style={{
+                height: "var(--av-space-4)",
+                background: hex,
+                borderRadius: "var(--av-radius-pill)",
+              }}
+            />
             <ContrastBadge fg={hex} bg={palette.mist} large />
           </div>
         </div>
@@ -130,10 +136,16 @@ export function StatusSolids() {
 export function TypeScale() {
   const order = ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl"] as const;
   return (
-    <div style={{ display: "grid", gap: 10 }}>
+    <div style={{ display: "grid", gap: "var(--av-space-12)" }}>
       {order.map((k) => (
-        <div key={k} style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
-          <span style={{ ...mono, width: 96, color: "var(--av-on-surface-muted)" }}>
+        <div key={k} style={{ display: "flex", alignItems: "baseline", gap: "var(--av-space-16)" }}>
+          <span
+            style={{
+              ...mono,
+              width: "calc(var(--av-space-48) * 2)",
+              color: "var(--av-on-surface-muted)",
+            }}
+          >
             {k} · {text[k]}
           </span>
           <span style={{ fontSize: text[k] }}>Drive the experience</span>
@@ -146,7 +158,7 @@ export function TypeScale() {
 export function FontFamilies() {
   const weights = [300, 400, 500, 700, 800];
   return (
-    <div style={{ display: "grid", gap: 6 }}>
+    <div style={{ display: "grid", gap: "var(--av-space-8)" }}>
       {weights.map((w) => (
         <div key={w} style={{ fontFamily: fonts.en, fontWeight: w, fontSize: "1.4rem" }}>
           Autoverse — Google Sans Flex {w}
@@ -162,7 +174,13 @@ export function ArabicSpecimen() {
     <div
       lang="ar"
       dir="rtl"
-      style={{ ...card, padding: 20, fontFamily: fonts.ar, display: "grid", gap: 8 }}
+      style={{
+        ...card,
+        padding: "var(--av-space-20)",
+        fontFamily: fonts.ar,
+        display: "grid",
+        gap: "var(--av-space-8)",
+      }}
     >
       <div style={{ fontSize: "2rem", fontWeight: 700 }}>أوتوفيرس</div>
       <div style={{ fontSize: "1.1rem" }}>اكتشف سيارتك المثالية وصمّمها بالكامل.</div>
@@ -175,12 +193,21 @@ export function ArabicSpecimen() {
 
 export function SpacingScale() {
   return (
-    <div style={{ display: "grid", gap: 6 }}>
+    <div style={{ display: "grid", gap: "var(--av-space-8)" }}>
       {Object.values(space).map((px) => (
-        <div key={px} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ ...mono, width: 56, color: "var(--av-on-surface-muted)" }}>{px}px</span>
+        <div key={px} style={{ display: "flex", alignItems: "center", gap: "var(--av-space-12)" }}>
           <span
-            style={{ height: 12, width: px, background: "var(--av-accent)", borderRadius: 2 }}
+            style={{ ...mono, width: "var(--av-space-64)", color: "var(--av-on-surface-muted)" }}
+          >
+            {px}px
+          </span>
+          <span
+            style={{
+              height: "var(--av-space-12)",
+              width: px,
+              background: "var(--av-accent)",
+              borderRadius: "var(--av-radius-pill)",
+            }}
           />
         </div>
       ))}
@@ -192,13 +219,16 @@ export function RadiusScale() {
   return (
     <Grid min={120}>
       {Object.entries(radius).map(([name, px]) => (
-        <div key={name} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
+        <div
+          key={name}
+          style={{ display: "grid", gap: "var(--av-space-8)", justifyItems: "center" }}
+        >
           <div
             style={{
-              width: 72,
-              height: 72,
+              width: "var(--av-space-64)",
+              height: "var(--av-space-64)",
               background: "var(--av-surface-panel)",
-              border: "1px solid var(--av-border)",
+              border: "var(--av-border-width) solid var(--av-border)",
               borderRadius: name === "pill" ? 999 : px,
             }}
           />
@@ -215,11 +245,19 @@ export function ElevationScale() {
   return (
     <Grid min={160}>
       {Object.entries(elevation).map(([name, shadow]) => (
-        <div key={name} style={{ display: "grid", gap: 8, justifyItems: "center", padding: 12 }}>
+        <div
+          key={name}
+          style={{
+            display: "grid",
+            gap: "var(--av-space-8)",
+            justifyItems: "center",
+            padding: "var(--av-space-12)",
+          }}
+        >
           <div
             style={{
-              width: 96,
-              height: 64,
+              width: "calc(var(--av-space-48) * 2)",
+              height: "var(--av-space-64)",
               background: "var(--av-surface)",
               borderRadius: "var(--av-radius)",
               boxShadow: shadow,
@@ -234,7 +272,7 @@ export function ElevationScale() {
 
 export function MotionScale() {
   return (
-    <div style={{ display: "grid", gap: 6 }}>
+    <div style={{ display: "grid", gap: "var(--av-space-8)" }}>
       {Object.entries(motion).map(([name, val]) => (
         <div key={name} style={{ ...mono }}>
           <span style={{ color: "var(--av-on-surface-muted)" }}>{name}</span> · {String(val)}

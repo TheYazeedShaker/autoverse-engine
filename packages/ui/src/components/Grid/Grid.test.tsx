@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { describe, expect, it } from "vitest";
 import { Grid } from "./Grid";
 import { Col } from "./Col";
@@ -67,5 +68,21 @@ describe("Col", () => {
     expect(el.tagName).toBe("ARTICLE");
     expect(el.style.color).toBe("");
     expect(el.style.background).toBe("");
+  });
+  // a11y: axe on a realistic composition, in both reading directions (Arabic is RTL).
+  it.each(["ltr", "rtl"] as const)("has no axe violations (%s)", async (dir) => {
+    const { container } = render(
+      <div dir={dir} lang={dir === "rtl" ? "ar" : "en"}>
+        <Grid as="section" aria-label="Specifications">
+          <Col span={12} md={6}>
+            <p>Range</p>
+          </Col>
+          <Col span={12} md={6}>
+            <p>Power</p>
+          </Col>
+        </Grid>
+      </div>,
+    );
+    expect(await axe(container)).toHaveNoViolations();
   });
 });
