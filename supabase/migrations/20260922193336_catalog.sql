@@ -8,7 +8,7 @@
 --
 -- RLS follows the corrected template (20260921151103_rls_hardening.sql): reads only, writes through
 -- service-role edge functions. Three read paths per table: Autoverse staff (god-view), the owning
--- brand, and signed-in end users — who see published rows in live markets only.
+-- brand, and signed-in end users — who see published rows only, and prices only in live markets.
 --
 -- brand_id is carried on every table, including the ones that could reach it through a parent, so
 -- each policy is a local check. Composite foreign keys keep those copies honest: a trim cannot
@@ -29,6 +29,10 @@ end $$;
 revoke execute on function app_auth.set_updated_at() from public, anon, authenticated;
 
 -- ---------- brand_markets ----------
+-- PRESENTATION CONFIG ONLY. Every signed-in end user can read this whole row (see the public-read
+-- policy below), so nothing private belongs here. REV2 adds lead-routing emails and a webhook URL
+-- to "brand market config" — those are private, and slice 3 puts them in a separate service-role
+-- table rather than widening this one. A webhook URL behind a public-read policy is a leak.
 create table public.brand_markets (
   id               uuid primary key default gen_random_uuid(),
   brand_id         uuid not null references public.brands(id) on delete cascade,
@@ -144,6 +148,7 @@ create table public.trim_prices (
   unique (trim_id, market_code),
   foreign key (trim_id, brand_id)     references public.trims (id, brand_id) on delete cascade,
   -- The market must be one this brand actually operates in.
+  -- Deleting a market deletes its prices. `live = false` is the off-switch; deletion is permanent.
   foreign key (brand_id, market_code) references public.brand_markets (brand_id, market_code) on delete cascade,
   -- Exactly one of the two: a number, or "price on request".
   constraint trim_prices_price_or_request check (
@@ -171,26 +176,26 @@ alter table public.trim_prices   enable row level security;
 
 -- Staff god-view (read).
 create policy brand_markets_staff_read on public.brand_markets
-  for select using (app_auth.is_autoverse_staff());
+  for select using ((select app_auth.is_autoverse_staff()));
 create policy models_staff_read on public.models
-  for select using (app_auth.is_autoverse_staff());
+  for select using ((select app_auth.is_autoverse_staff()));
 create policy trims_staff_read on public.trims
-  for select using (app_auth.is_autoverse_staff());
+  for select using ((select app_auth.is_autoverse_staff()));
 create policy trim_prices_staff_read on public.trim_prices
-  for select using (app_auth.is_autoverse_staff());
+  for select using ((select app_auth.is_autoverse_staff()));
 
 -- The owning brand sees everything of its own, published or not.
 create policy brand_markets_brand_read on public.brand_markets
-  for select using (brand_id = app_auth.current_brand_id());
+  for select using (brand_id = (select app_auth.current_brand_id()));
 create policy models_brand_read on public.models
-  for select using (brand_id = app_auth.current_brand_id());
+  for select using (brand_id = (select app_auth.current_brand_id()));
 create policy trims_brand_read on public.trims
-  for select using (brand_id = app_auth.current_brand_id());
+  for select using (brand_id = (select app_auth.current_brand_id()));
 create policy trim_prices_brand_read on public.trim_prices
-  for select using (brand_id = app_auth.current_brand_id());
+  for select using (brand_id = (select app_auth.current_brand_id()));
 
--- Signed-in end users: published rows in live markets only. A draft model, or a published model in
--- a market that has not gone live, is invisible.
+-- Signed-in end users: published rows only. Models are not market-gated (a published model is
+-- visible wherever the brand sells); prices and markets are — a dormant market shows no prices.
 --
 -- The spec asks for both "authenticated reads on published rows" and "brand users read own brand
 -- only". Brand staff are authenticated, so those two only hold together if the published-read path
@@ -198,16 +203,16 @@ create policy trim_prices_brand_read on public.trim_prices
 -- brand and nothing of a competitor's, published or not. Flagged to Yazeed: if brand staff should
 -- also browse other brands' published catalogue, drop that clause.
 create policy brand_markets_public_read on public.brand_markets
-  for select to authenticated using (live and app_auth.current_brand_id() is null);
+  for select to authenticated using (live and (select app_auth.current_brand_id()) is null);
 
 create policy models_public_read on public.models
   for select to authenticated using (
-    publish_state = 'published' and app_auth.current_brand_id() is null
+    publish_state = 'published' and (select app_auth.current_brand_id()) is null
   );
 
 create policy trims_public_read on public.trims
   for select to authenticated using (
-    app_auth.current_brand_id() is null
+    (select app_auth.current_brand_id()) is null
     and publish_state = 'published'
     and exists (
       select 1 from public.models m
@@ -217,7 +222,7 @@ create policy trims_public_read on public.trims
 
 create policy trim_prices_public_read on public.trim_prices
   for select to authenticated using (
-    app_auth.current_brand_id() is null
+    (select app_auth.current_brand_id()) is null
     and exists (
       select 1
       from public.trims t
@@ -233,3 +238,11 @@ create policy trim_prices_public_read on public.trim_prices
 
 -- No insert/update/delete policies anywhere above: deny-by-default covers writes, and the service
 -- role (edge functions) bypasses RLS. See the pattern at the bottom of the hardening migration.
+
+-- Belt and braces: Supabase grants INSERT/UPDATE/DELETE on new public tables to anon and
+-- authenticated by default, and only RLS stops them. Revoking makes the write denial true at two
+-- layers, so a future permissive policy cannot accidentally open a write path.
+revoke insert, update, delete on public.brand_markets from anon, authenticated;
+revoke insert, update, delete on public.models        from anon, authenticated;
+revoke insert, update, delete on public.trims         from anon, authenticated;
+revoke insert, update, delete on public.trim_prices   from anon, authenticated;

@@ -66,6 +66,14 @@ jobs:
           fi
           echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
           echo "Canary OK: the hardening test catches the privilege guard being removed."
+      - name: Canary — the catalog test must catch RLS being switched off
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.models disable row level security"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0003_catalog.test.sql 2>&1); then
+            echo "::error::The catalog test passed with RLS disabled on models. It cannot detect a leak."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          echo "Canary OK: the catalog test catches RLS being switched off."
 
   # Secret scan over the FULL git history (a public repo publishes every commit, not just the tip).
   # Backstop for the local pre-commit guard in .githooks/pre-commit.

@@ -1,8 +1,10 @@
 -- 0003_catalog.test.sql
 -- MANDATORY isolation test for migration 20260922193336_catalog.sql (1·A Slice 1).
 -- Proves: a brand reads only its own catalog rows and can write none of them; a signed-in end user
--- sees published rows in live markets only; staff keep the god-view; and the composite foreign keys
--- make a cross-brand row impossible in the first place.
+-- sees published rows only (never a published trim whose model is still a draft, never a price in a
+-- market that is not live); anon sees nothing; staff keep the god-view but still cannot write; the
+-- service role — the only write path — still can; and the composite foreign keys make a cross-brand
+-- row impossible in the first place.
 --
 -- Runs in CI on every PR (the `isolation` job). A violation RAISES EXCEPTION = a failing test.
 -- Rolls back, so no fixture data persists.
@@ -48,10 +50,17 @@ insert into public.models (id, brand_id, slug, name_en, name_ar, publish_state, 
 
 insert into public.trims (id, brand_id, model_id, slug, name_en, name_ar, publish_state) values
   ('00000000-0000-0000-0000-0000000a2001', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'base', 'Base', 'أساسي', 'published'),
+  -- No price rows: lets the cross-brand price test hit the composite FK instead of the
+  -- (trim, market) unique, which fired first and passed for the wrong reason.
+  ('00000000-0000-0000-0000-0000000a2002', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'sport', 'Sport', 'رياضي', 'published'),
+  -- PUBLISHED trim under a DRAFT model: publishing a trim must never leak an unannounced model.
+  ('00000000-0000-0000-0000-0000000a2003', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1002', 'preview', 'Preview', 'معاينة', 'published'),
   ('00000000-0000-0000-0000-0000000b2001', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'base', 'Base', 'أساسي', 'published');
 
 insert into public.trim_prices (brand_id, trim_id, market_code, price_egp, on_request) values
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a2001', 'EG', 1500000.00, false),
+  -- Same trim, in Brand A's DORMANT market: must stay invisible to end users.
+  ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a2001', 'AE', 95000.00, false),
   ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b2001', 'EG', 1600000.00, false);
 
 -- ---- 1. the database refuses a cross-brand row outright ----
@@ -65,7 +74,7 @@ begin
   end if;
 
   msg := test_helpers.try($q$insert into public.trim_prices (brand_id, trim_id, market_code, price_egp)
-    values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000a2001', 'EG', 1)$q$);
+    values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000a2002', 'EG', 1)$q$);
   if msg not like '%violates foreign key constraint%' then
     raise exception 'CRITICAL: a price was attached to another brand''s trim (%)', msg;
   end if;
@@ -99,11 +108,19 @@ begin
   if own <> 2 then raise exception 'FAIL: Brand A should see both its own models incl. the draft (got %)', own; end if;
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s models (got %)', other; end if;
 
-  select count(*) into other from public.trims        where brand_id = '00000000-0000-0000-0000-00000000000b';
+  select count(*) into own   from public.trims;
+  select count(*) into other from public.trims where brand_id = '00000000-0000-0000-0000-00000000000b';
+  if own <> 3 then raise exception 'FAIL: Brand A should see its own 3 trims (got %)', own; end if;
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s trims (got %)', other; end if;
-  select count(*) into other from public.trim_prices  where brand_id = '00000000-0000-0000-0000-00000000000b';
+
+  select count(*) into own   from public.trim_prices;
+  select count(*) into other from public.trim_prices where brand_id = '00000000-0000-0000-0000-00000000000b';
+  if own <> 2 then raise exception 'FAIL: Brand A should see its own 2 prices, dormant market included (got %)', own; end if;
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s prices (got %)', other; end if;
+
+  select count(*) into own   from public.brand_markets;
   select count(*) into other from public.brand_markets where brand_id = '00000000-0000-0000-0000-00000000000b';
+  if own <> 2 then raise exception 'FAIL: Brand A should see both its own markets, live or not (got %)', own; end if;
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s markets (got %)', other; end if;
 
   raise notice 'PASS: Brand A reads its own catalog only — including its drafts, none of Brand B''s rows';
@@ -155,13 +172,20 @@ begin
   select count(*) into n from public.brand_markets where not live;
   if n <> 0 then raise exception 'CRITICAL: an end user can read a market that is not live (got %)', n; end if;
 
+  -- Published trims under published models: a2001, a2002, b2001 — NOT a2003, whose model is a draft.
   select count(*) into n from public.trims;
-  if n <> 2 then raise exception 'FAIL: an end user should see both published trims (got %)', n; end if;
+  if n <> 3 then raise exception 'FAIL: an end user should see the 3 publishable trims (got %)', n; end if;
+
+  select count(*) into n from public.trims where id = '00000000-0000-0000-0000-0000000a2003';
+  if n <> 0 then raise exception 'CRITICAL: a published trim leaked an unannounced (draft) model'; end if;
 
   select count(*) into n from public.trim_prices;
-  if n <> 2 then raise exception 'FAIL: an end user should see both published prices (got %)', n; end if;
+  if n <> 2 then raise exception 'FAIL: an end user should see the 2 live-market prices (got %)', n; end if;
 
-  raise notice 'PASS: an end user reads published rows in live markets, and nothing else';
+  select count(*) into n from public.trim_prices where market_code = 'AE';
+  if n <> 0 then raise exception 'CRITICAL: a price leaked from a market that is not live'; end if;
+
+  raise notice 'PASS: an end user reads published rows only — no draft-parent trims, no dormant-market prices';
 end $$;
 
 -- ---- 5. anon reads nothing at all ----
@@ -190,8 +214,10 @@ declare n int;
 begin
   select count(*) into n from public.models;
   if n <> 4 then raise exception 'FAIL: ops staff should see all 4 models (got %)', n; end if;
+  select count(*) into n from public.trims;
+  if n <> 4 then raise exception 'FAIL: ops staff should see all 4 trims (got %)', n; end if;
   select count(*) into n from public.trim_prices;
-  if n <> 2 then raise exception 'FAIL: ops staff should see both prices (got %)', n; end if;
+  if n <> 3 then raise exception 'FAIL: ops staff should see all 3 prices (got %)', n; end if;
 
   update public.models set name_en = 'hacked' where id = '00000000-0000-0000-0000-0000000a1001';
   get diagnostics n = row_count;
@@ -199,5 +225,26 @@ begin
 
   raise notice 'PASS: staff read the whole catalog and still write none of it';
 end $$;
+
+-- ---- 7. the service role (edge functions) can still write — the only write path there is ----
+reset role;
+set local role service_role;
+do $
+declare n int; msg text;
+begin
+  msg := test_helpers.try($q$insert into public.models (id, brand_id, slug, name_en, name_ar)
+    values ('00000000-0000-0000-0000-0000000a1003', '00000000-0000-0000-0000-00000000000a', 'via-edge-fn', 'Via Edge Fn', 'عبر الدالة')$q$);
+  if msg <> '' then raise exception 'CRITICAL: the service role cannot create a model — the only write path is broken (%)', msg; end if;
+
+  update public.models set publish_state = 'published' where id = '00000000-0000-0000-0000-0000000a1003';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'CRITICAL: the service role cannot publish a model'; end if;
+
+  delete from public.models where id = '00000000-0000-0000-0000-0000000a1003';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'CRITICAL: the service role cannot delete a model'; end if;
+
+  raise notice 'PASS: the service role writes the catalog — brand users and staff do not';
+end $;
 
 rollback;
