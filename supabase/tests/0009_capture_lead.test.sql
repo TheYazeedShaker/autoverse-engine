@@ -26,9 +26,9 @@ insert into public.brand_markets (brand_id, market_code, currency, locale, live)
 
 -- ---- 1. a lead and its history arrive together ----
 do $$
-declare lead_id uuid; activities int; consent_in_trail text;
+declare new_lead_id uuid; activities int; consent_in_trail text;
 begin
-  lead_id := public.capture_lead(jsonb_build_object(
+  new_lead_id := public.capture_lead(jsonb_build_object(
     'brand_id', '00000000-0000-0000-0000-00000000000a',
     'market_code', 'EG',
     'full_name', 'Fatma Hassan',
@@ -38,16 +38,16 @@ begin
     'consent_at', now()::text
   ));
 
-  if lead_id is null then raise exception 'FAIL: capture_lead returned no id'; end if;
+  if new_lead_id is null then raise exception 'FAIL: capture_lead returned no id'; end if;
 
-  select count(*) into activities from public.lead_activities where lead_id = lead_id;
+  select count(*) into activities from public.lead_activities where lead_id = new_lead_id;
   if activities <> 1 then
     raise exception 'CRITICAL: a lead was stored with % activities — a lead must always have a history', activities;
   end if;
 
   -- The consent that was given is in the trail, not just in the lead row.
   select payload ->> 'consent_text_version' into consent_in_trail
-  from public.lead_activities where lead_id = lead_id;
+  from public.lead_activities where lead_id = new_lead_id;
   if consent_in_trail <> 'eg-v1' then
     raise exception 'FAIL: the first activity did not record the consent version (got %)', consent_in_trail;
   end if;
@@ -129,13 +129,13 @@ reset role;
 set local role service_role;
 select set_config('request.jwt.claims', '', true);
 do $$
-declare lead_id uuid;
+declare new_lead_id uuid;
 begin
-  lead_id := public.capture_lead(jsonb_build_object(
+  new_lead_id := public.capture_lead(jsonb_build_object(
     'brand_id', '00000000-0000-0000-0000-00000000000a', 'market_code', 'EG',
     'full_name', 'Via Edge Fn', 'phone', '+201000000006',
     'consent_text_version', 'eg-v1', 'consent_at', now()::text));
-  if lead_id is null then raise exception 'CRITICAL: the service role could not capture a lead'; end if;
+  if new_lead_id is null then raise exception 'CRITICAL: the service role could not capture a lead'; end if;
   raise notice 'PASS: the service role captures leads — the only path there is';
 end $$;
 
