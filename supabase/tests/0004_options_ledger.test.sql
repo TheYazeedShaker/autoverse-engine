@@ -95,7 +95,8 @@ declare msg text;
 begin
   msg := test_helpers.try($q$update public.vocabulary_registry set id = 'graphite-metallic' where id = 'graphite'$q$);
   if msg = '' then raise exception 'CRITICAL: a vocabulary id in use was renamed — the studio contract broke silently'; end if;
-  if msg not like '%violates foreign key constraint%' then
+  -- Either denial is correct: the ever_used lock fires first, the FK restrict backs it up.
+  if msg not like '%cannot be renamed%' and msg not like '%violates foreign key constraint%' then
     raise exception 'FAIL: renaming a used vocabulary id failed for the wrong reason (%)', msg;
   end if;
 
