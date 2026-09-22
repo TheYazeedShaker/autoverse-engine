@@ -42,7 +42,7 @@
 | 1     | Schema — catalog and markets                                                     | 🔨 PR  |
 | 2     | Schema — options and spec ledger                                                 | 🔨 PR  |
 | 3     | Schema — control plane and billing                                               | 🔨 PR  |
-| 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | ⏳     |
+| 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | 🔨 PR  |
 | 4     | Schema — content blocks and media                                                | ⏳     |
 | 5     | Schema — leads and events                                                        | ⏳     |
 | 6     | Data-access layer (`packages/engine-core`)                                       | ⏳     |

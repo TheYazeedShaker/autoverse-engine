@@ -42,6 +42,10 @@ const surfacePairs: Record<string, string[]> = {
   "--av-surface-card": ["--av-on-card", "--av-on-card-muted"],
   "--av-surface-dark": ["--av-on-dark", "--av-on-dark-soft", "--av-on-dark-muted"],
 
+  "--av-surface-admin-sidebar": ["--av-on-admin", "--av-on-admin-muted"],
+  "--av-surface-admin-base": ["--av-on-admin", "--av-on-admin-muted"],
+  "--av-surface-admin": ["--av-on-admin", "--av-on-admin-muted"],
+  "--av-surface-admin-raised": ["--av-on-admin", "--av-on-admin-muted"],
   "--av-surface-error": ["--av-on-error", "--av-on-error-muted"],
   "--av-surface-success": ["--av-on-success", "--av-on-success-muted"],
   "--av-surface-warning": ["--av-on-warning", "--av-on-warning-muted"],

@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true },
+  // index.ts is Deno (it uses Deno.serve and npm: imports), so it is typechecked by the Supabase
+  // CLI at deploy time, not by this project's tsc. The logic it calls lives in theme.ts, which IS
+  // typechecked and unit tested here.
+  "include": ["theme.ts", "theme.test.ts"]
+}

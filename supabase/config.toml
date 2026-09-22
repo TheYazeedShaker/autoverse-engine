@@ -7,3 +7,8 @@ project_id = "autoverse-engine"
 port = 54322
 # Match the hosted project (Postgres 17).
 major_version = 17
+
+# Edge functions live in services/ (CLAUDE.md repo layout), so each one points at its entrypoint
+# rather than sitting under supabase/functions/.
+[functions.validate-theme]
+entrypoint = "../services/validate-theme/index.ts"

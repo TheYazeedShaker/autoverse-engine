@@ -44,6 +44,19 @@
   --av-on-dark-soft: #cfd3d1;
   --av-on-dark-muted: #9aa19d; /* lightened to clear AA on gunmetal */
 
+  /* --- admin ramp (REV2): dark operator chrome, its own neutrals --- */
+  --av-admin-sidebar: #101113;
+  --av-admin-base: #0d0e10;
+  --av-admin-surface: #15171a;
+  --av-admin-raised: #1b1d20;
+  --av-on-admin: #f2f4f5;
+  --av-on-admin-muted: #9ba3aa;
+
+  --av-surface-admin-sidebar: var(--av-admin-sidebar);
+  --av-surface-admin-base: var(--av-admin-base);
+  --av-surface-admin: var(--av-admin-surface);
+  --av-surface-admin-raised: var(--av-admin-raised);
+
   --av-border: var(--av-line);
   --av-border-soft: var(--av-line-soft);
 

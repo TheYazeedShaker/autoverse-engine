@@ -18,6 +18,15 @@ export const palette = {
   gunmetalLine: "#3A413B",
   onDark: "#F4F7F5",
   onDarkMute: "#9AA19D", // muted ink on dark (AA on gunmetal)
+
+  // Admin ramp (REV2). The operator portal runs denser and darker than the consumer surfaces, so it
+  // gets its own neutrals rather than bending the consumer ones. The same pairing rule applies.
+  adminSidebar: "#101113",
+  adminBase: "#0D0E10",
+  adminSurface: "#15171A",
+  adminRaised: "#1B1D20",
+  onAdmin: "#F2F4F5",
+  onAdminMute: "#9BA3AA", // lightened until it clears AA on the lightest admin surface
 } as const;
 
 /* ============================ Status sub-palette (muted, feedback-only) ============================
@@ -48,6 +57,14 @@ export const surfaces = {
   panel: { bg: palette.panel, fg: palette.onyx, fgMute: palette.slate },
   card: { bg: palette.card, fg: palette.onyx, fgMute: palette.slate },
   dark: { bg: palette.gunmetal, fg: palette.onDark, fgMute: palette.onDarkMute },
+  // admin — dark operator chrome (REV2). The light equivalents reuse the consumer neutrals rather
+  // than inventing a second light ramp: an operator on a light theme sees the same greys as everyone.
+  adminSidebar: { bg: palette.adminSidebar, fg: palette.onAdmin, fgMute: palette.onAdminMute },
+  adminBase: { bg: palette.adminBase, fg: palette.onAdmin, fgMute: palette.onAdminMute },
+  adminSurface: { bg: palette.adminSurface, fg: palette.onAdmin, fgMute: palette.onAdminMute },
+  adminRaised: { bg: palette.adminRaised, fg: palette.onAdmin, fgMute: palette.onAdminMute },
+  adminLight: { bg: palette.mist, fg: palette.onyx, fgMute: palette.slate },
+  adminLightRaised: { bg: palette.panel, fg: palette.onyx, fgMute: palette.slate },
   // status — subtle tints carrying a readable dark foreground
   errorSubtle: { bg: "#F6E7E8", fg: "#7E2B2F", fgMute: "#8C3539" },
   successSubtle: { bg: "#E6EFE9", fg: "#1F5235", fgMute: "#285E3E" },

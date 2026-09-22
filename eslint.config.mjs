@@ -15,6 +15,9 @@ export default tseslint.config(
       "**/*.js",
       "**/*.mjs",
       "**/*.cjs",
+      // Deno edge-function entrypoints: Deno globals and npm: specifiers, typechecked by the
+      // Supabase CLI at deploy time. Their logic lives in sibling modules that ARE linted.
+      "services/*/index.ts",
     ],
   },
   js.configs.recommended,
