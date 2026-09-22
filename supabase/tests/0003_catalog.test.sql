@@ -130,7 +130,7 @@ end $$;
 -- A write is denied twice over: the privilege is revoked AND no write policy exists. Which one
 -- fires first depends on the statement, so "denied" means a permission error, an RLS error, or
 -- zero rows touched — never a successful write.
-do $
+do $$
 declare msg text;
   denials text[] := array[
     $q$update public.models set name_en = 'hacked' where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
@@ -156,7 +156,7 @@ begin
   end if;
 
   raise notice 'PASS: brand users write no catalog rows at all — service role only';
-end $;
+end $$;
 
 -- ---- 4. A signed-in end user sees published rows in live markets only ----
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}', true);
@@ -212,7 +212,7 @@ end $$;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
-do $
+do $$
 declare n int; msg text;
 begin
   select count(*) into n from public.models;
@@ -237,7 +237,7 @@ end $$;
 -- ---- 7. the service role (edge functions) can still write — the only write path there is ----
 reset role;
 set local role service_role;
-do $
+do $$
 declare n int; msg text;
 begin
   msg := test_helpers.try($q$insert into public.models (id, brand_id, slug, name_en, name_ar)
@@ -253,6 +253,6 @@ begin
   if n <> 1 then raise exception 'CRITICAL: the service role cannot delete a model'; end if;
 
   raise notice 'PASS: the service role writes the catalog — brand users and staff do not';
-end $;
+end $$;
 
 rollback;
