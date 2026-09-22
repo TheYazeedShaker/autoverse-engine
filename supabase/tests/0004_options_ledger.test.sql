@@ -177,15 +177,15 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 do $$
 declare own int; other int; msg text;
 begin
-  select count(*) into own   from public.option_assignments;
   select count(*) into other from public.option_assignments where brand_id = '00000000-0000-0000-0000-00000000000b';
-  if own <> 3 then raise exception 'FAIL: Brand A should see its own 3 options incl. the draft model''s (got %)', own; end if;
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s options (got %)', other; end if;
+  select count(*) into own   from public.option_assignments;
+  if own <> 3 then raise exception 'FAIL: Brand A should see its own 3 options incl. the draft model''s (got %)', own; end if;
 
-  select count(*) into own   from public.spec_rows;
   select count(*) into other from public.spec_rows where brand_id = '00000000-0000-0000-0000-00000000000b';
-  if own <> 2 then raise exception 'FAIL: Brand A should see its own 2 spec rows (got %)', own; end if;
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s spec rows (got %)', other; end if;
+  select count(*) into own   from public.spec_rows;
+  if own <> 2 then raise exception 'FAIL: Brand A should see its own 2 spec rows (got %)', own; end if;
 
   select count(*) into other from public.spec_tabs   where brand_id = '00000000-0000-0000-0000-00000000000b';
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s spec tabs (got %)', other; end if;
