@@ -80,7 +80,7 @@ begin
      where id = job_id returning * into result;
   else
     update public.jobs
-       set status = case when attempts >= max_attempts then 'failed' else 'pending' end,
+       set status = (case when attempts >= max_attempts then 'failed' else 'pending' end)::public.job_status,
            -- Exponential backoff: 2s, 4s, 8s… so a struggling downstream is not hammered.
            run_after = now() + (power(2, least(attempts, 10)) * interval '1 second'),
            last_error = error_text
