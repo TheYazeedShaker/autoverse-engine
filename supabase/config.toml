@@ -15,3 +15,6 @@ entrypoint = "../services/validate-theme/index.ts"
 
 [functions.ingest-event]
 entrypoint = "../services/ingest-event/index.ts"
+
+[functions.capture-lead]
+entrypoint = "../services/capture-lead/index.ts"
