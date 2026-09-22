@@ -12,7 +12,7 @@
 begin;
 
 create schema test_helpers;
-grant usage on schema test_helpers to anon, authenticated;
+grant usage on schema test_helpers to anon, authenticated, service_role;
 create function test_helpers.try(stmt text) returns text language plpgsql as $$
 begin
   execute stmt;
