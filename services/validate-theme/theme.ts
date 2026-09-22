@@ -71,8 +71,8 @@ function mix(from: string, to: string, amount: number): string {
  * Derive the full theme from an accent.
  *
  * - on_accent: whichever of black/white reads better ON the accent.
- * - hover: a step away from the accent, in the direction that keeps on_accent readable — darker for
- *   a light accent, lighter for a dark one. Hovering must never change which text colour works.
+ * - hover: a step away from the LABEL colour — darker under a white label, lighter under a black
+ *   one — so hovering always increases contrast with the label, never reduces it.
  * - muted: the accent barely tinting the Mist canvas, for card wedges and washes.
  * - focus: the accent pushed until the ring is visible against the canvas (≥ 3:1), because a focus
  *   ring nobody can see is a keyboard trap.
