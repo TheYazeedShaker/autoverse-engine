@@ -127,33 +127,36 @@ begin
 end $$;
 
 -- ---- 3. Brand A cannot write anything: catalog edits go through edge functions ----
-do $$
-declare n int; msg text;
+-- A write is denied twice over: the privilege is revoked AND no write policy exists. Which one
+-- fires first depends on the statement, so "denied" means a permission error, an RLS error, or
+-- zero rows touched — never a successful write.
+do $
+declare msg text;
+  denials text[] := array[
+    $q$update public.models set name_en = 'hacked' where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
+    $q$update public.models set publish_state = 'published' where id = '00000000-0000-0000-0000-0000000a1002'$q$,
+    $q$update public.trim_prices set price_egp = 1 where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
+    $q$delete from public.trims where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
+    $q$insert into public.models (brand_id, slug, name_en, name_ar) values ('00000000-0000-0000-0000-00000000000a', 'sneaky', 'S', 'S')$q$,
+    $q$insert into public.brand_markets (brand_id, market_code, currency, locale) values ('00000000-0000-0000-0000-00000000000a', 'SA', 'SAR', 'ar-SA')$q$
+  ];
+  stmt text;
 begin
-  update public.models set name_en = 'hacked' where brand_id = '00000000-0000-0000-0000-00000000000a';
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'CRITICAL: a brand user updated its own model directly'; end if;
+  foreach stmt in array denials loop
+    msg := test_helpers.try(stmt);
+    if msg not like '%permission denied%' and msg not like '%row-level security%' then
+      raise exception 'CRITICAL: a brand user wrote the catalog directly [%] (%)', stmt, coalesce(nullif(msg, ''), 'no error raised');
+    end if;
+  end loop;
 
-  update public.models set publish_state = 'published' where id = '00000000-0000-0000-0000-0000000a1002';
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'CRITICAL: a brand user published its own draft directly'; end if;
-
-  update public.trim_prices set price_egp = 1 where brand_id = '00000000-0000-0000-0000-00000000000a';
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'CRITICAL: a brand user changed its own price directly'; end if;
-
-  delete from public.trims where brand_id = '00000000-0000-0000-0000-00000000000a';
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'CRITICAL: a brand user deleted its own trim directly'; end if;
-
-  msg := test_helpers.try($q$insert into public.models (brand_id, slug, name_en, name_ar)
-    values ('00000000-0000-0000-0000-00000000000a', 'sneaky', 'S', 'S')$q$);
-  if msg not like '%row-level security%' then
-    raise exception 'CRITICAL: a brand user created a model directly (%)', msg;
+  -- The draft really is still a draft.
+  if exists (select 1 from public.models
+             where id = '00000000-0000-0000-0000-0000000a1002' and publish_state <> 'draft') then
+    raise exception 'CRITICAL: a brand user published its own draft';
   end if;
 
   raise notice 'PASS: brand users write no catalog rows at all — service role only';
-end $$;
+end $;
 
 -- ---- 4. A signed-in end user sees published rows in live markets only ----
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}', true);
@@ -209,8 +212,8 @@ end $$;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
-do $$
-declare n int;
+do $
+declare n int; msg text;
 begin
   select count(*) into n from public.models;
   if n <> 4 then raise exception 'FAIL: ops staff should see all 4 models (got %)', n; end if;
@@ -219,9 +222,14 @@ begin
   select count(*) into n from public.trim_prices;
   if n <> 3 then raise exception 'FAIL: ops staff should see all 3 prices (got %)', n; end if;
 
-  update public.models set name_en = 'hacked' where id = '00000000-0000-0000-0000-0000000a1001';
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'CRITICAL: staff edited the catalog directly — writes must go via edge functions'; end if;
+  msg := test_helpers.try($q$update public.models set name_en = 'hacked'
+    where id = '00000000-0000-0000-0000-0000000a1001'$q$);
+  if msg not like '%permission denied%' and msg not like '%row-level security%' then
+    if exists (select 1 from public.models
+               where id = '00000000-0000-0000-0000-0000000a1001' and name_en = 'hacked') then
+      raise exception 'CRITICAL: staff edited the catalog directly — writes must go via edge functions';
+    end if;
+  end if;
 
   raise notice 'PASS: staff read the whole catalog and still write none of it';
 end $$;
