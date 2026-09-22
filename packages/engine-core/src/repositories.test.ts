@@ -138,6 +138,7 @@ describe("brand scoping is applied by the repository, not by the caller", () => 
   });
 
   it("asks for a theme by brand AND market", async () => {
+    // eslint-disable-next-line no-restricted-syntax -- a brand accent is tenant DATA, like car paint, not a design token
     const { db, calls } = fakeDb([{ accent_hex: "#0B3D2E" }]);
     await new ThemeRepository(db).getForBrand(BRAND, "EG");
     expect(calls[0]!.table).toBe("brand_themes");
