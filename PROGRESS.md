@@ -40,7 +40,7 @@
 | ----- | -------------------------------------------------------------------------------- | ------ |
 | setup | Yazeed's answers: `design/` ignored, CLAUDE.md reworded, PROGRESS title repaired | 🔨 PR  |
 | 1     | Schema — catalog and markets                                                     | 🔨 PR  |
-| 2     | Schema — options and spec ledger                                                 | ⏳     |
+| 2     | Schema — options and spec ledger                                                 | 🔨 PR  |
 | 3     | Schema — control plane and billing                                               | ⏳     |
 | 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | ⏳     |
 | 4     | Schema — content blocks and media                                                | ⏳     |
