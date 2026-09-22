@@ -218,8 +218,10 @@ create table public.spec_rows (
   -- "Differs across trims" is DERIVED from this at read time and never stored (REV2).
   constraint spec_rows_scope_coherent check (
     (scope = 'all_trims' and value_en is not null and value_ar is not null and trim_values is null)
+    -- A per-trim row must actually carry per-trim values: `{}` is not a row, it is an empty one.
     or (scope = 'per_trim' and value_en is null and value_ar is null
-        and trim_values is not null and jsonb_typeof(trim_values) = 'object')
+        and trim_values is not null and jsonb_typeof(trim_values) = 'object'
+        and trim_values <> '{}'::jsonb)
   )
 );
 
