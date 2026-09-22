@@ -12,3 +12,6 @@ major_version = 17
 # rather than sitting under supabase/functions/.
 [functions.validate-theme]
 entrypoint = "../services/validate-theme/index.ts"
+
+[functions.ingest-event]
+entrypoint = "../services/ingest-event/index.ts"
