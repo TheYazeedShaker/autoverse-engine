@@ -1,11 +1,11 @@
-🔨 PR ||||
+# the Engine — Build Progress
 
 > **Living document.** `CLAUDE.md` holds permanent standards. **This file changes every session** — read at session start, update at session end: fill _What Was Built Last Session_, refresh _Status_, append _Decisions_ / _Known Issues_, rewrite _Next Session — Start Here_ precisely.
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-21
-**Last session:** Started `specs/SPEC-engine-core-1A-REV2-hardening.md`. Spec housekeeping first (migration spec archived, Storybook specs marked closed), then Phase 0-H in order, one PR per numbered group.
+**Last updated:** 2026-09-22
+**Last session:** Phase 0-H is complete on the branch chain but **never reached `main`** (PRs #3–#9 merged into each other's branches, not up). PR #10 lands the lot. Then started **ENGINE-CORE-1A** in long-leash mode: one PR per slice, each stacked on the previous so nothing waits on a merge.
 
 ---
 
@@ -17,28 +17,39 @@
 
 ## Status
 
-| Track                             | Status             | Notes                                                                                                                                                                                |
-| --------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12 | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7). |
-| **Phase 0-H — Hardening (REV2)**  | 🔨 **In progress** | 7 groups, one PR each. See the table below. **Blocks all 1·A work.**                                                                                                                 |
-| Phase 1·A — Engine core           | ⛔ Blocked         | Needs (1) all of 0-H merged + Supabase check green on `main`, **and** (2) the base `SPEC-engine-core-1A.md` + theming REV + design exports, which are not in the repo.               |
-| Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
-| Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
-| Phase 1·C — Consumer app          | ⏳ Held            | Design-first.                                                                                                                                                                        |
-| Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                      |
+| Track                             | Status                      | Notes                                                                                                                                                                                                                                                             |
+| --------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12          | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7).                                                                              |
+| **Phase 0-H — Hardening (REV2)**  | ⚠️ **Built, not on `main`** | All 7 groups built and green, but #3–#9 merged into their base branches instead of `main`. **PR #10** lands the whole chain. Until it merges, none of the hardening (RLS fixes, isolation/secrets/smoke jobs, secret-scan hook) protects `main` or the hosted DB. |
+| Phase 1·A — Engine core           | 🔨 **In progress**          | Base spec + theming REV + REV2 amendments all in `specs/`. One PR per slice, stacked on the previous branch.                                                                                                                                                      |
+| Storybook / design system         | ⏸ Closed at Tier 1          | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                                                                                                   |
+| Phase 1·B — Pipeline & admin      | ⏳ Held                     | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                                                                 |
+| Phase 1·C — Consumer app          | ⏳ Held                     | Design-first.                                                                                                                                                                                                                                                     |
+| Phase 1·D — Dashboard & hardening | ⏳ Held                     |                                                                                                                                                                                                                                                                   |
 
-### Phase 0-H tracker
+### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
 
-| #   | Group                                                         | Status                                        |
-| --- | ------------------------------------------------------------- | --------------------------------------------- |
-| —   | Spec housekeeping (docs only)                                 | 🔨 PR #2                                      |
-| 1   | Migrations reconcile (timestamp naming, Supabase check green) | 🔨 PR #3                                      |
-| 2   | Isolation test runs in CI                                     | 🔨 PR #4                                      |
-| 3   | RLS security fixes                                            | 🔨 PR #5                                      |
-| 4   | CI gates to the full wall                                     | 🔨 PR #6                                      |
-| 5   | ADR-0008 obligations + repo hygiene                           | 🔨 PR #7                                      |
-| 6   | Finish the loop-proof (smoke test + one flag end to end)      | 🟡 PR #8 — live flag run waits on PostHog key |
-| 7   | Ops closure (old repo, protocol typing, Sentry + PostHog)     | 🔨 PR — Sentry/PostHog live once keys are set |
+| #   | Group                                                                                                             | Status                                                                              |
+| --- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| —   | Spec housekeeping (docs only)                                                                                     | ✅ merged to `main` (#2)                                                            |
+| 1–7 | Migrations reconcile · isolation in CI · RLS hardening · full CI wall · repo hygiene · smoke + flag · ops closure | ✅ built, green, merged **into branches** (#3–#9) — **PR #10** lands them on `main` |
+
+### Phase 1·A slice tracker (one PR each, stacked)
+
+| Slice | What                                                                             | Status |
+| ----- | -------------------------------------------------------------------------------- | ------ |
+| setup | Yazeed's answers: `design/` ignored, CLAUDE.md reworded, PROGRESS title repaired | 🔨 PR  |
+| 1     | Schema — catalog and markets                                                     | ⏳     |
+| 2     | Schema — options and spec ledger                                                 | ⏳     |
+| 3     | Schema — control plane and billing                                               | ⏳     |
+| 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | ⏳     |
+| 4     | Schema — content blocks and media                                                | ⏳     |
+| 5     | Schema — leads and events                                                        | ⏳     |
+| 6     | Data-access layer (`packages/engine-core`)                                       | ⏳     |
+| 7     | Event pipeline (`ingest-event` + retry worker)                                   | ⏳     |
+| 8     | Leads pipeline (`capture-lead`)                                                  | ⏳     |
+| 9     | Job queue                                                                        | ⏳     |
+| gate  | Induced-failure test, zero-loss reconciliation, evidence to Slack                | ⏳     |
 
 ## What Was Built Last Session
 
@@ -67,6 +78,8 @@
 - Later (documented in place, not dropped): ML scoring, checkout, lead resale (legal+consent), custom domains, per-model fine-tunes, Egypt PDPL counsel check before public launch.
 - **Design system:** locked monochrome palette + muted semantic sub-palette (state only); structural contrast pairing + invariant test; Radix; motion restrained/precise with semantic layer + reduced-motion CI gate; Storybook from `packages/ui`; fonts self-hosted (both OFL).
 - **Repo visibility:** public per ADR-0008, **but REV2 treats it as a pending decision** — raised in Slack 2026-09-21. If it goes private, mark ADR-0008 superseded.
+- **`design/` is Yazeed's** — gitignored; never read, modified or committed by Claude (2026-09-22).
+- **Brand/profile writes stay scoped to superadmin + ops** (confirmed 2026-09-22).
 - **Migrations use timestamp names from here on** (`YYYYMMDDHHMMSS_name.sql`), matching what the Supabase CLI records remotely (REV2 0-H.1).
 
 ## Known Issues / TODOs

@@ -33,6 +33,10 @@ id_ecdsa*
 *service-account*.json
 gcp-*.json
 
+# Design source of truth: briefs and exports live here, owned by Yazeed.
+# Never read, modify or commit anything inside it.
+design/
+
 # Local, machine-specific Claude Code settings (permission grants etc.) — never shared.
 .claude/settings.local.json
 
