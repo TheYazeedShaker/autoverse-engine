@@ -18,13 +18,24 @@ create type spec_row_scope  as enum ('all_trims', 'per_trim');
 -- vocabulary_registry — the shared ID vocabulary (admin "System" page)
 -- ============================================================================================
 -- Not brand-scoped on purpose: the studio and the engine must agree on one spelling of an option
--- id, and the same id means the same thing for every brand. Nothing tenant-specific lives here.
+-- id, and the same id means the same thing for every brand.
+--
+-- ACCEPTED RISK: the ids and display names are readable by every signed-in user, and an option id
+-- can carry a brand's wording ('nardo-grey'). A new row before launch is therefore a faint
+-- pre-announcement signal. That is the cost of one shared vocabulary that admins pick from rather
+-- than inventing ids per brand. If slice 6 resolves display fallbacks server-side instead of as a
+-- client join, tighten this policy to staff + brand users.
 create table public.vocabulary_registry (
   id          text primary key,
   kind        option_kind not null,
   display_en  text not null,
   display_ar  text not null,
   deprecated  boolean not null default false,
+  -- Set the first time this id is assigned, and never cleared. The engine and the studio both spell
+  -- this id in files that live outside the database (GLB material names, render filenames), so the
+  -- id must stay frozen even after the last assignment is deleted. `on update restrict` alone only
+  -- freezes it while a reference exists.
+  ever_used   boolean not null default false,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
   -- Referenced together with `kind` below, so an assignment cannot label a wheel as a paint colour.
@@ -104,6 +115,44 @@ create trigger option_assignments_check_trim_ids
   before insert or update on public.option_assignments
   for each row execute function app_auth.check_option_trim_ids();
 
+-- Mark the vocabulary id as used, permanently.
+create or replace function app_auth.mark_vocabulary_used()
+returns trigger language plpgsql security definer set search_path = '' as $fn$
+begin
+  update public.vocabulary_registry
+    set ever_used = true
+    where id = new.vocabulary_id and not ever_used;
+  return new;
+end $fn$;
+
+revoke execute on function app_auth.mark_vocabulary_used() from public, anon, authenticated;
+
+create trigger option_assignments_mark_vocabulary_used
+  after insert on public.option_assignments
+  for each row execute function app_auth.mark_vocabulary_used();
+
+-- Once used, an id can never be renamed or removed — not even after its last assignment is gone.
+create or replace function app_auth.protect_used_vocabulary()
+returns trigger language plpgsql security definer set search_path = '' as $fn$
+begin
+  if tg_op = 'DELETE' then
+    if old.ever_used then
+      raise exception 'vocabulary id % has been used and cannot be deleted; deprecate it instead', old.id;
+    end if;
+    return old;
+  end if;
+  if old.ever_used and new.id is distinct from old.id then
+    raise exception 'vocabulary id % has been used and cannot be renamed', old.id;
+  end if;
+  return new;
+end $fn$;
+
+revoke execute on function app_auth.protect_used_vocabulary() from public, anon, authenticated;
+
+create trigger vocabulary_registry_protect_used
+  before update or delete on public.vocabulary_registry
+  for each row execute function app_auth.protect_used_vocabulary();
+
 -- ============================================================================================
 -- spec ledger — tabs → groups → rows
 -- ============================================================================================
@@ -124,6 +173,7 @@ create table public.spec_tabs (
 );
 
 create index spec_tabs_model_idx on public.spec_tabs (model_id, order_index);
+create index spec_tabs_brand_idx on public.spec_tabs (brand_id);
 
 create table public.spec_groups (
   id           uuid primary key default gen_random_uuid(),
@@ -144,7 +194,8 @@ create table public.spec_groups (
   foreign key (model_id, brand_id) references public.models (id, brand_id)   on delete cascade
 );
 
-create index spec_groups_tab_idx on public.spec_groups (tab_id, order_index);
+create index spec_groups_tab_idx   on public.spec_groups (tab_id, order_index);
+create index spec_groups_brand_idx on public.spec_groups (brand_id);
 
 create table public.spec_rows (
   id           uuid primary key default gen_random_uuid(),
@@ -167,8 +218,10 @@ create table public.spec_rows (
   -- "Differs across trims" is DERIVED from this at read time and never stored (REV2).
   constraint spec_rows_scope_coherent check (
     (scope = 'all_trims' and value_en is not null and value_ar is not null and trim_values is null)
+    -- A per-trim row must actually carry per-trim values: `{}` is not a row, it is an empty one.
     or (scope = 'per_trim' and value_en is null and value_ar is null
-        and trim_values is not null and jsonb_typeof(trim_values) = 'object')
+        and trim_values is not null and jsonb_typeof(trim_values) = 'object'
+        and trim_values <> '{}'::jsonb)
   )
 );
 
@@ -209,6 +262,28 @@ revoke execute on function app_auth.check_spec_row_trim_values() from public, an
 create trigger spec_rows_check_trim_values
   before insert or update on public.spec_rows
   for each row execute function app_auth.check_spec_row_trim_values();
+
+-- ============================================================================================
+-- Publish-state helpers for the per-trim payloads
+-- ============================================================================================
+-- A trim's own row is hidden until it is published (slice 1), but a per-trim payload NAMES trims:
+-- option_assignments.trim_ids and spec_rows.trim_values. Without these checks a published model
+-- would leak the uuid, the figures and the exclusive options of an unannounced trim to every
+-- signed-in account. SECURITY DEFINER so the answer is about publish state, not about what the
+-- caller happens to be allowed to see.
+create or replace function app_auth.all_trims_published(ids uuid[])
+returns boolean language sql stable security definer set search_path = '' as $fn$
+  select coalesce(bool_and(t.publish_state = 'published'), true)
+  from unnest(coalesce(ids, '{}'::uuid[])) as u(id)
+  left join public.trims t on t.id = u.id
+$fn$;
+
+create or replace function app_auth.all_trim_keys_published(values_by_trim jsonb)
+returns boolean language sql stable security definer set search_path = '' as $fn$
+  select coalesce(bool_and(t.publish_state = 'published'), true)
+  from jsonb_object_keys(coalesce(values_by_trim, '{}'::jsonb)) as k
+  left join public.trims t on t.id::text = k
+$fn$;
 
 -- ============================================================================================
 -- RLS — reads only (slice 1's pattern)
@@ -253,6 +328,8 @@ create policy option_assignments_public_read on public.option_assignments
       select 1 from public.models m
       where m.id = option_assignments.model_id and m.publish_state = 'published'
     )
+    -- An option scoped to an unpublished trim stays hidden with it.
+    and (all_trims or app_auth.all_trims_published(trim_ids))
   );
 
 create policy spec_tabs_public_read on public.spec_tabs
@@ -280,11 +357,17 @@ create policy spec_rows_public_read on public.spec_rows
       select 1 from public.models m
       where m.id = spec_rows.model_id and m.publish_state = 'published'
     )
+    -- A per-trim row carries figures keyed by trim, so it is withheld until every trim it names is
+    -- published. Deliberately all-or-nothing: RLS decides rows, not columns, and a partly-visible
+    -- jsonb would still carry the unannounced trim's uuid. Slice 6's repository can project the
+    -- published subset once it reads through the service role.
+    and (scope = 'all_trims' or app_auth.all_trim_keys_published(trim_values))
   );
 
 -- Writes: none. Service-role edge functions only, denied at the privilege layer as well.
-revoke insert, update, delete on public.vocabulary_registry from anon, authenticated;
-revoke insert, update, delete on public.option_assignments  from anon, authenticated;
-revoke insert, update, delete on public.spec_tabs           from anon, authenticated;
-revoke insert, update, delete on public.spec_groups         from anon, authenticated;
-revoke insert, update, delete on public.spec_rows           from anon, authenticated;
+-- TRUNCATE is included: Supabase's default privileges grant it, and RLS does not gate it.
+revoke insert, update, delete, truncate on public.vocabulary_registry from anon, authenticated;
+revoke insert, update, delete, truncate on public.option_assignments  from anon, authenticated;
+revoke insert, update, delete, truncate on public.spec_tabs           from anon, authenticated;
+revoke insert, update, delete, truncate on public.spec_groups         from anon, authenticated;
+revoke insert, update, delete, truncate on public.spec_rows           from anon, authenticated;
