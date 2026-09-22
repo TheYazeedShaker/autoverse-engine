@@ -82,6 +82,14 @@ jobs:
           fi
           echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
           echo "Canary OK: the ledger test catches RLS being switched off."
+      - name: Canary — the control-plane test must catch RLS being switched off
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.brand_market_private disable row level security"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0005_control_plane.test.sql 2>&1); then
+            echo "::error::The control-plane test passed with RLS disabled on brand_market_private."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          echo "Canary OK: the control-plane test catches RLS being switched off."
 
   # Secret scan over the FULL git history (a public repo publishes every commit, not just the tip).
   # Backstop for the local pre-commit guard in .githooks/pre-commit.
