@@ -73,6 +73,7 @@ jobs:
             echo "::error::The catalog test passed with RLS disabled on models. It cannot detect a leak."; exit 1
           fi
           echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.models enable row level security"
           echo "Canary OK: the catalog test catches RLS being switched off."
       - name: Canary — the ledger test must catch RLS being switched off
         run: |
@@ -81,6 +82,7 @@ jobs:
             echo "::error::The ledger test passed with RLS disabled on option_assignments."; exit 1
           fi
           echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.option_assignments enable row level security"
           echo "Canary OK: the ledger test catches RLS being switched off."
 
   # Secret scan over the FULL git history (a public repo publishes every commit, not just the tip).

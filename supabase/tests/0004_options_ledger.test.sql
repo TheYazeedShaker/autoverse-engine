@@ -46,7 +46,10 @@ insert into public.trims (id, brand_id, model_id, slug, name_en, name_ar, publis
   ('00000000-0000-0000-0000-0000000a2002', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'sport',   'Sport',   'رياضي',  'published'),
   -- A trim of a DIFFERENT model of the same brand: used to prove the trim_ids guard bites.
   ('00000000-0000-0000-0000-0000000a2003', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1002', 'preview', 'Preview', 'معاينة', 'draft'),
-  ('00000000-0000-0000-0000-0000000b2001', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'base',    'Base',    'أساسي',  'published');
+  ('00000000-0000-0000-0000-0000000b2001', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'base',    'Base',    'أساسي',  'published'),
+  -- An unannounced variant of a PUBLISHED model. Its own row is hidden by slice 1; the per-trim
+  -- payloads below must not name it either.
+  ('00000000-0000-0000-0000-0000000a2004', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'secret',  'Secret',  'سري',    'draft');
 
 insert into public.vocabulary_registry (id, kind, display_en, display_ar) values
   ('graphite',  'exterior_color', 'Graphite',  'جرافيت'),
@@ -62,6 +65,11 @@ insert into public.option_assignments (id, brand_id, model_id, kind, vocabulary_
   -- Hangs off Brand A's DRAFT model: must stay invisible to end users.
   ('00000000-0000-0000-0000-0000000a3003', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1002', 'exterior_color', 'pearl', true);
 
+-- An option and a spec row that exist only for the unannounced trim.
+insert into public.option_assignments (id, brand_id, model_id, kind, vocabulary_id, all_trims, trim_ids) values
+  ('00000000-0000-0000-0000-0000000a3004', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'exterior_color', 'pearl', false,
+   array['00000000-0000-0000-0000-0000000a2004']::uuid[]);
+
 insert into public.spec_tabs (id, brand_id, model_id, key, title_en, title_ar) values
   ('00000000-0000-0000-0000-0000000a4001', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'performance', 'Performance', 'الأداء'),
   ('00000000-0000-0000-0000-0000000b4001', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'performance', 'Performance', 'الأداء');
@@ -75,6 +83,9 @@ insert into public.spec_rows (brand_id, model_id, group_id, key_en, key_ar, scop
 insert into public.spec_rows (brand_id, model_id, group_id, key_en, key_ar, scope, trim_values) values
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-0000000a5001', 'Power', 'القوة', 'per_trim',
    '{"00000000-0000-0000-0000-0000000a2001": {"en": "190 hp", "ar": "190 حصان"}, "00000000-0000-0000-0000-0000000a2002": {"en": "240 hp", "ar": "240 حصان"}}'::jsonb);
+insert into public.spec_rows (brand_id, model_id, group_id, key_en, key_ar, scope, trim_values) values
+  ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-0000000a5001', 'Secret output', 'الإخراج السري', 'per_trim',
+   '{"00000000-0000-0000-0000-0000000a2004": {"en": "650 hp", "ar": "650 حصان"}}'::jsonb);
 insert into public.spec_rows (brand_id, model_id, group_id, key_en, key_ar, scope, value_en, value_ar) values
   ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', '00000000-0000-0000-0000-0000000b5001', 'Transmission', 'ناقل الحركة', 'all_trims', 'CVT', 'CVT');
 
@@ -99,7 +110,23 @@ begin
     raise exception 'CRITICAL: a wheel was assigned as a paint colour (%)', msg;
   end if;
 
-  raise notice 'PASS: vocabulary ids are immutable once used, and an option cannot mislabel its kind';
+  -- ...and it stays frozen after the last assignment is gone, because the studio spells these ids
+  -- in files that live outside this database.
+  delete from public.option_assignments where vocabulary_id = 'graphite';
+  msg := test_helpers.try($q$update public.vocabulary_registry set id = 'graphite-metallic' where id = 'graphite'$q$);
+  if msg not like '%cannot be renamed%' then
+    raise exception 'CRITICAL: a used vocabulary id was renamed once its last assignment was deleted (%)', msg;
+  end if;
+  msg := test_helpers.try($q$delete from public.vocabulary_registry where id = 'graphite'$q$);
+  if msg not like '%cannot be deleted%' then
+    raise exception 'CRITICAL: a used vocabulary id was deleted (%)', msg;
+  end if;
+  -- Restore the fixture for the sections below.
+  insert into public.option_assignments (id, brand_id, model_id, kind, vocabulary_id, swatch_hex, all_trims, order_index)
+    values ('00000000-0000-0000-0000-0000000a3001', '00000000-0000-0000-0000-00000000000a',
+            '00000000-0000-0000-0000-0000000a1001', 'exterior_color', 'graphite', '#3A3A3A', true, 1);
+
+  raise notice 'PASS: vocabulary ids are immutable once used — even after the last assignment is deleted';
 end $$;
 
 -- ---- 2. an option cannot reach a trim that is not its model's, or be scoped two ways ----
@@ -160,6 +187,27 @@ begin
     raise exception 'CRITICAL: a spec row carried a value for a trim of another model (%)', msg;
   end if;
 
+  -- The core isolation primitive, head-on: Brand B's id with Brand A's model.
+  msg := test_helpers.try($q$insert into public.option_assignments (brand_id, model_id, kind, vocabulary_id)
+    values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000a1001', 'interior_color', 'pearl')$q$);
+  if msg not like '%violates foreign key constraint%' then
+    raise exception 'CRITICAL: an option was attached to another brand''s model (%)', msg;
+  end if;
+
+  msg := test_helpers.try($q$insert into public.spec_tabs (brand_id, model_id, key, title_en, title_ar)
+    values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000a1001', 'stolen', 'X', 'X')$q$);
+  if msg not like '%violates foreign key constraint%' then
+    raise exception 'CRITICAL: a spec tab was attached to another brand''s model (%)', msg;
+  end if;
+
+  -- An empty per-trim payload is not a per-trim row.
+  msg := test_helpers.try($q$insert into public.spec_rows (brand_id, model_id, group_id, key_en, key_ar, scope, trim_values)
+    values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-0000000a5001',
+            'Empty', 'فارغ', 'per_trim', '{}'::jsonb)$q$);
+  if msg = '' then
+    raise exception 'FAIL: a per-trim spec row was accepted with no per-trim values';
+  end if;
+
   -- A group cannot be hung under another model's tab.
   msg := test_helpers.try($q$insert into public.spec_groups (brand_id, model_id, tab_id, title_en, title_ar)
     values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', '00000000-0000-0000-0000-0000000a4001', 'Stolen', 'مسروق')$q$);
@@ -180,12 +228,12 @@ begin
   select count(*) into other from public.option_assignments where brand_id = '00000000-0000-0000-0000-00000000000b';
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s options (got %)', other; end if;
   select count(*) into own   from public.option_assignments;
-  if own <> 3 then raise exception 'FAIL: Brand A should see its own 3 options incl. the draft model''s (got %)', own; end if;
+  if own <> 4 then raise exception 'FAIL: Brand A should see its own 4 options (got %)', own; end if;
 
   select count(*) into other from public.spec_rows where brand_id = '00000000-0000-0000-0000-00000000000b';
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s spec rows (got %)', other; end if;
   select count(*) into own   from public.spec_rows;
-  if own <> 2 then raise exception 'FAIL: Brand A should see its own 2 spec rows (got %)', own; end if;
+  if own <> 3 then raise exception 'FAIL: Brand A should see its own 3 spec rows (got %)', own; end if;
 
   select count(*) into other from public.spec_tabs   where brand_id = '00000000-0000-0000-0000-00000000000b';
   if other <> 0 then raise exception 'CRITICAL: Brand A can read Brand B''s spec tabs (got %)', other; end if;
@@ -221,6 +269,20 @@ begin
   select count(*) into n from public.option_assignments where model_id = '00000000-0000-0000-0000-0000000a1002';
   if n <> 0 then raise exception 'CRITICAL: an end user can read options of an unpublished model (got %)', n; end if;
 
+  -- The published model's UNANNOUNCED trim: its own row is hidden, so nothing that names it may
+  -- be readable either. This is the leak the security review caught.
+  select count(*) into n from public.option_assignments
+   where '00000000-0000-0000-0000-0000000a2004' = any(trim_ids);
+  if n <> 0 then
+    raise exception 'CRITICAL: an option scoped to an unannounced trim leaked it (got %)', n;
+  end if;
+
+  select count(*) into n from public.spec_rows
+   where trim_values ? '00000000-0000-0000-0000-0000000a2004';
+  if n <> 0 then
+    raise exception 'CRITICAL: a per-trim spec row leaked an unannounced trim''s figures (got %)', n;
+  end if;
+
   select count(*) into n from public.spec_rows;
   if n <> 3 then raise exception 'FAIL: an end user should see all 3 published spec rows (got %)', n; end if;
 
@@ -255,14 +317,16 @@ do $$
 declare n int;
 begin
   select count(*) into n from public.option_assignments;
-  if n <> 4 then raise exception 'FAIL: ops staff should see all 4 options (got %)', n; end if;
+  if n <> 5 then raise exception 'FAIL: ops staff should see all 5 options (got %)', n; end if;
   select count(*) into n from public.spec_rows;
-  if n <> 3 then raise exception 'FAIL: ops staff should see all 3 spec rows (got %)', n; end if;
+  if n <> 4 then raise exception 'FAIL: ops staff should see all 4 spec rows (got %)', n; end if;
   raise notice 'PASS: staff read the whole ledger';
 end $$;
 
 reset role;
 set local role service_role;
+-- Drop the previous section's identity so this proves the service role, not a leftover ops user.
+select set_config('request.jwt.claims', '', true);
 do $$
 declare n int; msg text;
 begin
