@@ -109,6 +109,14 @@ jobs:
           echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
           psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.content_blocks enable row level security"
           echo "Canary OK: the content test catches RLS being switched off."
+      - name: Canary — the leads test must catch the append-only guard being removed
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "drop trigger lead_activities_append_only on public.lead_activities"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0008_leads_events.test.sql 2>&1); then
+            echo "::error::The leads test passed with the append-only guard removed."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          echo "Canary OK: the leads test catches the append-only guard being removed."
 
   # Secret scan over the FULL git history (a public repo publishes every commit, not just the tip).
   # Backstop for the local pre-commit guard in .githooks/pre-commit.
