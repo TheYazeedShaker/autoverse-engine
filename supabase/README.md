@@ -49,3 +49,16 @@ The RLS helpers (`app_auth.current_brand_id()`, `app_auth.is_autoverse_staff()`,
 `app_auth.can_manage_tenancy()`) are `SECURITY DEFINER`. They live in `app_auth` precisely because
 the REST API does not expose that schema. **Never add `app_auth` to the API's exposed schemas** in
 the Supabase dashboard — that would make them callable at `/rest/v1/rpc/*` again.
+
+## Regenerating the engine's row types
+
+`packages/engine-core/src/database.types.ts` is hand-written today, because
+`supabase gen types typescript` needs either Docker or a hosted database carrying these migrations,
+and the hosted project is still on the tenancy migration alone. Once the migrations are applied:
+
+    supabase gen types typescript --project-id <ref> --schema public \
+      > packages/engine-core/src/database.types.ts
+
+...then reconcile the hand-written aliases at the top of that file. Until then, a column added to a
+migration must be added there by hand, or the repositories will be typed against a schema that no
+longer exists.

@@ -45,7 +45,7 @@
 | 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | 🔨 PR  |
 | 4     | Schema — content blocks and media                                                | 🔨 PR  |
 | 5     | Schema — leads and events                                                        | 🔨 PR  |
-| 6     | Data-access layer (`packages/engine-core`)                                       | ⏳     |
+| 6     | Data-access layer (`packages/engine-core`)                                       | 🔨 PR  |
 | 7     | Event pipeline (`ingest-event` + retry worker)                                   | ⏳     |
 | 8     | Leads pipeline (`capture-lead`)                                                  | ⏳     |
 | 9     | Job queue                                                                        | ⏳     |
