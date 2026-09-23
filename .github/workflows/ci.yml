@@ -118,6 +118,22 @@ jobs:
           echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
           echo "Canary OK: the leads test catches the append-only guard being removed."
 
+  # The 1·A phase gate: an event and a lead must each survive a kill mid-write and reconcile to
+  # zero loss. Runs on its own database so the induced failures cannot disturb the isolation job.
+  phase-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with: { version: 2.117.0 }
+      - name: Start a throwaway Supabase Postgres and apply every migration
+        run: supabase db start
+      - name: Induced failure and zero-loss reconciliation
+        run: ./supabase/gate/phase-gate.sh
+
   # Secret scan over the FULL git history (a public repo publishes every commit, not just the tip).
   # Backstop for the local pre-commit guard in .githooks/pre-commit.
   secrets:

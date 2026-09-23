@@ -49,7 +49,7 @@
 | 7     | Event pipeline (`ingest-event` + retry worker)                                   | 🔨 PR  |
 | 8     | Leads pipeline (`capture-lead`)                                                  | 🔨 PR  |
 | 9     | Job queue                                                                        | 🔨 PR  |
-| gate  | Induced-failure test, zero-loss reconciliation, evidence to Slack                | ⏳     |
+| gate  | Induced-failure test, zero-loss reconciliation, evidence to Slack                | 🔨 PR  |
 
 ## What Was Built Last Session
 
