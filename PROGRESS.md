@@ -47,7 +47,7 @@
 | 5     | Schema — leads and events                                                        | 🔨 PR  |
 | 6     | Data-access layer (`packages/engine-core`)                                       | 🔨 PR  |
 | 7     | Event pipeline (`ingest-event` + retry worker)                                   | 🔨 PR  |
-| 8     | Leads pipeline (`capture-lead`)                                                  | ⏳     |
+| 8     | Leads pipeline (`capture-lead`)                                                  | 🔨 PR  |
 | 9     | Job queue                                                                        | ⏳     |
 | gate  | Induced-failure test, zero-loss reconciliation, evidence to Slack                | ⏳     |
 
