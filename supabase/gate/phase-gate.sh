@@ -36,7 +36,7 @@ SQL
 # Event pipeline
 # ---------------------------------------------------------------------------------------------
 step "Event: write, then kill the backend mid-transaction"
-psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<SQL &
+PGAPPNAME=gate-event-writer psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<SQL &
 begin;
 insert into public.events (id, brand_id, market_code, kind, payload)
 values ('$EVENT', '$BRAND', 'EG', 'configurator.opened', '{"gate": true}'::jsonb);
@@ -48,7 +48,7 @@ sleep 3
 
 KILLED=$(psql_q "select count(*) from (
   select pg_terminate_backend(pid) from pg_stat_activity
-   where query like '%configurator.opened%' and pid <> pg_backend_pid()
+   where application_name = 'gate-event-writer' and pid <> pg_backend_pid()
 ) t")
 wait "$WRITER_PID" 2>/dev/null || true
 [ "$KILLED" -ge 1 ] || fail "no backend was killed — the induced failure did not happen"
@@ -93,7 +93,7 @@ echo "1 submitted, 1 stored, 0 in the queue — zero loss, no duplicate"
 # Leads pipeline
 # ---------------------------------------------------------------------------------------------
 step "Lead: capture, then kill the backend mid-transaction"
-psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<SQL &
+PGAPPNAME=gate-lead-writer psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<SQL &
 begin;
 select public.capture_lead(jsonb_build_object(
   'brand_id', '$BRAND', 'market_code', 'EG',
@@ -107,7 +107,7 @@ sleep 3
 
 KILLED=$(psql_q "select count(*) from (
   select pg_terminate_backend(pid) from pg_stat_activity
-   where query like '%Gate Person%' and pid <> pg_backend_pid()
+   where application_name = 'gate-lead-writer' and pid <> pg_backend_pid()
 ) t")
 wait "$WRITER_PID" 2>/dev/null || true
 [ "$KILLED" -ge 1 ] || fail "no backend was killed for the lead"
