@@ -43,7 +43,7 @@
 | 2     | Schema — options and spec ledger                                                 | 🔨 PR  |
 | 3     | Schema — control plane and billing                                               | 🔨 PR  |
 | 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | 🔨 PR  |
-| 4     | Schema — content blocks and media                                                | ⏳     |
+| 4     | Schema — content blocks and media                                                | 🔨 PR  |
 | 5     | Schema — leads and events                                                        | ⏳     |
 | 6     | Data-access layer (`packages/engine-core`)                                       | ⏳     |
 | 7     | Event pipeline (`ingest-event` + retry worker)                                   | ⏳     |
