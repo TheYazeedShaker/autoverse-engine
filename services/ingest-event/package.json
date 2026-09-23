@@ -1,19 +1,14 @@
 {
-  "name": "@autoverse/engine-core",
+  "name": "@autoverse/ingest-event",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "sideEffects": false,
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@autoverse/types": "workspace:*"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

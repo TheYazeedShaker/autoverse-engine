@@ -66,6 +66,73 @@ jobs:
           fi
           echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
           echo "Canary OK: the hardening test catches the privilege guard being removed."
+      - name: Canary — the catalog test must catch RLS being switched off
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.models disable row level security"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0003_catalog.test.sql 2>&1); then
+            echo "::error::The catalog test passed with RLS disabled on models. It cannot detect a leak."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.models enable row level security"
+          echo "Canary OK: the catalog test catches RLS being switched off."
+      - name: Canary — the ledger test must catch RLS being switched off
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.option_assignments disable row level security"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0004_options_ledger.test.sql 2>&1); then
+            echo "::error::The ledger test passed with RLS disabled on option_assignments."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.option_assignments enable row level security"
+          echo "Canary OK: the ledger test catches RLS being switched off."
+      - name: Canary — the control-plane test must catch RLS being switched off
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.brand_market_private disable row level security"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0005_control_plane.test.sql 2>&1); then
+            echo "::error::The control-plane test passed with RLS disabled on brand_market_private."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          echo "Canary OK: the control-plane test catches RLS being switched off."
+      - name: Canary — the theming test must catch the AA invariant being dropped
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.brand_themes drop constraint brand_themes_aa_accent_on_canvas, drop constraint brand_themes_aa_accent_on_white"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0006_theming.test.sql 2>&1); then
+            echo "::error::The theming test passed with the AA constraints dropped."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          echo "Canary OK: the theming test catches the AA invariant being dropped."
+      - name: Canary — the content test must catch RLS being switched off
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.content_blocks disable row level security"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0007_content.test.sql 2>&1); then
+            echo "::error::The content test passed with RLS disabled on content_blocks."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter table public.content_blocks enable row level security"
+          echo "Canary OK: the content test catches RLS being switched off."
+      - name: Canary — the leads test must catch the append-only guard being removed
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "drop trigger lead_activities_append_only on public.lead_activities"
+          if out=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0008_leads_events.test.sql 2>&1); then
+            echo "::error::The leads test passed with the append-only guard removed."; exit 1
+          fi
+          echo "$out" | grep -m1 "CRITICAL" || { echo "::error::Failed, but not with a CRITICAL finding:"; echo "$out"; exit 1; }
+          echo "Canary OK: the leads test catches the append-only guard being removed."
+
+  # The 1·A phase gate: an event and a lead must each survive a kill mid-write and reconcile to
+  # zero loss. Runs on its own database so the induced failures cannot disturb the isolation job.
+  phase-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with: { version: 2.117.0 }
+      - name: Start a throwaway Supabase Postgres and apply every migration
+        run: supabase db start
+      - name: Induced failure and zero-loss reconciliation
+        run: ./supabase/gate/phase-gate.sh
 
   # Secret scan over the FULL git history (a public repo publishes every commit, not just the tip).
   # Backstop for the local pre-commit guard in .githooks/pre-commit.

@@ -46,7 +46,7 @@ docs/  specs/  .claude/  .github/
 
 1. Correctness, tenant isolation, and observability — never traded.
 2. Ship speed and low cost — cut scope, never gates.
-3. Premium feel (Porsche-level bar on consumer surfaces).
+3. Premium feel (luxury-automotive benchmark quality on consumer surfaces).
 4. Scalable architecture.
 
 ## Non-negotiable engineering rules

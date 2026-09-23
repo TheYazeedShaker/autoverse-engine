@@ -1,9 +1,37 @@
 /**
- * @autoverse/engine-core — the typed data-access layer, entitlement/tier/flag
- * resolution, and the engine's server-side primitives.
+ * @autoverse/engine-core — the typed data-access layer.
  *
- * Scaffold only. Content arrives with the Phase 1·A engine-core spec
- * (see PROGRESS.md); nothing is built here during ENGINE-MIGRATION.
+ * Repositories are constructed with a brand id and apply it to every query themselves, so a caller
+ * cannot forget to scope one. RLS remains the real boundary; this is the second layer, and it is
+ * what protects service-role callers, which bypass RLS entirely.
  */
+export type { DbError, EngineDb, QueryBuilder, QueryResult, TableApi } from "./client";
+export { EngineDbError, unwrap } from "./client";
 
-export {};
+export type {
+  ActivityKind,
+  BrandMarketRow,
+  BrandRow,
+  BrandThemeRow,
+  EventRow,
+  LeadRow,
+  LeadStatus,
+  LeadType,
+  ModelRow,
+  PublishState,
+  SpecRowRow,
+  SpecRowScope,
+  TrimRow,
+} from "./database.types";
+
+export {
+  BrandRepository,
+  EventRepository,
+  LeadRepository,
+  ModelRepository,
+  ThemeRepository,
+  TrimRepository,
+  resolveLedgerRow,
+  rowDiffers,
+} from "./repositories";
+export type { EventInput, LeadInput, LedgerValue } from "./repositories";
