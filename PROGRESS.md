@@ -17,15 +17,15 @@
 
 ## Status
 
-| Track                             | Status                                                                                                       | Notes                                                                                                                                                                                                                                                             |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12                                                                                           | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7).                                                                              |
-| **Phase 0-H — Hardening (REV2)**  | ⚠️ **Built, not on `main`**                                                                                  | All 7 groups built and green, but #3–#9 merged into their base branches instead of `main`. **PR #10** lands the whole chain. Until it merges, none of the hardening (RLS fixes, isolation/secrets/smoke jobs, secret-scan hook) protects `main` or the hosted DB. |
-| $1 ✅ **Built, gate passed**      | Base spec + theming REV + REV2 amendments all in `specs/`. One PR per slice, stacked on the previous branch. |
-| Storybook / design system         | ⏸ Closed at Tier 1                                                                                           | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                                                                                                   |
-| Phase 1·B — Pipeline & admin      | ⏳ Held                                                                                                      | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                                                                 |
-| Phase 1·C — Consumer app          | ⏳ Held                                                                                                      | Design-first.                                                                                                                                                                                                                                                     |
-| Phase 1·D — Dashboard & hardening | ⏳ Held                                                                                                      |                                                                                                                                                                                                                                                                   |
+| Track                             | Status                                                                                                                                                                                                                                                            | Notes                                                                                                                                                                                |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12                                                                                                                                                                                                                                                | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7). |
+| $1 ✅ On `main`                   | All 7 groups built and green, but #3–#9 merged into their base branches instead of `main`. **PR #10** lands the whole chain. Until it merges, none of the hardening (RLS fixes, isolation/secrets/smoke jobs, secret-scan hook) protects `main` or the hosted DB. |
+| $1 ✅ **Built, gate passed**      | Base spec + theming REV + REV2 amendments all in `specs/`. One PR per slice, stacked on the previous branch.                                                                                                                                                      |
+| Storybook / design system         | ⏸ Closed at Tier 1                                                                                                                                                                                                                                                | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
+| Phase 1·B — Pipeline & admin      | ⏳ Held                                                                                                                                                                                                                                                           | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
+| Phase 1·C — Consumer app          | ⏳ Held                                                                                                                                                                                                                                                           | Design-first.                                                                                                                                                                        |
+| Phase 1·D — Dashboard & hardening | ⏳ Held                                                                                                                                                                                                                                                           |                                                                                                                                                                                      |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
 
@@ -157,28 +157,61 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ## Next Session — Start Here
 
-**Everything below waits on merges. Nothing is blocked on more building.**
+**Everything built so far is on `main`.** Phase 0-H, the spec housekeeping, and all of 1·A
+(nine slices + theming REV + phase gate) landed 2026-09-23. Nothing is waiting to be merged.
 
-### Merge order (each PR retargets to `main` as the one below it merges)
+### How the merges actually went, so nobody repeats it
 
-**#10 first** — it lands all of Phase 0-H, which never reached `main`. Then:
-#11 → #12 → #13 → #14 → #15 → #16 → #17 → #18 → (slice 7 branch `feat/1a-s7-event-pipeline`) → #19 → #20 → #21.
+Merging the stack one PR at a time did **not** work, twice. Each PR's base was the branch below it,
+so merging them in order put the content into those branches rather than into `main` — and GitHub
+then closed every PR as merged while `main` had almost none of it. The second attempt failed the
+same way, alternating "merged" and "not mergeable" as GitHub recomputed each base.
 
-### After the merges
+What worked: merge the **tip of the stack** into `main` in one PR. The tip already contained every
+commit, so the merge is exactly the reviewed content.
 
-1. Confirm the **Supabase check is green on `main`**, and that the 1·A migrations reached the hosted database. Ask before applying anything by hand.
-2. Add `isolation`, `secrets` and `phase-gate` to `main`'s required status checks.
-3. **Regenerate `packages/engine-core/src/database.types.ts`** from the live schema (command in `supabase/README.md`). It is hand-written until then.
-4. **Run the flag kill-path runbook** (`docs/runbooks/flag-kill-path.md`) — still blocked on production having `/api/health`, which arrives with 0-H.
-5. Deploy the four edge functions (`validate-theme`, `ingest-event`, `capture-lead`, plus the job worker) and wire a schedule for the worker sweep.
+**If a stack like this is ever built again:** either open every PR against `main` from the start, or
+plan to land the tip in a single merge. Do not chain PR bases and then merge bottom-up.
 
-### Open questions for Yazeed (none block 1·A; all are one-line changes)
+### Verify before building on it
 
-- **Published-catalogue reads.** Slice 1 asks for both "authenticated reads on published rows" and "brand users read own brand only". I took the stricter reading: a brand user sees its own brand and nothing of a competitor's, and `anon` sees nothing, so the consumer surface must read server-side.
-- **`price_egp`** hardcodes a currency in a column name while `brand_markets.currency` is per market. Followed the spec exactly rather than deciding.
-- **Asset base kinds.** The slice says the enum "grows" to three new kinds; `source_model | render | image | document` are my assumption about what it grows _from_.
-- **`vocabulary_registry` is readable by every signed-in user** — shared reference data, but an option id can carry a brand's wording. Recorded as an accepted risk in the migration header with the condition for tightening it.
+`main` now carries: the 0-H hardening (RLS fixes, isolation/secrets/smoke CI jobs, pre-commit
+secret scan, ADRs 0001 + 0003–0008), the 1·A schema (catalog, options + spec ledger, control plane,
+theming, content + media, leads + events, capture_lead, jobs), `packages/engine-core`, the four
+services, and the phase gate.
 
-### Still not started
+### Do these first, in this order
 
-Nothing from 1·A remains to build.
+1. **Confirm the Supabase check is green on `main`** and that all eight 1·A migrations reached the
+   hosted database. Ask Yazeed before applying anything by hand.
+2. **Add `isolation`, `secrets` and `phase-gate` to `main`'s required status checks.** Only
+   `verify` is required today. The "branches must be up to date" flag was switched off to land this
+   stack and switched back on afterwards — confirm it reads `strict: true`.
+3. **Fix the three bugs in the BLOCK section above** — the events upsert emitting
+   `ON CONFLICT DO UPDATE`, the missing job lease/reaper, and the false lead dedupe key. None need a
+   decision from Yazeed.
+4. **Regenerate `packages/engine-core/src/database.types.ts`** from the live schema once the
+   migrations are applied (command in `supabase/README.md`). It is hand-written until then.
+5. **Run `docs/runbooks/flag-kill-path.md`** — now unblocked, since `/api/health` is on `main`.
+
+### Blocked on Yazeed (do not guess these)
+
+- **How consumer capture authenticates.** All three edge functions currently authorize nobody and
+  take `brand_id` from the request body while writing with the service-role key. The brand must be
+  server-resolved. Rate limiting is also required by `CLAUDE.md` and absent.
+- **Where the worker runs** — Supabase scheduled function, or external cron. Until one exists, both
+  dead-letter queues are write-only and no lead notification is delivered.
+- The four spec ambiguities listed under _Open questions_ below.
+- `docs/ADMIN-DESIGN-BRIEF.md` is still uncommitted; design material now belongs in the gitignored
+  `design/` folder.
+
+### Open questions (each a one-line change)
+
+- **Published-catalogue reads.** Slice 1 asks for both "authenticated reads on published rows" and
+  "brand users read own brand only". Took the stricter reading: a brand user sees only its own brand,
+  and `anon` sees nothing, so the consumer surface must read server-side.
+- **`price_egp`** hardcodes a currency while `brand_markets.currency` is per market.
+- **Asset base kinds** — `source_model | render | image | document` is an assumption about what the
+  enum "grows" from.
+- **`vocabulary_registry` is readable by every signed-in user**; an option id can carry a brand's
+  wording. Recorded as an accepted risk in that migration's header.
