@@ -4,7 +4,7 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-22
+**Last updated:** 2026-09-23
 **Last session:** Phase 0-H is complete on the branch chain but **never reached `main`** (PRs #3–#9 merged into each other's branches, not up). PR #10 lands the lot. Then started **ENGINE-CORE-1A** in long-leash mode: one PR per slice, each stacked on the previous so nothing waits on a merge.
 
 ---
@@ -17,15 +17,15 @@
 
 ## Status
 
-| Track                             | Status                      | Notes                                                                                                                                                                                                                                                             |
-| --------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12          | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7).                                                                              |
-| **Phase 0-H — Hardening (REV2)**  | ⚠️ **Built, not on `main`** | All 7 groups built and green, but #3–#9 merged into their base branches instead of `main`. **PR #10** lands the whole chain. Until it merges, none of the hardening (RLS fixes, isolation/secrets/smoke jobs, secret-scan hook) protects `main` or the hosted DB. |
-| Phase 1·A — Engine core           | 🔨 **In progress**          | Base spec + theming REV + REV2 amendments all in `specs/`. One PR per slice, stacked on the previous branch.                                                                                                                                                      |
-| Storybook / design system         | ⏸ Closed at Tier 1          | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                                                                                                   |
-| Phase 1·B — Pipeline & admin      | ⏳ Held                     | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                                                                 |
-| Phase 1·C — Consumer app          | ⏳ Held                     | Design-first.                                                                                                                                                                                                                                                     |
-| Phase 1·D — Dashboard & hardening | ⏳ Held                     |                                                                                                                                                                                                                                                                   |
+| Track                             | Status                                                                                                       | Notes                                                                                                                                                                                                                                                             |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12                                                                                           | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7).                                                                              |
+| **Phase 0-H — Hardening (REV2)**  | ⚠️ **Built, not on `main`**                                                                                  | All 7 groups built and green, but #3–#9 merged into their base branches instead of `main`. **PR #10** lands the whole chain. Until it merges, none of the hardening (RLS fixes, isolation/secrets/smoke jobs, secret-scan hook) protects `main` or the hosted DB. |
+| $1 ✅ **Built, gate passed**      | Base spec + theming REV + REV2 amendments all in `specs/`. One PR per slice, stacked on the previous branch. |
+| Storybook / design system         | ⏸ Closed at Tier 1                                                                                           | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                                                                                                   |
+| Phase 1·B — Pipeline & admin      | ⏳ Held                                                                                                      | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                                                                 |
+| Phase 1·C — Consumer app          | ⏳ Held                                                                                                      | Design-first.                                                                                                                                                                                                                                                     |
+| Phase 1·D — Dashboard & hardening | ⏳ Held                                                                                                      |                                                                                                                                                                                                                                                                   |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
 
@@ -36,33 +36,36 @@
 
 ### Phase 1·A slice tracker (one PR each, stacked)
 
-| Slice | What                                                                             | Status |
-| ----- | -------------------------------------------------------------------------------- | ------ |
-| setup | Yazeed's answers: `design/` ignored, CLAUDE.md reworded, PROGRESS title repaired | 🔨 PR  |
-| 1     | Schema — catalog and markets                                                     | 🔨 PR  |
-| 2     | Schema — options and spec ledger                                                 | 🔨 PR  |
-| 3     | Schema — control plane and billing                                               | 🔨 PR  |
-| 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | 🔨 PR  |
-| 4     | Schema — content blocks and media                                                | 🔨 PR  |
-| 5     | Schema — leads and events                                                        | 🔨 PR  |
-| 6     | Data-access layer (`packages/engine-core`)                                       | 🔨 PR  |
-| 7     | Event pipeline (`ingest-event` + retry worker)                                   | 🔨 PR  |
-| 8     | Leads pipeline (`capture-lead`)                                                  | 🔨 PR  |
-| 9     | Job queue                                                                        | 🔨 PR  |
-| gate  | Induced-failure test, zero-loss reconciliation, evidence to Slack                | ⏳     |
+| Slice | What                                                                             | Status             |
+| ----- | -------------------------------------------------------------------------------- | ------------------ |
+| setup | Yazeed's answers: `design/` ignored, CLAUDE.md reworded, PROGRESS title repaired | ✅ PR #11          |
+| 1     | Schema — catalog and markets                                                     | ✅ PR #12          |
+| 2     | Schema — options and spec ledger                                                 | ✅ PR #13          |
+| 3     | Schema — control plane and billing                                               | ✅ PR #14          |
+| 3.5   | Theming REV — `brand_themes`, `validate-theme`, admin neutral ramp               | ✅ PR #15          |
+| 4     | Schema — content blocks and media                                                | ✅ PR #16          |
+| 5     | Schema — leads and events                                                        | ✅ PR #17          |
+| 6     | Data-access layer (`packages/engine-core`)                                       | ✅ PR #18          |
+| 7     | Event pipeline (`ingest-event` + retry worker)                                   | ✅ PR #22          |
+| 8     | Leads pipeline (`capture-lead`)                                                  | ✅ PR #19          |
+| 9     | Job queue                                                                        | ✅ PR #20          |
+| gate  | Induced-failure test, zero-loss reconciliation, evidence to Slack                | ✅ PR #21 — PASSED |
 
 ## What Was Built Last Session
 
-- **Spec housekeeping.** `SPEC-engine-migration.md` moved to `specs/archive/` with a `COMPLETED 2026-08-12` header. The three Storybook specs carry a header closing them at Tier 1. The REV2 spec is committed to `specs/`.
-- **0-H.1 — migration renamed** to `20260617132328_init_tenancy.sql` (contents byte-identical) so it matches the version the remote DB recorded. Timestamp naming documented in `supabase/README.md`; the skill, the `security-review` agent and the isolation test now point at the new name. The Supabase check can only go green on `main` after merge.
-- **0-H.2 — isolation test runs in CI.** New `isolation` job: `supabase db start` boots a throwaway Supabase Postgres (real roles + `auth` schema), applies every migration, and runs every `supabase/tests/*.test.sql` with `psql -v ON_ERROR_STOP=1`. A canary step switches RLS off and requires the test to fail, proving it can still see a leak. No hosted DB, no secrets. Deliberate deviation from the spec's "against the branch DB": a fresh local database is deterministic, free, and needs no credentials on a public repo.
-- **0-H.3 — RLS hardening** (`20260921151103_rls_hardening.sql` + `0002_rls_hardening.test.sql`). Guard now fires on INSERT/UPDATE/DELETE; only superadmin + ops write brands/profiles; nobody changes their own role; only a superadmin grants/revokes/touches superadmin; helpers moved to the non-exposed `app_auth` schema; the future-table pattern is now read-only for brand users. The guard explicitly trusts no-JWT (migrations/SQL editor) and service-role contexts — otherwise extending it to INSERT would have locked edge functions out of provisioning.
-- **0-H.3 follow-up (security review: APPROVE with conditions, all addressed).** Guard trust now comes from the connection (`session_user` + the `role` setting), not from JWT presence — the old "no claims = trusted" rule would have trusted GoTrue's sign-up trigger, reopening the self-superadmin gap. Superadmin rows are off-limits to non-superadmins entirely; managers can't delete/re-create their own profile. Every negative test asserts the error message; a second CI canary removes the guard and requires the test to fail with a CRITICAL finding.
-- **0-H.4 — CI wall.** Secret scan: `.claude/hooks/secret-scan.sh` rewritten (it exited 1, which Claude Code never treats as a block; now exits 2, fails closed, blocks `.env`/key files, wider patterns) and wired as a real git **pre-commit** hook (`.githooks/`, enabled by `pnpm install`); CI `secrets` job runs gitleaks over the full history. axe on all 9 primitives (the 4 missing ones added, in LTR **and** RTL). Reduced-motion: Button/SegmentedToggle/Swatch now honour it, and a gate test fails CI on any animating class without its `motion-reduce:` counterpart (plus CSS / motion-library checks; the gate self-tests its detector). No-hardcoded-tokens lint: hex, colour functions, px strings **and** bare numbers on length props — 38 real violations fixed onto tokens; new `--av-border-width` hairline token + a CSS↔TS parity test. CI `permissions: contents: read`.
-- **0-H.5 — repo hygiene.** `.gitignore` now covers every `.env` variant (except `.env.example`), `.envrc`, keys/certs and credential JSON — verified with `git check-ignore`. Real manufacturer example values in `packages/types` replaced with fictional ones. ADRs 0001 and 0003–0007 carried over from the Phase-0 repo with paths updated, so every ADR the code cites now resolves (0002 never existed). **`docs/ADMIN-DESIGN-BRIEF.md` deliberately NOT committed yet:** it names a real manufacturer and its model line as seed data, and ADR-0008 treats a new prospect name as a publication event — held for Yazeed's call together with the visibility decision.
-- **0-H.6 — loop-proof finished (code side).** `/api/health` on the consumer app returns the deployed commit. New `smoke.yml` runs on every production deploy: it waits until the **public production domain serves that exact commit** (so it can't pass against the previous deploy), then checks health and the home page. Server-side flags via `apps/consumer/lib/flags.ts`, which **fails closed** (no key, error, timeout → off) — tested. `health_build_info` gates build details. **Still open:** the live create → off → on → kill run (`docs/runbooks/flag-kill-path.md`) needs the PostHog key in Vercel env; the smoke workflow first runs on the first production deploy after merge; auto-rollback needs a Vercel token secret.
-- **0-H.7 — ops closure.** Old repo's farewell README pushed (`6867f2c`; archiving is Yazeed's toggle). `CommandEnvelope` / `SignalEnvelope` are now discriminated unions — a mismatched command/data pair fails typecheck, enforced by `@ts-expect-error` tests (proven: removing one makes `tsc` fail). Sentry transplanted from the Phase-0 app into `apps/consumer` (client/server/edge, `global-error`, no PII, no-op without a DSN). PostHog client wired **privacy-conservatively** — no autocapture, no pageviews, no recording, no device storage — until the consent flow is specced (1·C); a test locks that in.
-- **Supabase** is restored and healthy again.
+**All of ENGINE-CORE-1A: nine slices, the theming REV, and the phase gate — 12 PRs, each CI-green, each stacked on the last so nothing waited on a merge.**
+
+The schema (slices 1–5) enforces in the database what would otherwise be a convention: composite foreign keys make a cross-brand row unrepresentable; a price is a number or "on request", never both; a vocabulary id is frozen once used, even after its last reference is deleted; consent is not optional; events are write-once and activities append-only for everyone, service role included.
+
+Reads only, everywhere. No table added in 1·A has a write policy — writes go through service-role edge functions — and INSERT/UPDATE/DELETE/TRUNCATE are revoked from `anon` and `authenticated`, so denial holds at two layers.
+
+The theming REV puts its AA invariant in CHECK constraints rather than trusting the edge function: the test proves a failing theme cannot be stored even by the service role, with the function bypassed entirely.
+
+The pipelines (7–9) are built around the assumption that they will be interrupted. Ingest never returns 5xx for a bad payload, leads are refused or dead-lettered but never silently dropped, and every job kind is idempotent because a dead worker runs its job again.
+
+**The phase gate passed.** An event and a lead each survived a backend kill mid-write and reconciled to zero loss — including no orphan activity, no routing job for a lead that never existed, and consent intact after the replay.
+
+**Two security reviews caught things worth catching.** The first: a test that passed for the wrong reason, because a unique constraint fired before the foreign key it meant to exercise. The second, and more serious: the public-read policies gated on a model's publish state but not a trim's, so any signed-in account could read the uuid, figures and exclusive options of an unannounced trim through `spec_rows.trim_values` and `option_assignments.trim_ids`. Slice 1 correctly hid the trim's own row, which is what made it easy to miss. Fixed, tested, and merged down the whole stack.
 
 ## Decisions Made (must be remembered)
 
@@ -100,16 +103,82 @@
 - Two documentation portals (internal + client-facing) — Phase 1·D.
 - `CLAUDE.md` names a car maker as a quality benchmark ("Porsche-level bar"). REV2's acceptance bans real manufacturer names outside `docs/`. Left untouched because `CLAUDE.md` is the operating manual; Yazeed to decide whether to reword it.
 
+## ⛔ 1·A is BUILT but NOT READY TO SHIP — consolidated security review, 2026-09-23
+
+The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
+Both are true, and the second is the more important one: **the gate passes on a system that, deployed
+as it stands, would lose every dead letter and deliver no lead notification.** Read this before
+merging anything past #18.
+
+Read-side tenant isolation came through clean — the reviewer could not break it, and the PII audit
+found no path for an end user, anon or another brand to reach lead data. The problems are on the
+**write side** and the **availability side**.
+
+### Must be fixed before these pipelines carry real traffic
+
+1. **CRITICAL — the edge functions authorize nobody.** `validate-theme` takes `brand_id` from the
+   request body and writes `brand_themes` with the service-role key: no session check, no ownership
+   check. Anyone who can reach the URL can repaint any brand in any market. `capture-lead` and
+   `ingest-event` share the shape — lead injection into any brand with a **forged consent record**,
+   and events under any brand id. RLS is sound; this bypasses it by design. Needs a decision from
+   Yazeed on how consumer-facing capture authenticates (server-resolved brand rather than
+   caller-declared, plus the rate limiting CLAUDE.md requires and no function currently has).
+2. **CRITICAL — no worker exists.** `services/job-worker` has no entrypoint, and nothing calls
+   `claim_jobs`, `complete_job` or `planReplay` outside tests. Both dead-letter queues are
+   write-only, and **no brand is ever notified of any lead**. Needs a scheduler decision (Supabase
+   scheduled function vs an external cron).
+3. **HIGH — the gate certifies a pipeline it does not drive.** `phase-gate.sh` performs the
+   dead-letter insert and the replay _itself_, standing in for the components in (2). The one thing
+   it genuinely proves is that a killed backend rolls back, which is Postgres, not us.
+4. **HIGH — events idempotency breaks in production.** supabase-js `.upsert()` emits
+   `ON CONFLICT DO UPDATE`, which trips `events_write_once` on ordinary redelivery of an already
+   processed event — and then the whole batch is dead-lettered into the queue nobody drains. Test
+   0008 uses `DO NOTHING`, which is not what the code runs, so it was invisible.
+   Fix: `{ onConflict: "id", ignoreDuplicates: true }`, and test the statement the code emits.
+5. **HIGH — claimed jobs have no lease and no reaper.** A worker dying mid-job leaves the row
+   `running` forever, and the dedupe index (`pending`,`running`) then blocks that work from ever
+   being re-enqueued. The comments claiming it "comes back on the next sweep" are wrong.
+6. **MEDIUM-HIGH — the lead dedupe comment is false.** The key is the newly generated lead id, so a
+   replayed capture creates a second lead and emails the brand twice. `capture_lead` needs an
+   idempotency key from the payload.
+7. **MEDIUM — `lead_activities.brand_id` is not tied to its lead's brand.** Composite FK missing,
+   inconsistent with the same file's own pattern for models and trims.
+8. **MEDIUM — `LeadRepository.create` bypasses `capture_lead`**, so a lead written through it has no
+   first activity and no routing jobs — the exact outcome slice 8 exists to prevent.
+9. **MEDIUM — event payloads are unbounded.** `z.record(z.string(), z.unknown())` with no size cap,
+   in a write-once table that cannot be scrubbed.
+
+### Also noted
+
+- No CI canary for RLS on `leads` itself (the one PII table), nor for 0009/0010.
+- `control_plane` revokes insert/update/delete but not `truncate`, unlike the later migrations.
+- AA constraints, the SECURITY DEFINER grants, the append-only guards and the claiming logic all
+  held up under attack — those parts are sound.
+
 ## Next Session — Start Here
 
-**Phase 0-H is fully built — 8 stacked PRs, each green. Merge them in order: #2 → #3 → #4 → #5 → #6 → #7 → #8 → the 0-H.7 PR.** Each retargets to `main` when the one below it merges.
+**Everything below waits on merges. Nothing is blocked on more building.**
 
-**Claude Code, after each merge:**
+### Merge order (each PR retargets to `main` as the one below it merges)
 
-1. After #3: confirm the **Supabase check is green on `main`** (REV2's gate for 1·A).
-2. After #4 and #6: add `isolation` and `secrets` to `main`'s required status checks alongside `verify`.
-3. After #5: confirm migration `20260921151103_rls_hardening` reached the **hosted** DB (`list_migrations`). If the Supabase integration didn't apply it, ask Yazeed before applying it by hand, then re-run the Supabase security advisors.
-4. After #8: watch the first run of `smoke.yml` on the production deploy.
-5. When the PostHog key is in Vercel env: run `docs/runbooks/flag-kill-path.md` and record the result here.
+**#10 first** — it lands all of Phase 0-H, which never reached `main`. Then:
+#11 → #12 → #13 → #14 → #15 → #16 → #17 → #18 → (slice 7 branch `feat/1a-s7-event-pipeline`) → #19 → #20 → #21.
 
-**Do not start any 1·A slice** until all of 0-H is merged, the Supabase check is green on `main`, **and** the base `SPEC-engine-core-1A.md`, the theming REV and the design exports are in the repo. REV2 only amends them, and none of them are here.
+### After the merges
+
+1. Confirm the **Supabase check is green on `main`**, and that the 1·A migrations reached the hosted database. Ask before applying anything by hand.
+2. Add `isolation`, `secrets` and `phase-gate` to `main`'s required status checks.
+3. **Regenerate `packages/engine-core/src/database.types.ts`** from the live schema (command in `supabase/README.md`). It is hand-written until then.
+4. **Run the flag kill-path runbook** (`docs/runbooks/flag-kill-path.md`) — still blocked on production having `/api/health`, which arrives with 0-H.
+5. Deploy the four edge functions (`validate-theme`, `ingest-event`, `capture-lead`, plus the job worker) and wire a schedule for the worker sweep.
+
+### Open questions for Yazeed (none block 1·A; all are one-line changes)
+
+- **Published-catalogue reads.** Slice 1 asks for both "authenticated reads on published rows" and "brand users read own brand only". I took the stricter reading: a brand user sees its own brand and nothing of a competitor's, and `anon` sees nothing, so the consumer surface must read server-side.
+- **`price_egp`** hardcodes a currency in a column name while `brand_markets.currency` is per market. Followed the spec exactly rather than deciding.
+- **Asset base kinds.** The slice says the enum "grows" to three new kinds; `source_model | render | image | document` are my assumption about what it grows _from_.
+- **`vocabulary_registry` is readable by every signed-in user** — shared reference data, but an option id can carry a brand's wording. Recorded as an accepted risk in the migration header with the condition for tightening it.
+
+### Still not started
+
+Nothing from 1·A remains to build.
