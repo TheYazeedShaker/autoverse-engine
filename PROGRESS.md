@@ -103,6 +103,58 @@ The pipelines (7–9) are built around the assumption that they will be interrup
 - Two documentation portals (internal + client-facing) — Phase 1·D.
 - `CLAUDE.md` names a car maker as a quality benchmark ("Porsche-level bar"). REV2's acceptance bans real manufacturer names outside `docs/`. Left untouched because `CLAUDE.md` is the operating manual; Yazeed to decide whether to reword it.
 
+## ⛔ 1·A is BUILT but NOT READY TO SHIP — consolidated security review, 2026-09-23
+
+The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
+Both are true, and the second is the more important one: **the gate passes on a system that, deployed
+as it stands, would lose every dead letter and deliver no lead notification.** Read this before
+merging anything past #18.
+
+Read-side tenant isolation came through clean — the reviewer could not break it, and the PII audit
+found no path for an end user, anon or another brand to reach lead data. The problems are on the
+**write side** and the **availability side**.
+
+### Must be fixed before these pipelines carry real traffic
+
+1. **CRITICAL — the edge functions authorize nobody.** `validate-theme` takes `brand_id` from the
+   request body and writes `brand_themes` with the service-role key: no session check, no ownership
+   check. Anyone who can reach the URL can repaint any brand in any market. `capture-lead` and
+   `ingest-event` share the shape — lead injection into any brand with a **forged consent record**,
+   and events under any brand id. RLS is sound; this bypasses it by design. Needs a decision from
+   Yazeed on how consumer-facing capture authenticates (server-resolved brand rather than
+   caller-declared, plus the rate limiting CLAUDE.md requires and no function currently has).
+2. **CRITICAL — no worker exists.** `services/job-worker` has no entrypoint, and nothing calls
+   `claim_jobs`, `complete_job` or `planReplay` outside tests. Both dead-letter queues are
+   write-only, and **no brand is ever notified of any lead**. Needs a scheduler decision (Supabase
+   scheduled function vs an external cron).
+3. **HIGH — the gate certifies a pipeline it does not drive.** `phase-gate.sh` performs the
+   dead-letter insert and the replay _itself_, standing in for the components in (2). The one thing
+   it genuinely proves is that a killed backend rolls back, which is Postgres, not us.
+4. **HIGH — events idempotency breaks in production.** supabase-js `.upsert()` emits
+   `ON CONFLICT DO UPDATE`, which trips `events_write_once` on ordinary redelivery of an already
+   processed event — and then the whole batch is dead-lettered into the queue nobody drains. Test
+   0008 uses `DO NOTHING`, which is not what the code runs, so it was invisible.
+   Fix: `{ onConflict: "id", ignoreDuplicates: true }`, and test the statement the code emits.
+5. **HIGH — claimed jobs have no lease and no reaper.** A worker dying mid-job leaves the row
+   `running` forever, and the dedupe index (`pending`,`running`) then blocks that work from ever
+   being re-enqueued. The comments claiming it "comes back on the next sweep" are wrong.
+6. **MEDIUM-HIGH — the lead dedupe comment is false.** The key is the newly generated lead id, so a
+   replayed capture creates a second lead and emails the brand twice. `capture_lead` needs an
+   idempotency key from the payload.
+7. **MEDIUM — `lead_activities.brand_id` is not tied to its lead's brand.** Composite FK missing,
+   inconsistent with the same file's own pattern for models and trims.
+8. **MEDIUM — `LeadRepository.create` bypasses `capture_lead`**, so a lead written through it has no
+   first activity and no routing jobs — the exact outcome slice 8 exists to prevent.
+9. **MEDIUM — event payloads are unbounded.** `z.record(z.string(), z.unknown())` with no size cap,
+   in a write-once table that cannot be scrubbed.
+
+### Also noted
+
+- No CI canary for RLS on `leads` itself (the one PII table), nor for 0009/0010.
+- `control_plane` revokes insert/update/delete but not `truncate`, unlike the later migrations.
+- AA constraints, the SECURITY DEFINER grants, the append-only guards and the claiming logic all
+  held up under attack — those parts are sound.
+
 ## Next Session — Start Here
 
 **Everything below waits on merges. Nothing is blocked on more building.**
