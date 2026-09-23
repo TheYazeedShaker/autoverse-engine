@@ -57,7 +57,7 @@ export const Swatch = forwardRef<HTMLButtonElement, SwatchProps>(function Swatch
       disabled={disabled}
       onClick={() => onSelect?.(value)}
       className={cn(
-        "inline-block rounded-full border border-fg/20 outline-none transition-shadow",
+        "inline-block rounded-full border border-fg/20 outline-none transition-shadow motion-reduce:transition-none",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg",
         selected && "ring-2 ring-fg ring-offset-2 ring-offset-transparent",
         "disabled:pointer-events-none disabled:opacity-40",

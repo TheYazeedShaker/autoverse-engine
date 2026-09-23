@@ -1,11 +1,11 @@
 -- 0001_tenancy_isolation.test.sql
--- MANDATORY tenant-isolation test for migration 0001_init_tenancy.sql (CLAUDE.md §6).
+-- MANDATORY tenant-isolation test for migration 20260617132328_init_tenancy.sql (CLAUDE.md §6).
 -- Proves: a brand cannot read another brand's rows; a brand reads only its own;
 -- Autoverse staff get the god-view. Self-contained and idempotent — seeds fixtures,
 -- runs assertions as the non-privileged `authenticated` role (so RLS is ENFORCED, not
 -- bypassed), and ROLLS BACK so no fixture data persists.
 --
--- Run via the Supabase MCP execute_sql, the SQL editor, or `supabase db execute`.
+-- Runs in CI on every PR (the `isolation` job) against a throwaway local database. See supabase/README.md.
 -- A violation RAISES EXCEPTION (the whole script aborts) = a failing test.
 -- Success = it runs to COMMIT-less ROLLBACK with no exception and the NOTICEs all say PASS.
 

@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { describe, expect, it } from "vitest";
 import { Text } from "./Text";
 import { Heading } from "./Heading";
@@ -45,5 +46,20 @@ describe("Heading", () => {
       </Heading>,
     );
     expect(getByRole("heading", { level: 3 })).toHaveStyle({ fontSize: "var(--av-text-4xl)" });
+  });
+  // a11y: axe on a realistic composition, in both reading directions (Arabic is RTL).
+  it.each(["ltr", "rtl"] as const)("has no axe violations (%s)", async (dir) => {
+    const { container } = render(
+      <div dir={dir} lang={dir === "rtl" ? "ar" : "en"}>
+        <article>
+          <Heading level={2}>Performance</Heading>
+          <Text>0–100 km/h in 3.2 s.</Text>
+          <Text as="span" size="sm">
+            Figures are indicative.
+          </Text>
+        </article>
+      </div>,
+    );
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

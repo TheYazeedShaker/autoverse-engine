@@ -1,0 +1,9 @@
+# Supabase CLI config. CI uses it to run `supabase db start`: a throwaway local Postgres
+# with the real Supabase roles and auth schema, with every migration applied. Nothing here
+# points at a hosted project, and no credentials belong in this file.
+project_id = "autoverse-engine"
+
+[db]
+port = 54322
+# Match the hosted project (Postgres 17).
+major_version = 17

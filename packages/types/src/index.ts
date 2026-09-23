@@ -9,7 +9,7 @@ export type BillingState = "free" | "pending_activation" | "active" | "past_due"
 
 export interface Brand {
   id: string;
-  slug: string; // e.g. "soueast" — also the configurator brandId
+  slug: string; // e.g. "acme-motors" (fictional) — also the configurator brandId
   name: string;
   status: "draft" | "live" | "paused";
   tier: Tier;
@@ -44,7 +44,7 @@ export interface ModelManifest {
 }
 
 export interface Model {
-  id: string; // configurator modelId, e.g. "s07"
+  id: string; // configurator modelId, e.g. "am-7" (fictional)
   brandId: string;
   name: string;
   status: "draft" | "live";
@@ -70,12 +70,9 @@ export type ConfiguratorCommand =
   | { command: "request_snapshot"; data: Record<string, never> }
   | { command: "reset"; data: Record<string, never> };
 
-export interface CommandEnvelope {
-  source: "autoverse";
-  version: string;
-  command: ConfiguratorCommand["command"];
-  data: ConfiguratorCommand["data"];
-}
+/** A command on the wire. Intersecting with the union keeps each command paired with its own
+ *  `data` shape — `{ command: "set_option", data: { mode: "light" } }` does not typecheck. */
+export type CommandEnvelope = { source: "autoverse"; version: string } & ConfiguratorCommand;
 
 // configurator -> Autoverse
 export type ConfiguratorSignal =
@@ -93,16 +90,15 @@ export type ConfiguratorSignal =
     }
   | { event: "snapshot"; data: { imageDataUrl: string } };
 
-export interface SignalEnvelope {
+/** A signal on the wire — same pairing guarantee as CommandEnvelope: `event` narrows `data`. */
+export type SignalEnvelope = {
   source: "nmesis-configurator";
   version: string;
   brandId: string;
   modelId: string;
   sessionId: string;
   timestamp: string; // ISO 8601
-  event: ConfiguratorSignal["event"];
-  data: ConfiguratorSignal["data"];
-}
+} & ConfiguratorSignal;
 
 /* ============================ Analytics & leads ============================ */
 export type Platform = "web" | "mobile";

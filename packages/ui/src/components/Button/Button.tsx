@@ -12,7 +12,7 @@ import { Icon, type IconSize } from "../Icon";
 // on a light surface, light-on-dark on a dark one, never dark-on-dark. `secondary`/`ghost` tint the ink.
 // State is via Tailwind pseudo-variants; a11y (focus ring, disabled) is built in.
 export const buttonVariants = cva(
-  "inline-flex select-none items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex select-none items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
@@ -84,7 +84,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {...props}
     >
       {loading ? (
-        <Icon icon={Loader2} size={iconSize} className="animate-spin" />
+        <Icon icon={Loader2} size={iconSize} className="animate-spin motion-reduce:animate-none" />
       ) : leadingIcon ? (
         <Icon icon={leadingIcon} size={iconSize} />
       ) : null}

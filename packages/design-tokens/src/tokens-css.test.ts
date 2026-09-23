@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AA, contrastRatio } from "./contrast";
+import { borderWidth, radius, space } from "./tokens";
 
 // Companion to surfaces.test.ts: tokens.css is the CANONICAL web source, so its surface↔foreground
 // pairs must clear AA too — not just the TS registry. This parses the CSS, resolves var() chains to
@@ -61,4 +62,14 @@ describe("tokens.css surface ↔ foreground pairs meet AA (§4.2, canonical sour
       });
     }
   }
+});
+
+describe("tokens.css scales match the TS registry (no drift)", () => {
+  it("every space, radius and border-width token has the same value in CSS and TS", () => {
+    for (const [k, v] of Object.entries(space))
+      expect(declarations.get(`--av-space-${k}`)).toBe(`${v}px`);
+    for (const [k, v] of Object.entries(radius))
+      expect(declarations.get(`--av-radius-${k}`)).toBe(`${v}px`);
+    expect(declarations.get("--av-border-width")).toBe(`${borderWidth.hairline}px`);
+  });
 });

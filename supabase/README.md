@@ -1,7 +1,20 @@
 # Supabase
 
-Migrations are forward-only and numbered. **Every brand-scoped table ships its RLS policy in the
-same migration that creates it** (see the pattern at the bottom of `0001_init_tenancy.sql`).
+Migrations are forward-only. **Every brand-scoped table ships its RLS policy in the same migration
+that creates it** — see the pattern at the bottom of `20260921151103_rls_hardening.sql` (brand users
+read-only; writes via service-role edge functions). The older pattern at the bottom of
+`20260617132328_init_tenancy.sql` is superseded and must not be copied.
+
+## Naming — timestamps, always
+
+Name every migration `YYYYMMDDHHMMSS_short_name.sql` (UTC), e.g. `20261002143000_catalog.sql`.
+`supabase migration new <short_name>` generates the right name for you.
+
+The Supabase CLI and the GitHub integration match local files to the remote database by that
+timestamp prefix. The first migration used to be named `0001_init_tenancy.sql`, while the remote
+recorded it as `20260617132328`. That mismatch failed the Supabase check on `main`
+(`Remote migration versions not found in local migrations directory`). **Never rename or edit a
+migration after it has been applied** — add a new one instead.
 
 Apply locally / to a branch:
 
@@ -12,3 +25,27 @@ Rules:
 - The `security-review` subagent must approve any migration before merge.
 - Add the mandatory cross-tenant test (a brand cannot read another brand's rows) with each new table.
 - Never disable RLS to "make it work" — fix the policy.
+
+## The isolation test
+
+`supabase/tests/*.test.sql` hold the mandatory cross-tenant tests. Each is plain SQL: a violation
+raises an exception, so the run aborts and exits non-zero.
+
+**CI runs them on every PR and every push to `main`** (the `isolation` job in
+`.github/workflows/ci.yml`): `supabase db start` boots a throwaway Postgres with the real Supabase
+roles and `auth` schema, applies every migration, then runs each test with `psql -v ON_ERROR_STOP=1`.
+A canary step then switches RLS off and requires the test to fail, which proves it can still see a
+leak. No hosted database and no secrets are involved.
+
+Run it locally (needs Docker and the Supabase CLI):
+
+    supabase db start
+    psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 \
+      -f supabase/tests/0001_tenancy_isolation.test.sql
+
+## `app_auth` — never expose it
+
+The RLS helpers (`app_auth.current_brand_id()`, `app_auth.is_autoverse_staff()`,
+`app_auth.can_manage_tenancy()`) are `SECURITY DEFINER`. They live in `app_auth` precisely because
+the REST API does not expose that schema. **Never add `app_auth` to the API's exposed schemas** in
+the Supabase dashboard — that would make them callable at `/rest/v1/rpc/*` again.
