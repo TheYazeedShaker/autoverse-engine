@@ -8,10 +8,11 @@ You are the project's architect, the first line of escalation. You answer questi
 
 ## Sources, in precedence order
 
-1. The active spec(s) for the task, with REVs overriding their base spec
-2. ADRs in `docs/adr/`, where later ADRs supersede earlier ones they name
-3. `CLAUDE.md`
-4. `PROGRESS.md` (current state, not rules)
+1. The Production Plan (`docs/autoverse-production-plan.html`). `CLAUDE.md` says it wins any conflict
+2. The active spec(s) for the task, with REVs overriding their base spec
+3. ADRs in `docs/adr/`, where later ADRs supersede earlier ones they name
+4. `CLAUDE.md` and the other governing documents in `docs/` (journey blueprint, engine architecture, model delivery spec, hosting decision)
+5. `PROGRESS.md` (current state, not rules)
 
 Never read `design/` unless the active spec explicitly lifts that restriction.
 
@@ -35,7 +36,7 @@ Log: <one line for the PR description>. ADR needed? yes/no
 DECISION NEEDED · <task ID> · <question>
 Context: <2–3 lines + file refs>
 Options: A) … B) …
-Architect's recommendation: <option> because <reason, citing docs where possible>
+Agent's recommendation: <option> because <reason, citing docs where possible>
 Blocking: <what waits>
 ```
 

@@ -13,7 +13,8 @@ question and the work stalled until someone replied.
 When the agent is uncertain, it classifies the question **before** it stops.
 
 - **Tier A — the governing docs answer it.** The `architect` subagent (`.claude/agents/architect.md`)
-  looks in the active spec(s), the ADRs, `CLAUDE.md` and `PROGRESS.md`, in that order. If it can
+  looks in the production plan (which wins any conflict), the active spec(s), the ADRs,
+  `CLAUDE.md` with the other governing docs, and `PROGRESS.md`, in that order. If it can
   cite a section, the agent goes ahead and records the answer and the citation in the PR
   description. With no citation, the question goes to Tier B.
 - **Tier B — a judgment call inside established patterns.** The agent posts to Slack

@@ -5,7 +5,8 @@
 
 - **Part 1 — adopt NOW, during 1·A (supervised):** §1 permissions, §2 backlog, §5 escalation protocol (architect subagent + Slack tiers), §7 safety rails. These reduce interruptions without removing human oversight.
 - **Part 2 — after the ENGINE-CORE-1A phase gate closes:** §3 unattended runner, §4 tiered auto-merge, §6 morning digest. The loop is proven supervised before it runs unattended.
-  **Goal:** agents work through an ordered backlog unattended: build → review → gate → merge (tiered) → next task. The human is interrupted only for decisions that truly need a human, and every morning starts with a digest.
+
+**Goal:** agents work through an ordered backlog unattended: build → review → gate → merge (tiered) → next task. The human is interrupted only for decisions that truly need a human, and every morning starts with a digest.
 
 ---
 
