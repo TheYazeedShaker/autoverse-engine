@@ -1,8 +1,9 @@
 // Job dispatch rules. Pure, so the retry and idempotency behaviour is unit tested without a queue.
 //
-// Every kind here is idempotent, because a worker that dies mid-job will run it again: the row is
-// already marked `running` with its attempt counted, so on the next sweep it comes back. "Ran
-// twice" must therefore be indistinguishable from "ran once" for the brand on the receiving end.
+// Every kind here is idempotent, because a job whose worker dies mid-run will run again. The claim
+// took a lease (claim_jobs, 20260924150000_job_leases.sql). Once the lease expires the next sweep
+// reaps the row back to pending, with the attempt already counted. "Ran twice" must therefore be
+// indistinguishable from "ran once" for the brand on the receiving end.
 
 export const JOB_KINDS = [
   "notify-lead-email",

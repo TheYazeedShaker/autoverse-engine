@@ -35,7 +35,8 @@ begin
   lead_id := public.capture_lead(jsonb_build_object(
     'brand_id', '00000000-0000-0000-0000-00000000000a', 'market_code', 'EG',
     'full_name', 'Fatma Hassan', 'phone', '+201000000001',
-    'consent_text_version', 'eg-v1', 'consent_at', now()::text));
+    'consent_text_version', 'eg-v1', 'consent_at', now()::text,
+    'submission_id', '00000000-0000-0000-0000-00000000c101'));
 
   select count(*) into queued from public.jobs
    where payload ->> 'lead_id' = lead_id::text;
@@ -94,7 +95,7 @@ declare job_id uuid; row_after public.jobs%rowtype; i int;
 begin
   select id into job_id from public.jobs where status = 'running' limit 1;
 
-  row_after := public.complete_job(job_id, false, 'smtp timeout');
+  row_after := public.complete_job(job_id, (select lease_token from public.jobs where id = job_id), false, 'smtp timeout');
   if row_after.status <> 'pending' then
     raise exception 'FAIL: a failed job should be retried, not left as % ', row_after.status;
   end if;
@@ -106,10 +107,10 @@ begin
   end if;
 
   -- Burn through the remaining attempts.
-  for i in 1..5 loop
+  for i in 2..5 loop  -- attempts 2 to 5; the 5th failure is terminal
     update public.jobs set run_after = now() - interval '1 minute' where id = job_id;
     perform public.claim_jobs(10);
-    row_after := public.complete_job(job_id, false, 'still failing');
+    row_after := public.complete_job(job_id, (select lease_token from public.jobs where id = job_id), false, 'still failing');
   end loop;
 
   if row_after.status <> 'failed' then
@@ -126,7 +127,7 @@ begin
   update public.jobs set run_after = now() - interval '1 minute' where status = 'pending';
   perform public.claim_jobs(10);
   select id into job_id from public.jobs where status = 'running' limit 1;
-  row_after := public.complete_job(job_id, true);
+  row_after := public.complete_job(job_id, (select lease_token from public.jobs where id = job_id), true);
   if row_after.status <> 'done' then raise exception 'FAIL: a successful job is not done'; end if;
   if row_after.last_error is not null then raise exception 'FAIL: a successful job kept a stale error'; end if;
 
