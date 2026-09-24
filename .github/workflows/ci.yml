@@ -129,10 +129,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v3
         with: { version: 2.117.0 }
-      - name: Start a throwaway Supabase Postgres and apply every migration
-        run: supabase db start
-      - name: Induced failure and zero-loss reconciliation
-        run: ./supabase/gate/phase-gate.sh
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # The job worker does the replay through the API (PostgREST behind kong), so this starts more
+      # than Postgres. Everything the gate doesn't use is left out to keep the job fast.
+      - name: Start a throwaway Supabase (Postgres + API) and apply every migration
+        run: supabase start -x studio,imgproxy,mailpit,logflare,vector,realtime,storage-api,edge-runtime,supavisor,postgres-meta
+      - name: Induced failure, replayed by the job worker, zero-loss reconciliation
+        run: |
+          set -euo pipefail
+          # Local-stack keys only: a throwaway instance inside this job, never a hosted project.
+          # The gate reads API_URL and SERVICE_ROLE_KEY under the names `supabase status -o env` prints.
+          eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=' | sed 's/^/export /')"
+          ./supabase/gate/phase-gate.sh
 
   # Secret scan over the FULL git history (a public repo publishes every commit, not just the tip).
   # Backstop for the local pre-commit guard in .githooks/pre-commit.
