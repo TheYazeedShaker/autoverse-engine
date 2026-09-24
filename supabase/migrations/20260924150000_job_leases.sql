@@ -11,6 +11,9 @@
 --   * Before claiming, claim_jobs reaps every running row whose lease has expired. The row goes back
 --     to pending, or to failed if its attempts are spent. Each claim already counted an attempt, so
 --     a job that keeps killing its worker still stops at max_attempts.
+--   * A lease is not renewable. The worker's per-job timeout must stay well inside lease_seconds
+--     (services/job-worker/worker.ts), or a slow but live job would be reaped and run twice.
+--     Every kind is idempotent, so that is survivable, but it is not intended.
 --   * complete_job needs the lease_token. A worker whose lease expired and was reclaimed by another
 --     worker cannot then mark the job done or failed over the top of the new owner.
 --
@@ -18,9 +21,11 @@
 -- functions stay service-role only.
 
 -- Any row left running by a worker that no longer exists predates leases and can never finish.
--- Return it to the queue, as the reaper would have.
+-- Treat it as the reaper would: back to the queue, or failed if its attempts are already spent.
 update public.jobs
-   set status = 'pending', last_error = 'reclaimed: running without a lease', run_after = now()
+   set status = (case when attempts >= max_attempts then 'failed' else 'pending' end)::public.job_status,
+       last_error = 'reclaimed: running without a lease',
+       run_after = now()
  where status = 'running';
 
 alter table public.jobs
@@ -41,13 +46,21 @@ set search_path = ''
 as $fn$
 declare reaped integer;
 begin
+  -- skip locked: two workers reaping at once each take different rows instead of queueing behind
+  -- (or deadlocking on) each other. A row one worker skips, the next sweep reaps.
   update public.jobs
      set status = (case when attempts >= max_attempts then 'failed' else 'pending' end)::public.job_status,
          lease_token = null,
          locked_until = null,
-         run_after = now(),
+         -- The same backoff as a reported failure: a job that keeps killing its worker is not
+         -- handed straight back to the next one.
+         run_after = now() + (power(2, least(attempts, 10)) * interval '1 second'),
          last_error = 'lease expired: the worker did not finish'
-   where status = 'running' and locked_until < now();
+   where id in (
+     select id from public.jobs
+      where status = 'running' and locked_until < now()
+      for update skip locked
+   );
   get diagnostics reaped = row_count;
   return reaped;
 end $fn$;

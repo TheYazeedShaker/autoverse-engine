@@ -112,6 +112,9 @@ begin
     row_after := public.complete_job(job_id, (select lease_token from public.jobs where id = job_id), false, 'still failing');
   end loop;
 
+  if row_after.attempts <> 5 then
+    raise exception 'FAIL: the job stopped after % attempts, expected exactly 5', row_after.attempts;
+  end if;
   if row_after.status <> 'failed' then
     raise exception 'CRITICAL: a job retried past its limit (status %, attempts %)', row_after.status, row_after.attempts;
   end if;
