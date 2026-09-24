@@ -22,11 +22,25 @@ export function readPublicCaller(headers: Headers): PublicCaller | null {
 }
 
 /**
- * The client address the platform saw. Supabase's edge sits behind a proxy that sets
- * x-forwarded-for; its first entry is the visitor.
+ * The client address, as recorded by the proxies in front of us, never as claimed by the client.
+ * A visitor can send any X-Forwarded-For they like, and proxies APPEND to it, so the first entry
+ * is theirs to choose, and choosing a new one each time would dodge the per-visitor rate limit.
+ * In order of trust:
+ *   1. cf-connecting-ip: set by Cloudflare, which fronts the platform. A client can't forge it
+ *      through Cloudflare.
+ *   2. x-real-ip: set by the platform's own proxy.
+ *   3. the LAST x-forwarded-for entry: the hop our nearest proxy appended.
+ * With none of them, every such request shares one bucket. That is strict, which is the safe side.
  */
 export function clientAddress(headers: Headers): string {
-  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const trusted = headers.get("cf-connecting-ip") ?? headers.get("x-real-ip");
+  if (trusted?.trim()) return trusted.trim();
+  const hops = headers
+    .get("x-forwarded-for")
+    ?.split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
+  return hops?.at(-1) ?? "unknown";
 }
 
 /**

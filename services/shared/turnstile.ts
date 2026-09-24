@@ -10,9 +10,14 @@ export interface TurnstileDeps {
   timeoutMs: number;
 }
 
+/**
+ * Tokens are single-use. A form retrying after a 503 must get a fresh token from the widget.
+ * `expectedHostname` is the page's host (from its Origin): a token solved on another site is refused.
+ */
 export async function verifyTurnstile(
   token: string | null | undefined,
   remoteIp: string,
+  expectedHostname: string,
   deps: TurnstileDeps,
 ): Promise<boolean> {
   if (!token || !deps.secret) return false;
@@ -25,8 +30,8 @@ export async function verifyTurnstile(
       signal: AbortSignal.timeout(deps.timeoutMs),
     });
     if (!response.ok) return false;
-    const result = (await response.json()) as { success?: unknown };
-    return result.success === true;
+    const result = (await response.json()) as { success?: unknown; hostname?: unknown };
+    return result.success === true && result.hostname === expectedHostname;
   } catch {
     return false;
   }

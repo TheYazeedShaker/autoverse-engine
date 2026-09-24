@@ -83,14 +83,47 @@ begin
   raise notice 'PASS: a foreign origin or a missing gateway secret writes nothing';
 end $$;
 
--- ---- 3. a sender's mistake is refused, not dead-lettered ----
+-- ---- 3. a sender's mistake is refused, not dead-lettered, and still counts against the limit ----
 do $$
-declare msg text;
+declare r jsonb; i int; msg text;
 begin
+  r := public.capture_lead_public('gw-test-secret', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    'https://a.example.com', 'EG', repeat('b', 32), test_helpers.lead('00000000-0000-0000-0000-00000000f005') - 'consent_text_version');
+  if r ->> 'status' <> 'rejected' or r ->> 'code' <> '23514' then
+    raise exception 'FAIL: a lead without consent was not refused as the sender''s mistake (%)', r;
+  end if;
+
+  -- Four more refused attempts from the same client use up its 5, so the 6th is rate limited.
+  -- If a refusal rolled its hit back, failed attempts would be free and this would not trip.
+  for i in 1..4 loop
+    perform public.capture_lead_public('gw-test-secret', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      'https://a.example.com', 'EG', repeat('b', 32), test_helpers.lead('00000000-0000-0000-0000-00000000f005') - 'consent_text_version');
+  end loop;
   msg := test_helpers.try($q$select public.capture_lead_public('gw-test-secret', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-    'https://a.example.com', 'EG', repeat('b', 32), test_helpers.lead('00000000-0000-0000-0000-00000000f005') - 'consent_text_version')$q$);
-  if msg not like '%consent_text_version is required%' then raise exception 'FAIL: a lead without consent was not refused (%)', msg; end if;
-  raise notice 'PASS: a lead without consent is refused back to the sender';
+    'https://a.example.com', 'EG', repeat('b', 32), test_helpers.lead('00000000-0000-0000-0000-00000000f006'))$q$);
+  if msg not like '%rate limited%' then
+    raise exception 'CRITICAL: refused attempts did not count against the rate limit (%)', msg;
+  end if;
+  if exists (select 1 from public.lead_dlq) then raise exception 'FAIL: a sender''s mistake was dead-lettered'; end if;
+  raise notice 'PASS: a sender''s mistake is refused (not dead-lettered) and still spends rate-limit budget';
+end $$;
+
+-- ---- 3b. event limits count events, not calls ----
+do $$
+declare junk jsonb; msg text; i int;
+begin
+  select jsonb_agg(jsonb_build_object('source_payload', jsonb_build_object('n', g), 'error_message', 'test'))
+    into junk from generate_series(1, 100) g;
+  for i in 1..3 loop  -- 3 calls x 100 events = the client's 300 per minute
+    perform public.ingest_events_public('gw-test-secret', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      'https://a.example.com', 'EG', repeat('e', 32), '[]'::jsonb, junk);
+  end loop;
+  msg := test_helpers.try(format($q$select public.ingest_events_public('gw-test-secret', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    'https://a.example.com', 'EG', repeat('e', 32), '[{"id": "00000000-0000-0000-0000-00000000e199", "kind": "x"}]'::jsonb)$q$));
+  if msg not like '%rate limited%' then
+    raise exception 'CRITICAL: a client wrote past 300 events a minute by batching (%)', msg;
+  end if;
+  raise notice 'PASS: event limits are counted per event, so batching can''t multiply them';
 end $$;
 
 -- ---- 4. the per-client rate limit cuts in ----
@@ -127,6 +160,29 @@ begin
   end if;
   raise notice 'PASS: anon reaches only the two public RPCs';
 end $$;
+
+-- ---- 5b. the catalogue agrees: anon can execute no other SECURITY DEFINER function that can write ----
+-- (Stable/immutable helpers such as app_auth.current_brand_id() are read-only and must stay
+-- callable: RLS policies evaluate them for every role.)
+reset role;
+do $$
+declare leaked text;
+begin
+  select string_agg(n.nspname || '.' || p.proname, ', ') into leaked
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where p.prosecdef
+     and p.provolatile = 'v'
+     and p.prorettype <> 'trigger'::regtype  -- trigger functions can't be called directly
+     and n.nspname in ('public', 'app_auth')
+     and has_function_privilege('anon', p.oid, 'EXECUTE')
+     and p.proname not in ('capture_lead_public', 'ingest_events_public');
+  if leaked is not null then
+    raise exception 'CRITICAL: anon can execute SECURITY DEFINER function(s): %', leaked;
+  end if;
+  raise notice 'PASS: the only writing SECURITY DEFINER functions anon can execute are the two public RPCs';
+end $$;
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
 
 -- ---- 6. the rows, checked as the owner: brand B received nothing at all ----
 reset role;

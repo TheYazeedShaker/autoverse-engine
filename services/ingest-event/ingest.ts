@@ -44,15 +44,13 @@ export const publicEventSchema = eventSchema.omit({ brand_id: true, market_code:
 export type PublicEvent = z.infer<typeof publicEventSchema>;
 
 /**
- * How accepted events are written. `ignoreDuplicates` makes PostgREST emit
- * `ON CONFLICT (id) DO NOTHING`. Without it the upsert becomes `DO UPDATE`, and the write-once
- * trigger rejects that as soon as the redelivered event has already been processed. The whole
- * batch then dead-letters, on ordinary at-least-once redelivery.
+ * How the job worker writes a replayed dead letter through PostgREST (services/job-worker). Page
+ * traffic no longer writes this way: ingest_events_public inserts with the same
+ * `ON CONFLICT (id) DO NOTHING` in SQL. `ignoreDuplicates` is what makes PostgREST emit DO NOTHING.
+ * Without it the upsert becomes `DO UPDATE`, which the write-once trigger rejects as soon as the
+ * event has already been processed.
  */
 export const EVENTS_UPSERT_OPTIONS = { onConflict: "id", ignoreDuplicates: true } as const;
-
-/** A batch is accepted as a whole or split: each event is judged on its own. */
-export const batchSchema = z.union([eventSchema, z.array(eventSchema).min(1).max(100)]);
 
 export interface Accepted<T = IngestEvent> {
   outcome: "accept";
@@ -97,6 +95,7 @@ function decideWith<T>(schema: z.ZodType<T>, raw: unknown): Decision<T> {
   };
 }
 
+/** A batch against the internal schema (brand included): tests and dead-letter replay. */
 export function decideBatch(raw: unknown): Decision[] {
   return batchWith(raw, decide);
 }

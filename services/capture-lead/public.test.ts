@@ -56,10 +56,17 @@ describe("clientId", () => {
     await expect(clientId("203.0.113.7", "")).rejects.toThrow("CLIENT_HASH_SECRET");
   });
 
-  it("takes the first x-forwarded-for entry as the visitor", () => {
-    expect(clientAddress(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe(
+  it("uses the address our proxies recorded, never the one the client claims", () => {
+    // A client can put anything first in X-Forwarded-For; the last hop is what our proxy appended.
+    expect(clientAddress(new Headers({ "x-forwarded-for": "1.2.3.4-spoofed, 203.0.113.7" }))).toBe(
       "203.0.113.7",
     );
+    expect(
+      clientAddress(
+        new Headers({ "cf-connecting-ip": "198.51.100.9", "x-forwarded-for": "1.2.3.4, 10.0.0.1" }),
+      ),
+    ).toBe("198.51.100.9");
+    expect(clientAddress(new Headers({ "x-real-ip": "198.51.100.10" }))).toBe("198.51.100.10");
     expect(clientAddress(new Headers())).toBe("unknown");
   });
 });
@@ -77,40 +84,66 @@ describe("verifyTurnstile", () => {
   const answering = (status: number, body: unknown) =>
     (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
 
-  it("passes only on a clear success from Cloudflare", async () => {
+  it("passes only on a clear success from Cloudflare, for this site", async () => {
     let sentTo = "";
     const fetchSpy = (async (url: string) => {
       sentTo = url;
-      return new Response(JSON.stringify({ success: true }));
+      return new Response(JSON.stringify({ success: true, hostname: "a.example.com" }));
     }) as unknown as typeof fetch;
     expect(
-      await verifyTurnstile("tok", "203.0.113.7", { secret: "s", fetch: fetchSpy, timeoutMs: 50 }),
+      await verifyTurnstile("tok", "203.0.113.7", "a.example.com", {
+        secret: "s",
+        fetch: fetchSpy,
+        timeoutMs: 50,
+      }),
     ).toBe(true);
     expect(sentTo).toBe(TURNSTILE_VERIFY_URL);
   });
 
   it("fails closed: no token, no secret, a failure, an error status, or no answer", async () => {
-    const ok = answering(200, { success: true });
-    expect(await verifyTurnstile(null, "", { secret: "s", fetch: ok, timeoutMs: 50 })).toBe(false);
-    expect(await verifyTurnstile("tok", "", { secret: undefined, fetch: ok, timeoutMs: 50 })).toBe(
-      false,
-    );
+    const ok = answering(200, { success: true, hostname: "a.example.com" });
+    const otherSite = answering(200, { success: true, hostname: "evil.example.net" });
     expect(
-      await verifyTurnstile("tok", "", {
+      await verifyTurnstile("tok", "", "a.example.com", {
+        secret: "s",
+        fetch: otherSite,
+        timeoutMs: 50,
+      }),
+    ).toBe(false);
+    expect(
+      await verifyTurnstile(null, "", "a.example.com", { secret: "s", fetch: ok, timeoutMs: 50 }),
+    ).toBe(false);
+    expect(
+      await verifyTurnstile("tok", "", "a.example.com", {
+        secret: undefined,
+        fetch: ok,
+        timeoutMs: 50,
+      }),
+    ).toBe(false);
+    expect(
+      await verifyTurnstile("tok", "", "a.example.com", {
         secret: "s",
         fetch: answering(200, { success: false }),
         timeoutMs: 50,
       }),
     ).toBe(false);
     expect(
-      await verifyTurnstile("tok", "", { secret: "s", fetch: answering(500, {}), timeoutMs: 50 }),
+      await verifyTurnstile("tok", "", "a.example.com", {
+        secret: "s",
+        fetch: answering(500, {}),
+        timeoutMs: 50,
+      }),
     ).toBe(false);
     const hang = ((_u: string, init: RequestInit) =>
       new Promise((_r, reject) =>
         init.signal?.addEventListener("abort", () => reject(new Error("x"))),
       )) as unknown as typeof fetch;
-    expect(await verifyTurnstile("tok", "", { secret: "s", fetch: hang, timeoutMs: 20 })).toBe(
-      false,
-    );
+    expect(
+      await verifyTurnstile("tok", "", "a.example.com", {
+        secret: "s",
+        fetch: hang,
+        timeoutMs: 20,
+      }),
+    ).toBe(false);
   });
 });

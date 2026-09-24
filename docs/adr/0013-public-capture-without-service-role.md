@@ -23,13 +23,24 @@ Inside, a shared admission gate (`app_auth.admit_public_call`) does, in order:
    and market (`app_auth.resolve_public_caller`). The key must be live, the brand live, the named
    market live, and the origin on that market's allowlist. The body's `brand_id` and
    `market_code` are discarded.
-3. **Rate limit.** Per client (an HMAC of the address with `CLIENT_HASH_SECRET`, never a raw or
-   plainly hashed IP) and per brand, in Postgres (`app_auth.rate_limit_hits`, unreadable by anon).
-   Leads: 5 per client and 300 per brand per 10 minutes. Events: 300 per client and 20,000 per
-   brand per minute.
+3. **Rate limit.** Per client: an HMAC of the address with `CLIENT_HASH_SECRET`, never a raw or
+   plainly hashed IP. The address is the one our proxies recorded (`cf-connecting-ip`, then
+   `x-real-ip`, then the last `x-forwarded-for` hop), never the first hop the client wrote. Kept in
+   Postgres (`app_auth.rate_limit_hits`, unreadable by anon).
+   - Leads: 5 per client per 10 minutes. The per-brand count (1000 per 10 minutes) **never refuses a
+     lead**. Data capture is never gated, and a hard brand cap would let one attacker block a
+     brand's genuine leads. Going over it raises a database warning (`public_capture_brand_surge`)
+     that can be alerted on.
+   - Events: 300 per client and 20,000 per brand per minute, counted **per event** (a call carries
+     up to 100).
+   - A refused lead (the sender's mistake) is returned as `rejected`, not raised, so its rate-limit
+     hit is kept. Otherwise failed attempts would be free.
 
-Lead capture adds **Cloudflare Turnstile** in the edge function before any of that, and fails
-closed.
+Lead capture adds **Cloudflare Turnstile** in the edge function before any of that. It fails
+closed, and refuses a token solved on a hostname other than the page's origin. Tokens are
+single-use, so a form retrying after a 503 must get a fresh one.
+
+Rollout order (secrets before traffic): `docs/runbooks/public-capture-rollout.md`.
 
 A refusal is always the same generic answer (403, or 429 for a rate limit), so a caller never
 learns which check failed. An anonymous caller is never handed a lead id.

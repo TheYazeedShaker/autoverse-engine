@@ -1,4 +1,4 @@
-// Edge function: capture-lead (1·A slice 8, caller authorization from blocker 2).
+// Edge function: capture-lead (1·A slice 8, caller authorization from blocker 2). ADR 0013.
 //
 // Leads are stricter than events (CLAUDE.md): capture is synchronous and acknowledged, and any
 // failure pages someone. The only acceptable outcomes are "stored" or "in the dead-letter queue".
@@ -7,11 +7,12 @@
 // plan §3.1, owner decision). It calls one database function, public.capture_lead_public, with the
 // ANON key. That function:
 //   * resolves the brand from the publishable key + origin + market header (never the body),
-//   * rate-limits per visitor and per brand,
+//   * rate-limits per visitor,
 //   * writes the lead, its consent and its first activity in one transaction, or dead-letters it.
 // Before that call, this function does the one thing the database can't: the Turnstile bot check.
 // It then passes the gateway secret that proves the call came through here.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { logger, requireEnv } from "../shared/log.ts";
 import {
   clientAddress,
   clientId,
@@ -21,13 +22,18 @@ import {
 import { verifyTurnstile } from "../shared/turnstile.ts";
 import { decidePublicLead, rejectionLog } from "./lead.ts";
 
-/** Postgres unique_violation, raised by capture_lead when a submission_id is reused for another lead. */
+const log = logger("capture-lead");
+const REQUIRED = [
+  "SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
+  "CAPTURE_GATEWAY_SECRET",
+  "CLIENT_HASH_SECRET",
+  "TURNSTILE_SECRET_KEY",
+] as const;
+const DB_TIMEOUT_MS = 10_000;
+
+/** Postgres unique_violation: a submission_id reused for a different person. */
 const SUBMISSION_REUSED = "23505";
-
-/** Rules capture_lead_public raises back rather than dead-lettering: the sender's mistake. */
-const SENDER_ERRORS = new Set(["23514", "23502", "23503", "22P02", "22007", "22008", "22001"]);
-
-const env = (name: string) => Deno.env.get(name) ?? "";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -35,16 +41,17 @@ const json = (body: unknown, status: number) =>
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
 
-const log = (level: "info" | "warn" | "error", event: string, fields: Record<string, unknown>) => {
-  const line = JSON.stringify({ level, event, service: "capture-lead", ...fields });
-  if (level === "info") console.log(line);
-  else if (level === "warn") console.warn(line);
-  else console.error(line);
-};
-
 Deno.serve(async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   const traceId = request.headers.get("x-trace-id") ?? crypto.randomUUID();
+
+  const env = requireEnv((name) => Deno.env.get(name), REQUIRED);
+  if (!env.ok) {
+    // A deploy mistake, not an attack. Loud, so it's fixed before a visitor meets it twice.
+    log("error", "capture_misconfigured", { trace_id: traceId, missing: env.missing });
+    return json({ error: "Could not capture the lead. Please try again.", trace_id: traceId }, 503);
+  }
+  const secret = env.values as Record<(typeof REQUIRED)[number], string>;
 
   const caller = readPublicCaller(request.headers);
   if (!caller) {
@@ -58,15 +65,17 @@ Deno.serve(async (request: Request) => {
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
     body = parsed as Record<string, unknown>;
   } catch {
+    log("warn", "lead_refused_not_json", { trace_id: traceId });
     return json({ error: "Body must be a JSON object.", trace_id: traceId }, 400);
   }
 
-  // The bot check. Fails closed: no token, no secret, or no clear "yes" from Cloudflare means no.
+  // The bot check. Fails closed: no token, no clear "yes", or solved on another site means no.
   const address = clientAddress(request.headers);
   const human = await verifyTurnstile(
     typeof body.turnstile_token === "string" ? body.turnstile_token : null,
     address,
-    { secret: Deno.env.get("TURNSTILE_SECRET_KEY") || undefined, fetch, timeoutMs: 5_000 },
+    new URL(caller.origin).hostname,
+    { secret: secret.TURNSTILE_SECRET_KEY, fetch, timeoutMs: 5_000 },
   );
   if (!human) {
     log("warn", "lead_refused_bot_check", { trace_id: traceId, market: caller.market });
@@ -85,17 +94,19 @@ Deno.serve(async (request: Request) => {
     return json({ error: decision.error_message, trace_id: traceId }, 422);
   }
 
-  const anon = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
+  const anon = createClient(secret.SUPABASE_URL, secret.SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
   });
-  const { data, error } = await anon.rpc("capture_lead_public", {
-    p_gateway: env("CAPTURE_GATEWAY_SECRET"),
-    p_key: caller.key,
-    p_origin: caller.origin,
-    p_market_code: caller.market,
-    p_client: await clientId(address, env("CLIENT_HASH_SECRET")),
-    p_lead: decision.lead,
-  });
+  const { data, error } = await anon
+    .rpc("capture_lead_public", {
+      p_gateway: secret.CAPTURE_GATEWAY_SECRET,
+      p_key: caller.key,
+      p_origin: caller.origin,
+      p_market_code: caller.market,
+      p_client: await clientId(address, secret.CLIENT_HASH_SECRET),
+      p_lead: decision.lead,
+    })
+    .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
 
   if (error) {
     const refused = refusalStatus(error.code);
@@ -103,29 +114,33 @@ Deno.serve(async (request: Request) => {
       log("warn", "lead_refused", { trace_id: traceId, code: error.code, market: caller.market });
       return json({ error: refused.error, trace_id: traceId }, refused.status);
     }
-    if (error.code === SUBMISSION_REUSED) {
-      log("warn", "lead_submission_reused", { trace_id: traceId });
-      return json({ error: "This submission id was already used.", trace_id: traceId }, 409);
-    }
-    if (error.code && SENDER_ERRORS.has(error.code)) {
-      // Refused by a database rule the schema didn't catch (e.g. a model from another brand).
-      log("warn", "lead_rejected_by_database", { trace_id: traceId, code: error.code });
-      return json({ error: "The submission was not accepted.", trace_id: traceId }, 422);
-    }
-    // The database is unreachable or failed before it could dead-letter. Nothing was stored, and
-    // the page must say so and let the visitor retry (the submission_id makes a retry safe).
-    // This pages: a lead we could not even queue.
+    // The database is unreachable, timed out, or failed before it could dead-letter. Nothing was
+    // stored: say so and let the visitor retry (the submission_id makes a retry safe; the form
+    // needs a fresh Turnstile token). A lead we could not even queue pages.
     log("error", "lead_not_captured", { trace_id: traceId, code: error.code });
     return json({ error: "Could not capture the lead. Please try again.", trace_id: traceId }, 503);
   }
 
-  const status = (data as { status?: string } | null)?.status;
-  if (status === "dead_lettered") {
-    // Stored for replay, not lost. Still an incident: a lead DLQ entry pages (§6.2).
-    log("error", "lead_dead_lettered", { trace_id: traceId, market: caller.market });
-  } else {
-    log("info", "lead_captured", { trace_id: traceId, market: caller.market });
+  const result = (data ?? {}) as { status?: string; code?: string };
+  switch (result.status) {
+    case "captured":
+      log("info", "lead_captured", { trace_id: traceId, market: caller.market });
+      return json({ status: "received", trace_id: traceId }, 201);
+    case "dead_lettered":
+      // Queued for replay, not lost, so the visitor is told it's received. Still an incident:
+      // a lead DLQ entry pages (§6.2).
+      log("error", "lead_dead_lettered", { trace_id: traceId, market: caller.market });
+      return json({ status: "received", trace_id: traceId }, 201);
+    case "rejected":
+      log("warn", "lead_rejected_by_database", { trace_id: traceId, code: result.code });
+      return result.code === SUBMISSION_REUSED
+        ? json({ error: "This submission id was already used.", trace_id: traceId }, 409)
+        : json({ error: "The submission was not accepted.", trace_id: traceId }, 422);
+    default:
+      log("error", "lead_unexpected_result", { trace_id: traceId });
+      return json(
+        { error: "Could not capture the lead. Please try again.", trace_id: traceId },
+        503,
+      );
   }
-  // Acknowledged either way: the lead is ours now, captured or queued.
-  return json({ status: "received", trace_id: traceId }, 201);
 });

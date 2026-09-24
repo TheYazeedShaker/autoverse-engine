@@ -62,6 +62,9 @@ export function isConsentIssue(error: z.ZodError): boolean {
  * Validate one submission. A rejection is reported separately from a storage failure: a malformed
  * submission is the sender's problem and should be fixed at the form, while a lead we failed to
  * store is ours and belongs in the dead-letter queue.
+ *
+ * This is the internal schema, brand included: what the job worker replays from lead_dlq. A page's
+ * submission goes through decidePublicLead instead.
  */
 export function decideLead(raw: unknown): LeadDecision {
   return decideWith(leadSchema, raw);
