@@ -18,3 +18,9 @@ entrypoint = "../services/ingest-event/index.ts"
 
 [functions.capture-lead]
 entrypoint = "../services/capture-lead/index.ts"
+
+# Fired by pg_cron with a shared secret, not a JWT, so the gateway's JWT check is off here.
+# services/job-worker/auth.ts checks the secret (or a superadmin/ops JWT) itself (ADR 0011).
+[functions.job-worker]
+entrypoint = "../services/job-worker/index.ts"
+verify_jwt = false
