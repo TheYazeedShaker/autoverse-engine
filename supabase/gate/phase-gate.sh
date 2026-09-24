@@ -129,11 +129,13 @@ JOBS=$(psql_q "select count(*) from public.jobs where kind in ('notify-lead-emai
 echo "no lead, no orphan activity, no orphan routing job"
 
 step "Lead: the pipeline dead-letters it (twice: at-least-once), then the job worker replays it"
+# The payload is what capture-lead dead-letters: the Zod-parsed lead, so consent_at is ISO 8601
+# (to_jsonb renders a timestamptz that way), not Postgres's own text format.
 for _ in 1 2; do
   psql_q "insert into public.lead_dlq (source_payload, error_message)
           values (jsonb_build_object('brand_id','$BRAND','market_code','EG','full_name','Gate Person',
                                      'phone','+201000009999','consent_text_version','gate-v1',
-                                     'consent_at', now()::text, 'submission_id', '$SUBMISSION'),
+                                     'consent_at', to_jsonb(now()) #>> '{}', 'submission_id', '$SUBMISSION'),
                   'connection terminated mid-write')" >/dev/null
 done
 run_worker
