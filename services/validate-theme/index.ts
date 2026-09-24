@@ -5,10 +5,14 @@
 // naming the pair that failed, so an operator sees "accent text on the Mist canvas is 2.1:1, needs
 // 4.5:1" instead of "invalid".
 //
-// Runs with the service-role key: brand_themes has no write policy, and this is the only writer.
+// Only a superadmin or ops user may call it (owner decision; the scope of can_manage_tenancy()).
+// The caller's JWT is checked BEFORE the body is read or the service role is touched, so an
+// anonymous or brand caller never reaches the write. It then runs with the service-role key:
+// brand_themes has no write policy, and this is the only writer.
 // The derivation itself lives in theme.ts so it can be unit tested by vitest; this file is the thin
 // HTTP + database shell around it.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isTenancyManager } from "../shared/staff.ts";
 import { validateThemeRequest } from "./theme.ts";
 
 const json = (body: unknown, status: number) =>
@@ -19,6 +23,12 @@ const json = (body: unknown, status: number) =>
 
 Deno.serve(async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+
+  const jwt = /^Bearer (.+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
+  if (!jwt || !(await isTenancyManager(jwt))) {
+    console.warn(JSON.stringify({ level: "warn", event: "validate_theme_refused" }));
+    return json({ error: "Not authorized." }, 403);
+  }
 
   let body: unknown;
   try {

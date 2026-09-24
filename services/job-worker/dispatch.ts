@@ -10,6 +10,7 @@ export const JOB_KINDS = [
   "deliver-lead-webhook",
   "retry-event-dlq",
   "retry-lead-dlq",
+  "daily-reconciliation",
 ] as const;
 
 export type JobKind = (typeof JOB_KINDS)[number];
@@ -57,6 +58,7 @@ function requiredFields(kind: JobKind): string[] {
       return ["lead_id"];
     case "retry-event-dlq":
     case "retry-lead-dlq":
+    case "daily-reconciliation":
       return [];
   }
 }

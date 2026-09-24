@@ -1,5 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "noEmit": true },
-  "include": ["dispatch.ts", "dispatch.test.ts"]
+  // Imports carry .ts extensions because Deno (the edge runtime) requires them. index.ts is Deno
+  // (Deno.serve, npm: specifiers) and is typechecked by the Supabase CLI at deploy time.
+  "compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true },
+  "include": ["*.ts", "../shared/auth.ts"],
+  "exclude": ["index.ts"]
 }
