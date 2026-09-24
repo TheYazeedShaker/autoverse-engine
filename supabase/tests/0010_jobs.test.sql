@@ -35,7 +35,8 @@ begin
   lead_id := public.capture_lead(jsonb_build_object(
     'brand_id', '00000000-0000-0000-0000-00000000000a', 'market_code', 'EG',
     'full_name', 'Fatma Hassan', 'phone', '+201000000001',
-    'consent_text_version', 'eg-v1', 'consent_at', now()::text));
+    'consent_text_version', 'eg-v1', 'consent_at', now()::text,
+    'submission_id', '00000000-0000-0000-0000-00000000c101'));
 
   select count(*) into queued from public.jobs
    where payload ->> 'lead_id' = lead_id::text;
