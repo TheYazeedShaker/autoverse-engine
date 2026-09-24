@@ -4,8 +4,8 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-24 (evening)
-**Last session:** Merged #24–#28, #30 and #31. All seven `#build-decisions` threads were answered and acted on. Both 1·A blockers are built and reviewed: **#34** (public capture on the anon key) and **#33** (job worker: scheduled, authenticated, routes leads). Merge #34 first, then #33. Hosted setup is the owner's (Next Session §3).
+**Last updated:** 2026-09-24 (night)
+**Last session:** **ENGINE-CORE-1A is done.** #32–#37 merged. The owner finished the hosted setup (secrets, Vault, required checks incl. `deno`, all four functions deployed). Verified on hosted: 16 migrations applied, pg_cron has fired the worker every minute (70 ticks, 0 failed, HTTP 200 as `cron`), the queues are empty, and the functions refuse unauthenticated calls. The phase gate reran on `main` (`9a1925f`) with the worker doing the replay: PASSED. Evidence is in `#build`.
 
 ---
 
@@ -17,16 +17,16 @@
 
 ## Status
 
-| Track                             | Status             | Notes                                                                                                                                                                                                                                             |
-| --------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12 | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7).                                                              |
-| Phase 0-H — Hardening             | ✅ On `main`       | All 7 groups landed on `main` via PR #10 (the stack had merged into its own branches first).                                                                                                                                                      |
-| `ENGINE-CORE-1A` — Engine core    | 🟡 In progress     | BLOCK fixes #4–#6 merged (#26–#28), caller-auth foundation merged (#30). Both blockers built and reviewed: #34 (public capture) and #33 (worker), waiting on merge (#34 first) and the hosted setup. The gate passes with the worker in #33's CI. |
-| `AUTONOMOUS-LOOP-P1`              | 🟡 In progress     | Backlog + architect (#24), permissions (#25). Escalation protocol and §7 rails in effect. Part 2 queued until 1·A closes.                                                                                                                         |
-| Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                                                                                   |
-| Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                                                 |
-| Phase 1·C — Consumer app          | ⏳ Held            | Design-first.                                                                                                                                                                                                                                     |
-| Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                                                                                   |
+| Track                             | Status             | Notes                                                                                                                                                                                |
+| --------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12 | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7). |
+| Phase 0-H — Hardening             | ✅ On `main`       | All 7 groups landed on `main` via PR #10 (the stack had merged into its own branches first).                                                                                         |
+| `ENGINE-CORE-1A` — Engine core    | ✅ Done 2026-09-24 | All nine slices, the theming REV, the BLOCK fixes and both blockers are on `main` and deployed. The gate passes with the worker (CI run 36034118352).                                |
+| `AUTONOMOUS-LOOP-P1`              | 🟡 In progress     | Backlog + architect (#24), permissions (#25). Escalation protocol and §7 rails in effect. Part 2 queued until 1·A closes.                                                            |
+| Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
+| Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
+| Phase 1·C — Consumer app          | ⏳ Held            | Design-first.                                                                                                                                                                        |
+| Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                      |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
 
@@ -121,7 +121,7 @@
 - Two documentation portals (internal + client-facing) — Phase 1·D.
 - `CLAUDE.md` names a car maker as a quality benchmark ("Porsche-level bar"). REV2's acceptance bans real manufacturer names outside `docs/`. Left untouched because `CLAUDE.md` is the operating manual; Yazeed to decide whether to reword it.
 
-## ⛔ 1·A is BUILT but NOT READY TO SHIP — consolidated security review, 2026-09-23
+## ✅ 1·A BLOCK review — resolved 2026-09-24 (kept for the record)
 
 > **Status 2026-09-24:**
 >
@@ -182,44 +182,28 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ## Next Session — Start Here
 
-`ENGINE-CORE-1A` stays **in-progress** until #34 and #33 are merged, the hosted setup below is done, and the gate passes with the worker (it does in #33's CI). Part 2 of the autonomous loop (runner, auto-merge, digest) stays queued until then.
+`ENGINE-CORE-1A` is **done**. Per `BACKLOG.md`, the next startable task is **`AUTONOMOUS-LOOP-P2`** (runner, tiered auto-merge, morning digest; its dependency, the 1·A phase gate, is met). `AUTONOMOUS-LOOP-P1` is still in progress: its acceptance list (spec §8) isn't fully proven yet.
 
-### 1. `#build-decisions`: all seven threads answered (2026-09-24)
+### 1. First
 
-| Question                              | Answer                                                                                             | Where it landed                                                                                            |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Required checks                       | A: add `isolation`, `secrets`, `phase-gate`                                                        | **Not applied**. The agent's protection change was refused by the permission classifier; the owner runs it |
-| Where the worker runs                 | A: pg_cron + pg_net → `job-worker` Edge Function, plus a daily reconciliation. ADR required        | #33, ADR 0011                                                                                              |
-| Public functions and the service role | A: anon key + SECURITY DEFINER RPCs, with the owner's guardrails                                   | #34, ADR 0013                                                                                              |
-| Worker auth / validate-theme roles    | A: cron shared secret, superadmin/ops JWT for "run now" and validate-theme. Rotation runbook       | #33                                                                                                        |
-| Webhook signing                       | A: per-brand-market Vault secret, HMAC over `timestamp.body`, 5-minute replay window. ADR required | #33, ADR 0012                                                                                              |
-| Email provider                        | Resend                                                                                             | #33                                                                                                        |
-| Bot check                             | Cloudflare Turnstile                                                                               | #34                                                                                                        |
+- Check `#build-decisions` for new threads (every cycle).
+- **Guard hook check:** in this session a hosted-Supabase MCP read wasn't blocked, although ADR 0010's guard should block it. Confirm in a fresh session that `.claude/settings.json` hooks load (try a denied action, e.g. an Edit under `.github/`, or `list_migrations`).
 
-### 2. Open PRs, all against `main`
+### 2. End-to-end lead test (owner-led)
 
-| PR  | What                                                                   | Tier  | State                                                                                                            |
-| --- | ---------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------- |
-| #32 | Remove `docs/ADMIN-DESIGN-BRIEF.md`, committed by mistake in `a9539ea` | human | CI green, code-review APPROVE. The file is still in history (public repo); rewriting history is the owner's call |
-| #34 | Public capture on the anon key (blocker 2)                             | human | Both reviews addressed. **Merge first**                                                                          |
-| #33 | Job worker: schedule, auth, Resend, signed webhooks (blocker 1)        | human | security-review BLOCK (migration order) and code-review items addressed. **Merge after #34**                     |
+The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberately not committed: public repo, REV2 bans real manufacturer names outside `docs/`). After seeding: a real form submission (Turnstile + `X-Autoverse-Key` + `X-Autoverse-Market`) should give 201, one lead, and a Resend email within a minute. That also proves a real delivery, which the CI gate can't (its brand has no recipients).
 
-### 3. After merge: hosted setup (owner; the agent is denied hosted actions)
+### 3. AUTONOMOUS-LOOP-P2
 
-1. Protection: add the three required checks (thread answer A).
-2. Edge secrets: `RESEND_API_KEY`, `LEAD_EMAIL_FROM`, `TURNSTILE_SECRET_KEY`, `CLIENT_HASH_SECRET`, `CAPTURE_GATEWAY_SECRET`, `JOB_WORKER_CRON_SECRET`.
-3. Vault: `capture_gateway_secret` (= `CAPTURE_GATEWAY_SECRET`), `job_worker_url`, `job_worker_cron_secret` (= `JOB_WORKER_CRON_SECRET`). **Check `event_dlq` and `lead_dlq` are empty** before loading the two worker entries. They should be, since no edge function has ever been deployed.
-4. Deploy `ingest-event`, `capture-lead`, `validate-theme` and `job-worker`. Follow `docs/runbooks/public-capture-rollout.md` for the order.
-5. Then the agent: rerun the gate evidence, mark `ENGINE-CORE-1A` done in `BACKLOG.md`, and start `AUTONOMOUS-LOOP-P2`.
+Runner (GitHub Actions vs VM, ADR), kill switch (`PAUSE` + `agent_loop_enabled` flag), tiered auto-merge (CODEOWNERS + path rules), morning digest. It touches `.github/` and `.claude/`, which the permission model denies the agent, so expect to hand the owner exact YAML/config the way #36 did.
 
 ### Known follow-ups (not blocking)
 
 - BLOCK #7 (`lead_activities` composite FK), #8 (`LeadRepository.create` bypasses `capture_lead`), #9 (event payload size; a Tier B question, not yet posted).
-- When a `leads` CHECK constraint fails, Postgres logs the whole failing row (name, phone). `capture_lead` should raise its own messages before the insert.
-- Leases can't be renewed. The worker handles one job per claim with a 25s timeout inside an 85s lease.
-- The phase gate runs the worker via `run-once.ts`, not the scheduled pg_cron → Edge path. Test `0015` covers the schedule, and the first hosted run is the end-to-end proof.
-- Regenerate `packages/engine-core/src/database.types.ts` once the migrations are applied, and run `docs/runbooks/flag-kill-path.md`.
-- Pin `npm:@supabase/supabase-js` in the edge functions to the version the upsert test uses.
+- When a `leads` CHECK constraint fails, Postgres logs the whole failing row (name, phone). `capture_lead` should raise its own messages first.
+- The CI gate runs the worker via `run-once.ts`. The hosted schedule is now proven separately (the pg_cron ticks above).
+- Regenerate `packages/engine-core/src/database.types.ts` from the live schema; run `docs/runbooks/flag-kill-path.md`.
+- `docs/ADMIN-DESIGN-BRIEF.md` stays in git history (commit `a9539ea`); whether to rewrite history is the owner's call.
 
 ### Open questions carried from 2026-09-23 (each a one-line change)
 
