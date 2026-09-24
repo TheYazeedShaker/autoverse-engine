@@ -9,18 +9,31 @@ port = 54322
 major_version = 17
 
 # Edge functions live in services/ (CLAUDE.md repo layout), so each one points at its entrypoint
-# rather than sitting under supabase/functions/.
+# rather than sitting under supabase/functions/. All four share one Deno import map,
+# services/deno.json, which pins every npm dependency (zod, @supabase/supabase-js) to the versions
+# in pnpm-lock.yaml. Source files import bare names ("zod"), so the same code runs under Node
+# (vitest) and Deno. CI's `deno` job type-checks and bundles each entrypoint with this map, so an
+# import that wouldn't deploy fails there first.
 [functions.validate-theme]
 entrypoint = "../services/validate-theme/index.ts"
+import_map = "../services/deno.json"
 
+# The two public capture functions authenticate the CALLER themselves (publishable key + origin +
+# gateway secret + rate limit, and Turnstile for leads; ADR 0013). The gateway's JWT check would
+# only demand the anon key, which is public and proves nothing, and pages don't send it. So it's off.
 [functions.ingest-event]
 entrypoint = "../services/ingest-event/index.ts"
+import_map = "../services/deno.json"
+verify_jwt = false
 
 [functions.capture-lead]
 entrypoint = "../services/capture-lead/index.ts"
+import_map = "../services/deno.json"
+verify_jwt = false
 
 # Fired by pg_cron with a shared secret, not a JWT, so the gateway's JWT check is off here.
-# services/job-worker/auth.ts checks the secret (or a superadmin/ops JWT) itself (ADR 0011).
+# services/shared/auth.ts checks the secret (or a superadmin/ops JWT) itself (ADR 0011).
 [functions.job-worker]
 entrypoint = "../services/job-worker/index.ts"
+import_map = "../services/deno.json"
 verify_jwt = false

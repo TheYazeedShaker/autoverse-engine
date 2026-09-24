@@ -11,7 +11,7 @@
 // brand_themes has no write policy, and this is the only writer.
 // The derivation itself lives in theme.ts so it can be unit tested by vitest; this file is the thin
 // HTTP + database shell around it.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { bearerToken } from "../shared/auth.ts";
 import { logger, requireEnv } from "../shared/log.ts";
 import { isTenancyManager } from "../shared/staff.ts";

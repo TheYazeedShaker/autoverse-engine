@@ -1,11 +1,11 @@
-// Deno-only (npm: specifier), so it's typechecked by the Supabase CLI at deploy time, like the
+// Deno-only (imports supabase-js through services/deno.json), typechecked by CI's deno job, like the
 // edge function entrypoints that import it.
 //
 // Is this JWT a superadmin or ops user? That is the scope of app_auth.can_manage_tenancy(), and the
 // owner's rule for who may write brand configuration or trigger operational work by hand. It runs
 // AS the user, so RLS decides what the lookup can see (a user reads only their own profile).
 // Fails closed: a missing setting, a timeout or any error means "no".
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { MANAGER_ROLES } from "./auth.ts";
 import { withTimeout } from "./log.ts";
 

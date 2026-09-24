@@ -10,7 +10,7 @@
 // stores each event idempotently on its id (ON CONFLICT DO NOTHING), and dead-letters anything it
 // can't store. Events that fail the schema here are passed along as rejects, so they're
 // dead-lettered rather than lost. This function no longer holds a key that could write event_dlq.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { logger, requireEnv } from "../shared/log.ts";
 import {
   clientAddress,
