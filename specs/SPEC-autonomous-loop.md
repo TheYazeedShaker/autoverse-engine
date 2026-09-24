@@ -2,10 +2,10 @@
 
 **Task ID:** `AUTONOMOUS-LOOP`
 **Staged in two parts:**
-
 - **Part 1 — adopt NOW, during 1·A (supervised):** §1 permissions, §2 backlog, §5 escalation protocol (architect subagent + Slack tiers), §7 safety rails. These reduce interruptions without removing human oversight.
-- **Part 2 — after the ENGINE-CORE-1A phase gate closes:** §3 unattended runner, §4 tiered auto-merge, §6 morning digest. The loop is proven supervised before it runs unattended.
+- **Part 2 — after the ENGINE-CORE-1A phase gate closes:** §3 unattended runner, §4 tiered auto-merge, §6 morning digest, §8 inbox + agent identity. The loop is proven supervised before it runs unattended.
 
+**Part 2 precondition (hard gate, verify before building anything):** in a fresh session, prove the §1 denylist is actually enforced. Attempt at least three denied actions (a read against the hosted database, a read of an `.env` file, an edit under `.github/`) and show each one refused, with evidence posted to Slack. During 1·A, a long-running session performed hosted-database reads the denylist forbids. Until refusal is demonstrated, no unattended run may start.
 **Goal:** agents work through an ordered backlog unattended: build → review → gate → merge (tiered) → next task. The human is interrupted only for decisions that truly need a human, and every morning starts with a digest.
 
 ---
@@ -13,7 +13,6 @@
 ## 1. Permissions (removes routine approval prompts)
 
 In `.claude/settings.json`:
-
 - **Allow** routine operations without prompting: pnpm scripts (install, build, test, lint, typecheck, format), git operations on non-main branches, `gh pr create/view/comment`, the local Supabase CLI (start, db reset, test), and reads/edits inside the repo, except the paths below.
 - **Deny outright:** pushing to `main`; any command against the hosted/production Supabase; reading or writing `.env*` or key files; reading anything in `design/` (except when a spec explicitly lifts it); deleting outside the repo; changing `.github/`, `.claude/settings.json`, or branch-protection config (loop self-modification = human-gated).
 - Never use a skip-all-permissions mode on a machine with real credentials. If one is ever used, it runs only inside an isolated container.
@@ -27,7 +26,6 @@ Record as an ADR.
 ## 3. Runner
 
 Headless Claude Code runs on a schedule (e.g. every 2–3 hours plus on merge to `main`), from GitHub Actions (public repo = free minutes) or a small cloud VM. Implementer's choice, recorded in an ADR. Each run:
-
 1. Checks the **kill switch**: if `PAUSE` exists at the repo root or the `agent_loop_enabled` flag is off, exit immediately.
 2. Resumes from `PROGRESS.md` and `BACKLOG.md`.
 3. Works until the task completes, the session limit is hit, or a max runtime (configurable, default 3h) is reached.
@@ -38,7 +36,6 @@ The Anthropic API key and other secrets live in Actions secrets / VM env only, n
 ## 4. Tiered merge policy
 
 Enforced with GitHub path rules plus auto-merge, not agent discretion:
-
 - **Auto-merge** when the full CI wall is green and subagent reviews pass: `docs/`, tests, `packages/ui` components + stories, app UI code behind a feature flag defaulting to off.
 - **Human approval required:** `supabase/migrations/`, RLS policies, `services/` edge functions touching leads, billing, or auth; `.github/`; `.claude/`; `packages/types` protocol changes; anything else under a CODEOWNERS entry for the human.
 
@@ -71,9 +68,16 @@ The last run before 08:00 Cairo time (and any run after a phase gate) posts to `
 - Any isolation-test failure → stop the loop entirely, create `PAUSE`, post `HUMAN ONLY`.
 - The agent never edits this spec, `BACKLOG.md` ordering, the permission config, or the merge policy.
 
-## Acceptance criteria
+## 8. Inbox and agent identity (Part 2)
 
+- **Inbound channel `#build-inbox`:** the unattended runner reads it at the start of every run and treats messages there as instructions from the human. `#build` stays outbound-only (reports), so conversation there is never mistaken for orders. `#build-decisions` thread replies keep their §5 role.
+- **Separate bot identity:** the agent posts through its own Slack bot account, not the human's. Instructions (inbox) and Tier C replies are honored only when they come from the human's user ID, which is verifiable once the agent no longer posts as the human. This closes the gap where agent posts and human posts looked identical.
+- The bot token lives in the runner's secrets only; setting it up is a human action.
+
+## Acceptance criteria
 - [ ] Allowlist/denylist in place; a full slice runs with zero permission prompts.
+- [ ] Part 2 precondition met: denied actions demonstrably refused in a fresh session (evidence in Slack).
+- [ ] `#build-inbox` instructions picked up by an unattended run; agent posts under its own bot identity; a Tier C reply from the bot account is correctly ignored.
 - [ ] `BACKLOG.md` exists and drives task selection.
 - [ ] Scheduled runner works; kill switch verified (create `PAUSE` → next run exits).
 - [ ] Tiered merge proven: one docs PR auto-merged, one migration PR held for the human.
