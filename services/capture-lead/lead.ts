@@ -34,8 +34,16 @@ export const leadSchema = z.object({
 
 export type LeadPayload = z.infer<typeof leadSchema>;
 
-export type LeadDecision =
-  | { outcome: "accept"; lead: LeadPayload }
+/**
+ * What a page may send. The brand and market are resolved by the database from the publishable
+ * key, origin and market header (owner decision), so the body doesn't carry them. If it does,
+ * they're ignored.
+ */
+export const publicLeadSchema = leadSchema.omit({ brand_id: true, market_code: true });
+export type PublicLeadPayload = z.infer<typeof publicLeadSchema>;
+
+export type LeadDecision<T = LeadPayload> =
+  | { outcome: "accept"; lead: T }
   | { outcome: "reject"; error_message: string; consent_missing: boolean };
 
 /** Field names and messages only — a lead payload is PII from end to end. */
@@ -56,7 +64,16 @@ export function isConsentIssue(error: z.ZodError): boolean {
  * store is ours and belongs in the dead-letter queue.
  */
 export function decideLead(raw: unknown): LeadDecision {
-  const parsed = leadSchema.safeParse(raw);
+  return decideWith(leadSchema, raw);
+}
+
+/** The same rules for a submission from a page, which names no brand. */
+export function decidePublicLead(raw: unknown): LeadDecision<PublicLeadPayload> {
+  return decideWith(publicLeadSchema, raw);
+}
+
+function decideWith<T>(schema: z.ZodType<T>, raw: unknown): LeadDecision<T> {
+  const parsed = schema.safeParse(raw);
   if (parsed.success) {
     return { outcome: "accept", lead: parsed.data };
   }
@@ -73,7 +90,7 @@ export function decideLead(raw: unknown): LeadDecision {
  * and because a spike of them means the form is broken, not that people are refusing.
  */
 export function rejectionLog(
-  decision: Extract<LeadDecision, { outcome: "reject" }>,
+  decision: Extract<LeadDecision<unknown>, { outcome: "reject" }>,
   traceId: string,
 ) {
   return {

@@ -36,6 +36,14 @@ export const eventSchema = z.object({
 export type IngestEvent = z.infer<typeof eventSchema>;
 
 /**
+ * What a page may send. The brand and market are resolved by the database from the publishable
+ * key, origin and market header (owner decision), so an event from a page carries neither. If it
+ * does, they're ignored.
+ */
+export const publicEventSchema = eventSchema.omit({ brand_id: true, market_code: true });
+export type PublicEvent = z.infer<typeof publicEventSchema>;
+
+/**
  * How accepted events are written. `ignoreDuplicates` makes PostgREST emit
  * `ON CONFLICT (id) DO NOTHING`. Without it the upsert becomes `DO UPDATE`, and the write-once
  * trigger rejects that as soon as the redelivered event has already been processed. The whole
@@ -46,9 +54,9 @@ export const EVENTS_UPSERT_OPTIONS = { onConflict: "id", ignoreDuplicates: true 
 /** A batch is accepted as a whole or split: each event is judged on its own. */
 export const batchSchema = z.union([eventSchema, z.array(eventSchema).min(1).max(100)]);
 
-export interface Accepted {
+export interface Accepted<T = IngestEvent> {
   outcome: "accept";
-  event: IngestEvent;
+  event: T;
 }
 
 export interface DeadLetter {
@@ -58,7 +66,7 @@ export interface DeadLetter {
   error_message: string;
 }
 
-export type Decision = Accepted | DeadLetter;
+export type Decision<T = IngestEvent> = Accepted<T> | DeadLetter;
 
 /** PII must never reach a log line, so a rejection is described by shape, not content. */
 export function describeFailure(error: z.ZodError): string {
@@ -74,7 +82,11 @@ export function describeFailure(error: z.ZodError): string {
  * cause is fixed, which is what "zero loss" means in practice.
  */
 export function decide(raw: unknown): Decision {
-  const parsed = eventSchema.safeParse(raw);
+  return decideWith(eventSchema, raw);
+}
+
+function decideWith<T>(schema: z.ZodType<T>, raw: unknown): Decision<T> {
+  const parsed = schema.safeParse(raw);
   if (parsed.success) {
     return { outcome: "accept", event: parsed.data };
   }
@@ -86,6 +98,15 @@ export function decide(raw: unknown): Decision {
 }
 
 export function decideBatch(raw: unknown): Decision[] {
+  return batchWith(raw, decide);
+}
+
+/** A batch from a page: each event judged against the public schema. */
+export function decidePublicBatch(raw: unknown): Decision<PublicEvent>[] {
+  return batchWith(raw, (item) => decideWith(publicEventSchema, item));
+}
+
+function batchWith<T>(raw: unknown, judge: (item: unknown) => Decision<T>): Decision<T>[] {
   const items = Array.isArray(raw) ? raw : [raw];
   if (items.length === 0) {
     return [{ outcome: "dead-letter", source_payload: {}, error_message: "(root): empty batch" }];
@@ -99,7 +120,7 @@ export function decideBatch(raw: unknown): Decision[] {
       },
     ];
   }
-  return items.map(decide);
+  return items.map(judge);
 }
 
 function asObject(raw: unknown): Record<string, unknown> {
