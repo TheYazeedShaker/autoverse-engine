@@ -215,6 +215,11 @@ Six open threads, all posted 2026-09-24. Act on a Tier B only after a reply in i
 1. When #27 and #28 merge: rebase #29 onto `main`, squash, mark it ready, and post the gate evidence to Slack.
 2. When the scheduler + worker-auth threads are answered: worker `index.ts` (cron-secret auth), the pg_cron schedule migration, and the gate waiting on the schedule instead of calling the worker.
 3. When the service-role thread is answered: blocker 2 part 2. The edge functions resolve the brand via `resolve_public_caller`, rate-limit, and (capture-lead) add the bot check behind a verifier interface. validate-theme becomes staff-only. Then the three functions get deployed, which is a hosted action and needs the owner.
+   From the #30 security review, this PR must:
+   - Pass the page's market as `p_market_code`. Resolution is never guessed.
+   - Treat key + origin as a **browser-only** control, because Origin can be forged from a script. The bot check and the rate limit are what stop scripted abuse.
+   - Rate-limit a **per-brand** bucket as well as the per-client one, so rotating IPs are still capped.
+   - Build client buckets from an **HMAC** of the client address with a secret, never a plain hash of an IP.
 4. Still to do from the old list: regenerate `packages/engine-core/src/database.types.ts` once the migrations are applied, and run `docs/runbooks/flag-kill-path.md`.
 
 ### Known follow-ups (not blocking)
