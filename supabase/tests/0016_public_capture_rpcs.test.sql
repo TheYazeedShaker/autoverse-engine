@@ -149,7 +149,7 @@ declare msg text;
 begin
   msg := test_helpers.try($q$select public.capture_lead('{}'::jsonb)$q$);
   if msg not like '%permission denied%' then raise exception 'CRITICAL: anon can call capture_lead directly (%)', msg; end if;
-  msg := test_helpers.try($q$select * from app_auth.admit_public_call('gw-test-secret','x','x','EG',repeat('a',32),'lead',1,1,60)$q$);
+  msg := test_helpers.try($q$select * from app_auth.admit_public_call('gw-test-secret','x','x','EG',repeat('a',32),'lead',1,1,1,60,true)$q$);
   if msg not like '%permission denied%' then raise exception 'CRITICAL: anon can call the admission gate directly (%)', msg; end if;
   msg := test_helpers.try($q$select count(*) from app_auth.rate_limit_hits$q$);
   if msg not like '%permission denied%' then raise exception 'CRITICAL: anon reads the rate-limit table (%)', msg; end if;
