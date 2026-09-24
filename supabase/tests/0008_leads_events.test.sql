@@ -140,6 +140,35 @@ begin
   raise notice 'PASS: a redelivered event is absorbed by its id, not duplicated';
 end $$;
 
+-- ---- 3b. redelivery of an event that has ALREADY BEEN PROCESSED ----
+-- These are the two statements PostgREST can emit for an upsert on id. ingest-event must send the
+-- first (services/ingest-event/upsert.test.ts checks that it does). The second is what a plain
+-- `.upsert()` sends, and it is shown here failing, so the reason for the choice stays visible.
+do $$
+declare n int; msg text;
+begin
+  insert into public.events (id, brand_id, kind)
+    values ('00000000-0000-0000-0000-0000000b9002', '00000000-0000-0000-0000-00000000000b', 'configurator.opened');
+  update public.events set processed_at = now() where id = '00000000-0000-0000-0000-0000000b9002';
+
+  msg := test_helpers.try($q$insert into public.events (id, brand_id, kind)
+    values ('00000000-0000-0000-0000-0000000b9002', '00000000-0000-0000-0000-00000000000b', 'configurator.opened')
+    on conflict (id) do nothing$q$);
+  if msg <> '' then
+    raise exception 'CRITICAL: redelivery of a processed event was refused under DO NOTHING (%)', msg;
+  end if;
+  select count(*) into n from public.events where id = '00000000-0000-0000-0000-0000000b9002';
+  if n <> 1 then raise exception 'CRITICAL: redelivery produced % rows for one event', n; end if;
+
+  msg := test_helpers.try($q$insert into public.events (id, brand_id, kind)
+    values ('00000000-0000-0000-0000-0000000b9002', '00000000-0000-0000-0000-00000000000b', 'configurator.opened')
+    on conflict (id) do update set brand_id = excluded.brand_id, kind = excluded.kind$q$);
+  if msg not like '%already been processed%' then
+    raise exception 'FAIL: expected DO UPDATE to hit the write-once guard, got (%)', msg;
+  end if;
+  raise notice 'PASS: a processed event redelivered with DO NOTHING is absorbed (DO UPDATE would be refused)';
+end $$;
+
 set local role authenticated;
 
 -- ---- 4. a brand reads only its own leads, activities and events, and writes none ----

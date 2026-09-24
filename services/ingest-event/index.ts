@@ -6,7 +6,7 @@
 // surface must not break because our pipeline is unwell, and a retrying client hammering a failing
 // endpoint makes an incident worse.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { decideBatch } from "./ingest.ts";
+import { EVENTS_UPSERT_OPTIONS, decideBatch } from "./ingest.ts";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -40,7 +40,7 @@ Deno.serve(async (request: Request) => {
   const rejected = decisions.flatMap((d) => (d.outcome === "dead-letter" ? [d] : []));
 
   if (accepted.length > 0) {
-    const { error } = await supabase.from("events").upsert(accepted, { onConflict: "id" });
+    const { error } = await supabase.from("events").upsert(accepted, EVENTS_UPSERT_OPTIONS);
     if (error) {
       // The store itself failed, so everything in this request becomes a dead letter rather than
       // being lost. Zero loss is the point of the queue.

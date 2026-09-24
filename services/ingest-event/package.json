@@ -11,6 +11,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@supabase/postgrest-js": "^2.117.1",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }
