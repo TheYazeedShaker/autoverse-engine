@@ -1,4 +1,4 @@
--- 20260924180000_worker_schedule_and_routing.sql
+-- 20260924201000_worker_schedule_and_routing.sql
 -- ENGINE-CORE-1A — the worker runs on its own, and lead routing has what it needs.
 --
 -- Owner decisions (#build-decisions, recorded in ADR 0011 and ADR 0012):
@@ -98,7 +98,10 @@ grant  execute on function public.reconciliation_report() to service_role;
 -- Lead routing
 -- ============================================================================================
 -- The Vault id of this brand-market's webhook signing secret (ADR 0012). A reference, never the
--- secret itself. Rotating means pointing at a new Vault entry.
+-- secret itself. Rotating means pointing at a new Vault entry. The entry must be NAMED
+-- lead_webhook:<brand_id>:<market_code>. lead_routing checks the name as well as the id, so a
+-- mistaken or malicious reference can never turn another secret (the cron or gateway secret, or
+-- another brand's key) into a webhook signing key.
 alter table public.brand_market_private add column lead_routing_webhook_secret_id uuid;
 
 -- Everything a routing job needs for one lead, in one call: the lead as captured, where to send
@@ -122,7 +125,8 @@ as $fn$
     'emails', coalesce(to_jsonb(p.lead_routing_emails), '[]'::jsonb),
     'webhook_url', p.lead_routing_webhook_url,
     'webhook_secret', (select s.decrypted_secret from vault.decrypted_secrets s
-                        where s.id = p.lead_routing_webhook_secret_id)
+                        where s.id = p.lead_routing_webhook_secret_id
+                          and s.name = format('lead_webhook:%s:%s', l.brand_id, l.market_code))
   )
   from public.leads l
   left join public.brand_market_private p

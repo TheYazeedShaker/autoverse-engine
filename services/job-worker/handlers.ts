@@ -12,6 +12,8 @@ export interface HandlerContext {
   routing: RoutingConfig;
   /** The job being run. Routing uses it as the idempotency key downstream. */
   jobId: string;
+  /** Aborted when the job's timeout fires. Stop work and outbound calls promptly. */
+  signal: AbortSignal;
 }
 
 export type Handler = (payload: Record<string, unknown>, ctx: HandlerContext) => Promise<void>;
@@ -32,7 +34,7 @@ type Replay =
 async function sweep(
   queue: DeadLetterQueue,
   plan: (row: DeadLetter) => Replay,
-  { store, log }: HandlerContext,
+  { store, log, signal }: HandlerContext,
 ): Promise<void> {
   const rows = await store.pendingDeadLetters(queue, SWEEP_BATCH);
   let resolved = 0;
@@ -40,6 +42,8 @@ async function sweep(
   let retrying = 0;
 
   for (const row of rows) {
+    // Timed out: stop between rows. Anything not reached stays pending for the next sweep.
+    if (signal.aborted) break;
     const decision = plan(row);
     if (decision.action === "give-up") {
       await store.recordDeadLetterFailure(queue, row.id, MAX_ATTEMPTS, decision.reason);
@@ -74,9 +78,7 @@ function planEventReplay(row: DeadLetter): Replay {
 }
 
 function planLeadReplay(row: DeadLetter): Replay {
-  if (row.attempts >= MAX_ATTEMPTS) {
-    return { action: "give-up", reason: `still failing after ${MAX_ATTEMPTS} attempts` };
-  }
+  // Rows that used up their attempts never reach here: pendingDeadLetters filters them out.
   const decision = decideLead(row.source_payload);
   return decision.outcome === "accept"
     ? { action: "replay", run: (store) => store.captureLead(decision.lead) }
@@ -85,7 +87,7 @@ function planLeadReplay(row: DeadLetter): Replay {
 
 /** Route one lead through `send`, or complete as a no-op if the lead or the channel is absent. */
 function routeLead(channel: "email" | "webhook", send: typeof sendLeadEmail): Handler {
-  return async (payload, { store, log, routing, jobId }) => {
+  return async (payload, { store, log, routing, jobId, signal }) => {
     const leadId = String(payload.lead_id);
     const target = await store.leadRouting(leadId);
     if (!target) {
@@ -93,7 +95,7 @@ function routeLead(channel: "email" | "webhook", send: typeof sendLeadEmail): Ha
       log("warn", `lead_${channel}_no_lead`, { lead_id: leadId });
       return;
     }
-    const sent = await send(target, jobId, routing);
+    const sent = await send(target, jobId, { ...routing, signal });
     log("info", sent ? `lead_${channel}_sent` : `lead_${channel}_not_configured_for_market`, {
       lead_id: leadId,
       brand_id: target.lead.brand_id,
@@ -103,7 +105,10 @@ function routeLead(channel: "email" | "webhook", send: typeof sendLeadEmail): Ha
 }
 
 /** Counts that should be zero, or close to it. Anything off is logged at error level (alerting). */
+// jobs_failed_24h: a routing job that spent all its attempts is a brand that never heard about a
+// lead. Leads are stricter than events, and any failure pages.
 const RECONCILIATION_ALARMS = [
+  "jobs_failed_24h",
   "lead_dlq_open",
   "lead_dlq_gave_up",
   "event_dlq_gave_up",

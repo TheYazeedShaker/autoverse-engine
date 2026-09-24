@@ -11,7 +11,9 @@ engine-architecture §10 says outbound webhooks per brand are "signed, retried, 
 ## Decision
 
 **Secret.** Each (brand, market) has its own signing secret, stored in Supabase **Vault**.
-`brand_market_private.lead_routing_webhook_secret_id` references the Vault entry. The secret never
+`brand_market_private.lead_routing_webhook_secret_id` references the Vault entry, which must be named
+`lead_webhook:<brand_id>:<market_code>`. The name is checked as well as the id, so a reference can
+never borrow another secret. The secret never
 sits in a table row, a dump or a log. Rotating it means writing a new Vault secret and repointing
 the reference.
 

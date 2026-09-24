@@ -1,4 +1,4 @@
--- 20260924160000_job_worker.sql
+-- 20260924200000_job_worker.sql
 -- ENGINE-CORE-1A Slice 9 — what the job worker needs from the database.
 --
 -- The review found both dead-letter queues write-only (BLOCK #2): nothing drained them. The worker

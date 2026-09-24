@@ -1,17 +1,21 @@
-// One worker run: queue any DLQ sweeps that are due, then claim and run jobs until the queue is
-// empty or the time budget is spent. A scheduler calls this repeatedly. Nothing here assumes it is
-// the only worker, because claiming is exclusive and every job holds a lease.
+// One worker run: queue any DLQ sweeps that are due, then claim and run jobs one at a time until
+// the queue is empty or the time budget is spent. A scheduler calls this repeatedly. Nothing here
+// assumes it is the only worker, because claiming is exclusive and every job holds a lease.
+//
+// Timing, so a live job is never reaped (and run twice) while it is still running:
+//   * one job per claim, so a lease only has to cover ONE job, not a batch waiting its turn;
+//   * the deadline is checked before every claim, so a run ends by budget + one job timeout;
+//   * the lease is jobTimeout + a margin, and the handler is aborted when its timeout fires.
+// With the defaults a run ends within 40s + 25s = 65s, well inside the edge wall-clock limit.
+import { logger } from "../shared/log.ts";
 import { dispatch } from "./dispatch.ts";
 import { type Handler, type HandlerContext, handlers as defaultHandlers } from "./handlers.ts";
 import type { RoutingConfig } from "./routing.ts";
 import type { ClaimedJob, WorkerStore } from "./store.ts";
 
 export interface RunOptions {
-  /** Stop claiming new work after this long. Keep it well inside the host's wall-clock limit. */
+  /** Stop claiming new work after this long. Budget + jobTimeoutMs must fit the host's limit. */
   budgetMs?: number;
-  batchSize?: number;
-  /** Must exceed jobTimeoutMs, or a slow but live job would be reaped while it is still running. */
-  leaseSeconds?: number;
   jobTimeoutMs?: number;
   handlers?: Record<string, Handler>;
   /** Where lead routing sends and how. Without a Resend key, email jobs fail as not configured. */
@@ -27,12 +31,15 @@ export interface RunSummary {
   failed: number;
 }
 
-const DEFAULTS = { budgetMs: 50_000, batchSize: 10, leaseSeconds: 120, jobTimeoutMs: 30_000 };
+const DEFAULTS = { budgetMs: 40_000, jobTimeoutMs: 25_000 };
+/** Headroom between a job's timeout and its lease expiring, for the completion round trip. */
+const LEASE_MARGIN_SECONDS = 60;
 
 export async function runOnce(store: WorkerStore, options: RunOptions = {}): Promise<RunSummary> {
-  const { budgetMs, batchSize, leaseSeconds, jobTimeoutMs } = { ...DEFAULTS, ...options };
+  const { budgetMs, jobTimeoutMs } = { ...DEFAULTS, ...options };
+  const leaseSeconds = Math.ceil(jobTimeoutMs / 1000) + LEASE_MARGIN_SECONDS;
   const registry = options.handlers ?? defaultHandlers;
-  const log = options.log ?? jsonLog;
+  const log = options.log ?? logger("job-worker");
   const now = options.now ?? Date.now;
   const deadline = now() + budgetMs;
   const routing: RoutingConfig = {
@@ -50,21 +57,18 @@ export async function runOnce(store: WorkerStore, options: RunOptions = {}): Pro
   };
 
   while (now() < deadline) {
-    const jobs = await store.claimJobs(batchSize, leaseSeconds);
-    if (jobs.length === 0) break;
-    summary.claimed += jobs.length;
-
-    for (const job of jobs) {
-      const ok = await runJob(
-        job,
-        store,
-        registry,
-        { store, log, routing, jobId: job.id },
-        jobTimeoutMs,
-      );
-      if (ok) summary.succeeded += 1;
-      else summary.failed += 1;
-    }
+    const [job] = await store.claimJobs(1, leaseSeconds);
+    if (!job) break;
+    summary.claimed += 1;
+    const ok = await runJob(
+      job,
+      store,
+      registry,
+      { store, log, routing, jobId: job.id },
+      jobTimeoutMs,
+    );
+    if (ok) summary.succeeded += 1;
+    else summary.failed += 1;
   }
 
   log("info", "worker_run_finished", { ...summary });
@@ -75,7 +79,7 @@ async function runJob(
   job: ClaimedJob,
   store: WorkerStore,
   registry: Record<string, Handler>,
-  ctx: HandlerContext,
+  ctx: Omit<HandlerContext, "signal">,
   timeoutMs: number,
 ): Promise<boolean> {
   const decision = dispatch(job);
@@ -84,7 +88,7 @@ async function runJob(
     decision.action === "fail"
       ? decision.reason
       : handler
-        ? await attempt(() => handler(decision.payload, ctx), timeoutMs)
+        ? await attempt((signal) => handler(decision.payload, { ...ctx, signal }), timeoutMs)
         : `no handler registered for ${job.kind}`;
 
   ctx.log(failure ? "warn" : "info", failure ? "job_failed" : "job_done", {
@@ -105,14 +109,24 @@ async function runJob(
   return failure === null;
 }
 
-/** Run with a timeout. Resolves to null on success, or to the failure message. */
-async function attempt(run: () => Promise<void>, timeoutMs: number): Promise<string | null> {
+/**
+ * Run with a timeout. Resolves to null on success, or to the failure message. On timeout the
+ * handler's signal is aborted, so its in-flight calls stop rather than carrying on unobserved.
+ */
+async function attempt(
+  run: (signal: AbortSignal) => Promise<void>,
+  timeoutMs: number,
+): Promise<string | null> {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<string>((resolve) => {
-    timer = setTimeout(() => resolve(`timed out after ${timeoutMs}ms`), timeoutMs);
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(`timed out after ${timeoutMs}ms`);
+    }, timeoutMs);
   });
   try {
-    return await Promise.race([run().then(() => null), timeout]);
+    return await Promise.race([run(controller.signal).then(() => null), timeout]);
   } catch (error) {
     return messageOf(error);
   } finally {
@@ -122,17 +136,4 @@ async function attempt(run: () => Promise<void>, timeoutMs: number): Promise<str
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-/** Structured JSON, one line per event. Callers never pass PII: ids, kinds and counts only. */
-function jsonLog(
-  level: "info" | "warn" | "error",
-  event: string,
-  fields: Record<string, unknown> = {},
-): void {
-  const line = JSON.stringify({ level, event, service: "job-worker", ...fields });
-  if (level === "error") console.error(line);
-  else if (level === "warn") console.warn(line);
-  // eslint-disable-next-line no-console -- info lines are the structured log stream (stdout)
-  else console.log(line);
 }

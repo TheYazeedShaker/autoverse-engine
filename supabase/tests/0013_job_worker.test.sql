@@ -1,5 +1,5 @@
 -- 0013_job_worker.test.sql
--- MANDATORY test for migration 20260924160000_job_worker.sql (BLOCK finding #2).
+-- MANDATORY test for migration 20260924200000_job_worker.sql (BLOCK finding #2).
 -- Proves: a sweep is queued only when a queue has something to drain; at most one sweep per queue
 -- is outstanding, so two workers never replay the same dead letter; resolved and given-up rows are
 -- not swept again; the dead letters stay staff-only; and enqueue_dlq_sweeps is service-role only.

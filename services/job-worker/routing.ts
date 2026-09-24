@@ -17,6 +17,8 @@ export interface RoutingConfig {
   /** Milliseconds since the epoch. Injected so signing is testable. */
   now: () => number;
   timeoutMs: number;
+  /** The job's own abort signal: a timed-out job stops its in-flight call too. */
+  signal?: AbortSignal;
 }
 
 export const RESEND_ENDPOINT = "https://api.resend.com/emails";
@@ -42,12 +44,19 @@ async function post(
       method: "POST",
       headers,
       body,
-      signal: AbortSignal.timeout(config.timeoutMs),
+      signal: config.signal
+        ? AbortSignal.any([AbortSignal.timeout(config.timeoutMs), config.signal])
+        : AbortSignal.timeout(config.timeoutMs),
+      // Never follow a redirect: a 307/308 would re-POST signed PII to wherever it points.
+      redirect: "manual",
     });
   } catch {
     throw new DeliveryError(what);
   }
-  if (!response.ok) throw new DeliveryError(what, response.status);
+  // A redirect (or the opaque response "manual" gives one) is a failure, not a delivery.
+  if (!response.ok || response.type === "opaqueredirect") {
+    throw new DeliveryError(what, response.status);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -112,6 +121,31 @@ export async function sendLeadEmail(
 // Webhook (ADR 0012)
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Only public https hosts receive lead PII. The database already requires https. This also refuses
+ * localhost, IP literals and internal names, so a URL can't point the worker at its own network.
+ */
+export function isDeliverableUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  const host = url.hostname.toLowerCase();
+  return (
+    url.protocol === "https:" &&
+    !url.username &&
+    !url.password &&
+    host.includes(".") &&
+    !host.endsWith(".local") &&
+    !host.endsWith(".internal") &&
+    host !== "localhost" &&
+    !/^[0-9.]+$/.test(host) &&
+    !host.startsWith("[")
+  );
+}
+
 /** `v1=` + hex HMAC-SHA256(secret, "<timestamp>.<body>"). */
 export async function signWebhook(
   secret: string,
@@ -138,6 +172,9 @@ export async function deliverLeadWebhook(
   config: RoutingConfig,
 ): Promise<boolean> {
   if (!routing.webhook_url) return false;
+  if (!isDeliverableUrl(routing.webhook_url)) {
+    throw new Error("deliver-lead-webhook refused: the URL is not a public https host");
+  }
   if (!routing.webhook_secret) {
     // A URL without a secret would mean sending unsigned PII. Refuse, loudly, until it's set.
     throw new Error(

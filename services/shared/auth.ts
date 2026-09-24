@@ -20,12 +20,17 @@ export async function authorize(
   authorization: string | null,
   deps: AuthDeps,
 ): Promise<Caller | null> {
-  const token = /^Bearer (.+)$/.exec(authorization ?? "")?.[1];
+  const token = bearerToken(authorization);
   if (!token) return null;
   if (deps.cronSecret && (await constantTimeEqual(token, deps.cronSecret))) return "cron";
   // Only something shaped like a JWT goes to the auth server, so a wrong secret costs no round trip.
   if (token.split(".").length === 3 && (await deps.isTenancyManager(token))) return "staff";
   return null;
+}
+
+/** The token from `Authorization: Bearer <token>`, or null. */
+export function bearerToken(authorization: string | null): string | null {
+  return /^Bearer (\S+)$/.exec(authorization ?? "")?.[1] ?? null;
 }
 
 /**

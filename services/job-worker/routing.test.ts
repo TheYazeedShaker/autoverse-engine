@@ -5,6 +5,7 @@ import {
   RESEND_ENDPOINT,
   type RoutingConfig,
   deliverLeadWebhook,
+  isDeliverableUrl,
   sendLeadEmail,
   signWebhook,
 } from "./routing";
@@ -139,5 +140,41 @@ describe("sendLeadEmail", () => {
     const { cfg } = config();
     delete cfg.resendApiKey;
     await expect(sendLeadEmail(routing(), "job-7", cfg)).rejects.toThrow("not configured");
+  });
+});
+
+describe("webhook destination guards", () => {
+  it("treats a redirect as a failure instead of re-posting signed PII elsewhere", async () => {
+    const { cfg } = config(
+      () => new Response(null, { status: 307, headers: { location: "http://x" } }),
+    );
+    await expect(deliverLeadWebhook(routing(), "job-9", cfg)).rejects.toThrow(
+      "webhook answered 307",
+    );
+  });
+
+  it("only delivers to public https hosts", () => {
+    expect(isDeliverableUrl("https://hooks.example.com/leads")).toBe(true);
+    for (const bad of [
+      "http://hooks.example.com",
+      "https://localhost/x",
+      "https://127.0.0.1/x",
+      "https://10.0.0.5/x",
+      "https://[::1]/x",
+      "https://intranet/x",
+      "https://db.internal/x",
+      "https://user:pw@hooks.example.com/x",
+      "not a url",
+    ]) {
+      expect(isDeliverableUrl(bad), bad).toBe(false);
+    }
+  });
+
+  it("refuses to send to a non-public host even with a secret", async () => {
+    const { cfg, sent } = config();
+    await expect(
+      deliverLeadWebhook(routing({ webhook_url: "https://127.0.0.1/hook" }), "job-9", cfg),
+    ).rejects.toThrow("not a public https host");
+    expect(sent).toHaveLength(0);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { authorize, constantTimeEqual } from "../shared/auth";
+import { authorize, bearerToken, constantTimeEqual } from "../shared/auth";
+import { requireEnv } from "../shared/log";
 
 const JWT = "aaa.bbb.ccc";
 const deps = (overrides: Partial<Parameters<typeof authorize>[1]> = {}) => ({
@@ -41,5 +42,22 @@ describe("constantTimeEqual", () => {
     expect(await constantTimeEqual("abc", "abc")).toBe(true);
     expect(await constantTimeEqual("abc", "abd")).toBe(false);
     expect(await constantTimeEqual("abc", "abcd")).toBe(false);
+  });
+});
+
+describe("bearerToken", () => {
+  it("reads a Bearer token and nothing else", () => {
+    expect(bearerToken("Bearer abc.def")).toBe("abc.def");
+    expect(bearerToken("Bearer ")).toBeNull();
+    expect(bearerToken("Basic abc")).toBeNull();
+    expect(bearerToken(null)).toBeNull();
+  });
+});
+
+describe("requireEnv", () => {
+  it("names every missing variable (never a value) so a bad deploy is obvious", () => {
+    const env: Record<string, string> = { A: "1" };
+    expect(requireEnv((n) => env[n], ["A", "B", "C"])).toEqual({ ok: false, missing: ["B", "C"] });
+    expect(requireEnv((n) => env[n], ["A"])).toEqual({ ok: true, values: { A: "1" } });
   });
 });

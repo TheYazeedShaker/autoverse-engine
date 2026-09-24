@@ -1,5 +1,5 @@
 -- 0015_worker_schedule_and_routing.test.sql
--- MANDATORY test for migration 20260924180000_worker_schedule_and_routing.sql.
+-- MANDATORY test for migration 20260924201000_worker_schedule_and_routing.sql.
 -- Proves: the worker is scheduled every minute and the reconciliation daily; the scheduled call
 -- does nothing without its Vault secrets, and with them sends the shared secret (never written into
 -- cron.job); the daily reconciliation can't stack; lead_routing returns a lead's routing and its
@@ -82,7 +82,7 @@ end $$;
 do $$
 declare secret_id uuid; lead_id uuid; r jsonb;
 begin
-  secret_id := vault.create_secret('whsec_brand_a', 'brand-a-eg-webhook');
+  secret_id := vault.create_secret('whsec_brand_a', 'lead_webhook:00000000-0000-0000-0000-00000000000a:EG');
   insert into public.brand_market_private (brand_id, market_code, lead_routing_emails, lead_routing_webhook_url, lead_routing_webhook_secret_id)
   values ('00000000-0000-0000-0000-00000000000a', 'EG', '{sales@a.example.com}', 'https://hooks.a.example.com/leads', secret_id),
          ('00000000-0000-0000-0000-00000000000b', 'EG', '{sales@b.example.com}', null, null);
@@ -100,6 +100,14 @@ begin
   end if;
   if r ->> 'webhook_secret' <> 'whsec_brand_a' then raise exception 'FAIL: the signing secret was not resolved'; end if;
   if public.lead_routing(gen_random_uuid()) is not null then raise exception 'FAIL: a missing lead produced routing'; end if;
+
+  -- A reference pointed at any OTHER secret (here: the worker's cron secret) resolves to nothing.
+  update public.brand_market_private
+     set lead_routing_webhook_secret_id = (select id from vault.secrets where name = 'job_worker_cron_secret')
+   where brand_id = '00000000-0000-0000-0000-00000000000a';
+  if public.lead_routing(lead_id) ->> 'webhook_secret' is not null then
+    raise exception 'CRITICAL: lead_routing handed out a non-webhook secret as a signing key';
+  end if;
   raise notice 'PASS: lead_routing returns the lead''s own brand-market recipients and signing secret';
 end $$;
 
