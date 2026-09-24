@@ -11,7 +11,7 @@
 //   * writes the lead, its consent and its first activity in one transaction, or dead-letters it.
 // Before that call, this function does the one thing the database can't: the Turnstile bot check.
 // It then passes the gateway secret that proves the call came through here.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { logger, requireEnv } from "../shared/log.ts";
 import {
   clientAddress,

@@ -5,7 +5,7 @@
 //
 // verify_jwt is off for this function (supabase/config.toml) because the cron call carries the
 // shared secret, not a JWT. shared/auth.ts does the checking instead, and refuses everyone else.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { authorize } from "../shared/auth.ts";
 import { logger, requireEnv } from "../shared/log.ts";
 import { isTenancyManager } from "../shared/staff.ts";
