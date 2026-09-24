@@ -35,6 +35,14 @@ export const eventSchema = z.object({
 
 export type IngestEvent = z.infer<typeof eventSchema>;
 
+/**
+ * How accepted events are written. `ignoreDuplicates` makes PostgREST emit
+ * `ON CONFLICT (id) DO NOTHING`. Without it the upsert becomes `DO UPDATE`, and the write-once
+ * trigger rejects that as soon as the redelivered event has already been processed. The whole
+ * batch then dead-letters, on ordinary at-least-once redelivery.
+ */
+export const EVENTS_UPSERT_OPTIONS = { onConflict: "id", ignoreDuplicates: true } as const;
+
 /** A batch is accepted as a whole or split: each event is judged on its own. */
 export const batchSchema = z.union([eventSchema, z.array(eventSchema).min(1).max(100)]);
 
