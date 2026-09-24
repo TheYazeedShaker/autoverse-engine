@@ -59,7 +59,16 @@ begin
     raise exception 'FAIL: expected the dedupe index to hold while the job is outstanding (%)', msg;
   end if;
 
-  -- The next sweep reaps it and hands it to a new worker, with a new token.
+  -- The next sweep reaps it: back to pending, with a backoff so it isn't handed straight back.
+  perform public.reap_expired_jobs();
+  select * into j from public.jobs where id = '00000000-0000-0000-0000-000000001001';
+  if j.status <> 'pending' then raise exception 'CRITICAL: an expired lease was not reaped (status %)', j.status; end if;
+  if j.run_after <= now() then raise exception 'FAIL: a reaped job came back with no backoff'; end if;
+  if j.lease_token is not null then raise exception 'FAIL: a reaped job kept the dead worker''s lease'; end if;
+
+  -- The backoff elapses and a new worker claims it, with a new token.
+  update public.jobs set run_after = now() - interval '1 second'
+   where id = '00000000-0000-0000-0000-000000001001';
   select * into j from public.claim_jobs(10, 60);
   if j.id is distinct from '00000000-0000-0000-0000-000000001001'::uuid then
     raise exception 'CRITICAL: a job whose worker died was never picked up again';
@@ -101,11 +110,13 @@ begin
   insert into public.jobs (id, kind, payload, max_attempts) values (jid, 'retry-event-dlq', '{}', 3);
   delete from public.jobs where id <> jid and status = 'pending';
 
+  -- Each round: claimed, the worker dies, the lease expires, it is reaped, the backoff elapses.
   for i in 1..3 loop
     perform public.claim_jobs(10, 60);
     update public.jobs set locked_until = now() - interval '1 second' where id = jid;
+    perform public.reap_expired_jobs();
+    update public.jobs set run_after = now() - interval '1 second' where id = jid and status = 'pending';
   end loop;
-  perform public.reap_expired_jobs();
 
   if (select status from public.jobs where id = jid) <> 'failed' then
     raise exception 'CRITICAL: a job that crashes its worker every time was retried past max_attempts (status %, attempts %)',

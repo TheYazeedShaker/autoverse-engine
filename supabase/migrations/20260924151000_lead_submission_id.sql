@@ -10,12 +10,18 @@
 -- the existing lead's id and writes nothing: no second lead, no second activity, no second
 -- routing job. Replaying one submission any number of times ends in one lead.
 
--- Leads that predate the key each count as their own submission.
-alter table public.leads add column submission_id uuid;
-update public.leads set submission_id = gen_random_uuid() where submission_id is null;
-alter table public.leads
-  alter column submission_id set not null,
-  add constraint leads_submission_unique unique (brand_id, submission_id);
+-- Leads that predate the key each count as their own submission. Filled by a column default rather
+-- than an UPDATE, so leads_set_updated_at does not rewrite every existing lead's updated_at. The
+-- default is then dropped: every new lead must bring its own key.
+alter table public.leads add column submission_id uuid not null default gen_random_uuid();
+alter table public.leads alter column submission_id drop default;
+alter table public.leads add constraint leads_submission_unique unique (brand_id, submission_id);
+
+-- Dead letters written before this migration carry no key and would fail every replay. Give each
+-- one its own row id. That never changes, so replaying the same row stays idempotent.
+update public.lead_dlq
+   set source_payload = source_payload || jsonb_build_object('submission_id', id)
+ where source_payload ->> 'submission_id' is null;
 
 create or replace function public.capture_lead(payload jsonb)
 returns uuid
@@ -25,7 +31,7 @@ set search_path = ''
 as $fn$
 declare
   new_lead public.leads%rowtype;
-  existing_id     uuid;
+  existing        public.leads%rowtype;
   consent_version text := payload ->> 'consent_text_version';
   consent_moment  timestamptz;
   submission      uuid;
@@ -67,9 +73,17 @@ begin
   -- Already captured: this is a replay. Hand back the lead that exists and write nothing else. The
   -- brand was already routed to it once.
   if new_lead.id is null then
-    select id into existing_id from public.leads
+    select * into existing from public.leads
      where brand_id = (payload ->> 'brand_id')::uuid and submission_id = submission;
-    return existing_id;
+    -- A replay is the SAME submission. A different person under a reused key would otherwise be
+    -- silently dropped behind a success, so it is refused and the caller is told why.
+    if existing.phone is distinct from payload ->> 'phone'
+       or existing.full_name is distinct from payload ->> 'full_name'
+       or existing.type is distinct from coalesce((payload ->> 'type')::public.lead_type, 'contact') then
+      raise exception 'submission_id was already used for a different lead'
+        using errcode = 'unique_violation';
+    end if;
+    return existing.id;
   end if;
 
   insert into public.lead_activities (brand_id, lead_id, actor_id, kind, payload)
