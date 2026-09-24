@@ -23,6 +23,9 @@ export const leadSchema = z.object({
   preferred_time: z.string().trim().max(120).nullish(),
   type: z.enum(["test_drive", "quote", "contact", "whatsapp"]).default("contact"),
   session_id: z.guid().nullish(),
+  // Minted by the form once per submission and resent unchanged on every retry. It is the
+  // idempotency key: capture_lead turns a repeat into a no-op instead of a second lead.
+  submission_id: z.guid(),
   // Consent is not optional and never defaulted. A lead without it cannot be acted on legally,
   // so it must not be storable — the database says the same thing independently.
   consent_text_version: z.string().trim().min(1, "consent_text_version is required"),

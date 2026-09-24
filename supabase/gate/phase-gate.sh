@@ -22,6 +22,7 @@ fail()   { printf '::error::GATE FAILED: %s\n' "$1" >&2; exit 1; }
 
 BRAND='00000000-0000-0000-0000-0000000000aa'
 EVENT='00000000-0000-0000-0000-0000000000e5'
+SUBMISSION='00000000-0000-0000-0000-0000000000f5'
 
 step "Seed a brand and a market"
 psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<SQL
@@ -98,7 +99,8 @@ begin;
 select public.capture_lead(jsonb_build_object(
   'brand_id', '$BRAND', 'market_code', 'EG',
   'full_name', 'Gate Person', 'phone', '+201000009999',
-  'consent_text_version', 'gate-v1', 'consent_at', now()::text));
+  'consent_text_version', 'gate-v1', 'consent_at', now()::text,
+  'submission_id', '$SUBMISSION'));
 select pg_sleep(20);
 commit;
 SQL
@@ -126,9 +128,11 @@ step "Lead: the pipeline dead-letters it, then the worker replays it"
 psql_q "insert into public.lead_dlq (source_payload, error_message)
         values (jsonb_build_object('brand_id','$BRAND','market_code','EG','full_name','Gate Person',
                                    'phone','+201000009999','consent_text_version','gate-v1',
-                                   'consent_at', now()::text),
+                                   'consent_at', now()::text, 'submission_id', '$SUBMISSION'),
                 'connection terminated mid-write')" >/dev/null
 psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<SQL
+-- Twice: a replay of a submission that already landed must be a no-op (idempotent on submission_id).
+select public.capture_lead(source_payload) from public.lead_dlq;
 select public.capture_lead(source_payload) from public.lead_dlq;
 delete from public.lead_dlq;
 SQL
