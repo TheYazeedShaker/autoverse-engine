@@ -9,6 +9,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { decideLead, rejectionLog } from "./lead.ts";
 
+/** Postgres unique_violation, raised by capture_lead when a submission_id is reused for another lead. */
+const SUBMISSION_REUSED = "23505";
+
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
     status,
@@ -41,6 +44,16 @@ Deno.serve(async (request: Request) => {
   );
 
   const { data, error } = await supabase.rpc("capture_lead", { payload: decision.lead });
+
+  if (error?.code === SUBMISSION_REUSED) {
+    // The form sent a submission_id that already belongs to a different lead. That is the form's
+    // bug, not a delivery failure: refuse it plainly, and do not dead-letter it (a replay would be
+    // refused the same way forever).
+    console.warn(
+      JSON.stringify({ level: "warn", event: "lead_submission_reused", trace_id: traceId }),
+    );
+    return json({ error: "This submission id was already used.", trace_id: traceId }, 409);
+  }
 
   if (error) {
     // We accepted responsibility for a valid lead and could not store it. It goes to the queue with

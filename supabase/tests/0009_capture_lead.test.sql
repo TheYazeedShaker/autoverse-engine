@@ -35,7 +35,8 @@ begin
     'phone', '+201000000001',
     'type', 'test_drive',
     'consent_text_version', 'eg-v1',
-    'consent_at', now()::text
+    'consent_at', now()::text,
+    'submission_id', '00000000-0000-0000-0000-00000000c001'
   ));
 
   if new_lead_id is null then raise exception 'FAIL: capture_lead returned no id'; end if;
@@ -84,7 +85,8 @@ begin
   msg := test_helpers.try($q$select public.capture_lead(jsonb_build_object(
     'brand_id', '00000000-0000-0000-0000-00000000000a', 'market_code', 'SA',
     'full_name', 'Wrong Market', 'phone', '+201000000004',
-    'consent_text_version', 'eg-v1', 'consent_at', now()::text))$q$);
+    'consent_text_version', 'eg-v1', 'consent_at', now()::text,
+    'submission_id', '00000000-0000-0000-0000-00000000c004'))$q$);
   if msg = '' then raise exception 'FAIL: a lead was captured for a market the brand does not operate in'; end if;
 
   select count(*) into activities_after from public.lead_activities;
@@ -134,7 +136,8 @@ begin
   new_lead_id := public.capture_lead(jsonb_build_object(
     'brand_id', '00000000-0000-0000-0000-00000000000a', 'market_code', 'EG',
     'full_name', 'Via Edge Fn', 'phone', '+201000000006',
-    'consent_text_version', 'eg-v1', 'consent_at', now()::text));
+    'consent_text_version', 'eg-v1', 'consent_at', now()::text,
+    'submission_id', '00000000-0000-0000-0000-00000000c006'));
   if new_lead_id is null then raise exception 'CRITICAL: the service role could not capture a lead'; end if;
   raise notice 'PASS: the service role captures leads — the only path there is';
 end $$;

@@ -37,9 +37,9 @@ insert into public.brand_markets (brand_id, market_code, currency, locale, live)
   ('00000000-0000-0000-0000-00000000000a', 'EG', 'EGP', 'ar-EG', true),
   ('00000000-0000-0000-0000-00000000000b', 'EG', 'EGP', 'ar-EG', true);
 
-insert into public.leads (id, brand_id, market_code, full_name, phone, city, type, consent_text_version, consent_at) values
-  ('00000000-0000-0000-0000-0000000a7001', '00000000-0000-0000-0000-00000000000a', 'EG', 'Fatma Hassan', '+201000000001', 'Cairo', 'test_drive', 'eg-v1', now()),
-  ('00000000-0000-0000-0000-0000000b7001', '00000000-0000-0000-0000-00000000000b', 'EG', 'Omar Adel',    '+201000000002', 'Giza',  'quote',      'eg-v1', now());
+insert into public.leads (id, brand_id, market_code, full_name, phone, city, type, consent_text_version, consent_at, submission_id) values
+  ('00000000-0000-0000-0000-0000000a7001', '00000000-0000-0000-0000-00000000000a', 'EG', 'Fatma Hassan', '+201000000001', 'Cairo', 'test_drive', 'eg-v1', now(), gen_random_uuid()),
+  ('00000000-0000-0000-0000-0000000b7001', '00000000-0000-0000-0000-00000000000b', 'EG', 'Omar Adel',    '+201000000002', 'Giza',  'quote',      'eg-v1', now(), gen_random_uuid());
 
 insert into public.lead_activities (id, brand_id, lead_id, actor_id, kind, payload) values
   ('00000000-0000-0000-0000-0000000a8001', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a7001',
@@ -58,28 +58,28 @@ insert into public.lead_dlq (source_payload, error_message, attempts) values
 do $$
 declare msg text;
 begin
-  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_at)
-    values ('00000000-0000-0000-0000-00000000000a', 'EG', 'No Consent', '+201000000003', now())$q$);
+  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_at, submission_id)
+    values ('00000000-0000-0000-0000-00000000000a', 'EG', 'No Consent', '+201000000003', now(), gen_random_uuid())$q$);
   if msg not like '%consent_text_version%' then
     raise exception 'CRITICAL: a lead was stored without the consent text version (%)', msg;
   end if;
 
-  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version)
-    values ('00000000-0000-0000-0000-00000000000a', 'EG', 'No Timestamp', '+201000000004', 'eg-v1')$q$);
+  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version, submission_id)
+    values ('00000000-0000-0000-0000-00000000000a', 'EG', 'No Timestamp', '+201000000004', 'eg-v1', gen_random_uuid())$q$);
   if msg not like '%consent_at%' then
     raise exception 'CRITICAL: a lead was stored without the moment consent was given (%)', msg;
   end if;
 
   -- A blank name or phone is not a lead.
-  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version, consent_at)
-    values ('00000000-0000-0000-0000-00000000000a', 'EG', '   ', '+201000000005', 'eg-v1', now())$q$);
+  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version, consent_at, submission_id)
+    values ('00000000-0000-0000-0000-00000000000a', 'EG', '   ', '+201000000005', 'eg-v1', now(), gen_random_uuid())$q$);
   if msg not like '%leads_full_name_present%' then
     raise exception 'FAIL: a lead was stored with a blank name (%)', msg;
   end if;
 
   -- A lead in a market the brand does not operate in.
-  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version, consent_at)
-    values ('00000000-0000-0000-0000-00000000000a', 'SA', 'Wrong Market', '+201000000006', 'eg-v1', now())$q$);
+  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version, consent_at, submission_id)
+    values ('00000000-0000-0000-0000-00000000000a', 'SA', 'Wrong Market', '+201000000006', 'eg-v1', now(), gen_random_uuid())$q$);
   if msg not like '%violates foreign key constraint%' then
     raise exception 'FAIL: a lead was stored for a market the brand has no presence in (%)', msg;
   end if;
@@ -253,8 +253,8 @@ select set_config('request.jwt.claims', '', true);
 do $$
 declare n int; msg text;
 begin
-  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version, consent_at)
-    values ('00000000-0000-0000-0000-00000000000a', 'EG', 'Via Edge Fn', '+201000000009', 'eg-v1', now())$q$);
+  msg := test_helpers.try($q$insert into public.leads (brand_id, market_code, full_name, phone, consent_text_version, consent_at, submission_id)
+    values ('00000000-0000-0000-0000-00000000000a', 'EG', 'Via Edge Fn', '+201000000009', 'eg-v1', now(), gen_random_uuid())$q$);
   if msg <> '' then raise exception 'CRITICAL: the service role cannot capture a lead (%)', msg; end if;
 
   msg := test_helpers.try($q$update public.leads set status = 'contacted'
