@@ -78,6 +78,19 @@ begin
   raise notice 'PASS: a capture without a submission_id is refused';
 end $$;
 
+-- ---- 3b. a reused key carrying a DIFFERENT lead is refused, not silently absorbed ----
+do $
+declare msg text;
+begin
+  msg := test_helpers.try($q$select public.capture_lead(
+    test_helpers.submission('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000d001')
+      || '{"full_name": "Someone Else", "phone": "+201000000077"}'::jsonb)$q$);
+  if msg not like '%already used for a different lead%' then
+    raise exception 'CRITICAL: a different person under a reused submission id was dropped behind a success (%)', msg;
+  end if;
+  raise notice 'PASS: a reused submission id with different details is refused';
+end $;
+
 -- ---- 4. the key is per brand ----
 do $$
 declare a_id uuid; b_id uuid;
