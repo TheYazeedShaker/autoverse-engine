@@ -8,6 +8,7 @@ const valid = {
   phone: "+201000000001",
   consent_text_version: "eg-v1",
   consent_at: "2026-09-22T10:00:00.000Z",
+  submission_id: "33333333-3333-3333-3333-333333333333",
 };
 
 describe("decideLead", () => {
@@ -57,5 +58,21 @@ describe("decideLead", () => {
     expect(decision.error_message).not.toContain("Fatma");
     expect(decision.error_message).not.toContain("01000000000");
     expect(rejectionLog(decision, "trace-1").reason).not.toContain("Fatma");
+  });
+});
+
+describe("submission_id", () => {
+  it("is required, because it is what makes a retried capture a no-op", () => {
+    const withoutKey: Record<string, unknown> = { ...valid };
+    delete withoutKey.submission_id;
+    const decision = decideLead(withoutKey);
+    expect(decision.outcome).toBe("reject");
+    if (decision.outcome === "reject") expect(decision.error_message).toContain("submission_id");
+  });
+
+  it("is carried through unchanged so a dead-letter replay reuses it", () => {
+    const decision = decideLead(valid);
+    if (decision.outcome !== "accept") throw new Error("expected accept");
+    expect(decision.lead.submission_id).toBe(valid.submission_id);
   });
 });
