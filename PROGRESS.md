@@ -4,8 +4,8 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-24 (night)
-**Last session:** **ENGINE-CORE-1A is done.** #32–#37 merged. The owner finished the hosted setup (secrets, Vault, required checks incl. `deno`, all four functions deployed). Verified on hosted: 16 migrations applied, pg_cron has fired the worker every minute (70 ticks, 0 failed, HTTP 200 as `cron`), the queues are empty, and the functions refuse unauthenticated calls. The phase gate reran on `main` (`9a1925f`) with the worker doing the replay: PASSED. Evidence is in `#build`.
+**Last updated:** 2026-09-24 (late)
+**Last session:** #38 merged; **AUTONOMOUS-LOOP-P2 started**. Per the updated spec, nothing is built until the Part 2 precondition passes: a _fresh_ session must show the §1 denylist refusing a hosted-DB read, an `.env` read and a `.github/` edit, with evidence in `#build`. A fresh-session task is queued for the owner. The human-only accounts and settings the loop needs are posted in `#build-decisions`.
 
 ---
 
@@ -182,20 +182,31 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ## Next Session — Start Here
 
-`ENGINE-CORE-1A` is **done**. Per `BACKLOG.md`, the next startable task is **`AUTONOMOUS-LOOP-P2`** (runner, tiered auto-merge, morning digest; its dependency, the 1·A phase gate, is met). `AUTONOMOUS-LOOP-P1` is still in progress: its acceptance list (spec §8) isn't fully proven yet.
+`ENGINE-CORE-1A` is **done**. **`AUTONOMOUS-LOOP-P2` is in progress** (BACKLOG). `AUTONOMOUS-LOOP-P1` stays in progress until its acceptance items are proven (several are proven by P2's own acceptance run).
 
-### 1. First
+### 1. Hard gate before building anything (spec, Part 2 precondition)
 
-- Check `#build-decisions` for new threads (every cycle).
-- **Guard hook check:** in this session a hosted-Supabase MCP read wasn't blocked, although ADR 0010's guard should block it. Confirm in a fresh session that `.claude/settings.json` hooks load (try a denied action, e.g. an Edit under `.github/`, or `list_migrations`).
+- A **fresh** session must attempt at least three denied actions (hosted-DB read, `.env` read, `.github/` edit) and post each refusal to `#build`. It's queued as a task for the owner: "Prove the agent denylist is enforced (fresh session)".
+- Why: the long-running 1·A session read the hosted DB although ADR 0010's guard hook should have blocked it. Most likely hooks are captured at session start, and that session predates the hook. Permission rules did apply (`gh api` and `.github/` edits were refused).
+- **Until that check posts PASS, build nothing.** If it posts FAIL, stop and raise it as HUMAN ONLY.
 
-### 2. End-to-end lead test (owner-led)
+### 2. Waiting on the owner (`#build-decisions`, HUMAN ONLY post, 2026-09-24)
+
+1. A Slack bot identity for the agent, a new `#build-inbox` channel, and the `SLACK_BOT_TOKEN` Actions secret. Confirm the owner's Slack user ID (the only one whose inbox and HUMAN ONLY replies are honoured).
+2. `ANTHROPIC_API_KEY` Actions secret with a monthly spend cap.
+3. A GitHub App identity for the agent (`AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY`), separate from the owner so its PRs can be approved.
+4. Repo settings: allow auto-merge; require code-owner review with 0 required approvals.
+5. PostHog flag `agent_loop_enabled` (off), plus `POSTHOG_PERSONAL_API_KEY`.
+
+Runner choice is Tier A (spec §3: implementer's choice): GitHub Actions. Record it as an ADR when building starts.
+
+### 3. Then build Part 2 (after the gate passes)
+
+Runner workflow + kill switch (`PAUSE`, flag), CODEOWNERS + tiered auto-merge, the `#build-inbox` reader with a user-ID check, bot-identity posting, the morning digest, the isolation-failure drill, and ADRs (runner, merge tiers). Everything under `.github/` and `.claude/` is denied to the agent, so hand the owner exact files to add, as #36 did.
+
+### 4. End-to-end lead test (owner-led)
 
 The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberately not committed: public repo, REV2 bans real manufacturer names outside `docs/`). After seeding: a real form submission (Turnstile + `X-Autoverse-Key` + `X-Autoverse-Market`) should give 201, one lead, and a Resend email within a minute. That also proves a real delivery, which the CI gate can't (its brand has no recipients).
-
-### 3. AUTONOMOUS-LOOP-P2
-
-Runner (GitHub Actions vs VM, ADR), kill switch (`PAUSE` + `agent_loop_enabled` flag), tiered auto-merge (CODEOWNERS + path rules), morning digest. It touches `.github/` and `.claude/`, which the permission model denies the agent, so expect to hand the owner exact YAML/config the way #36 did.
 
 ### Known follow-ups (not blocking)
 
