@@ -208,7 +208,7 @@ Six open threads, all posted 2026-09-24. Act on a Tier B only after a reply in i
 | #27 | Job lease + reaper                      | human | APPROVE WITH NITS, nits fixed. **Merge before #28** (migration order)    |
 | #28 | Lead `submission_id`                    | human | security-review BLOCK items fixed, CI green                              |
 | #29 | Job worker + worker-driven gate         | human | **draft**. Holds #27 and #28 until they merge, then rebase + squash      |
-| #30 | Caller-auth foundation                  | human | needs `security-review`                                                  |
+| #30 | Caller-auth foundation                  | human | APPROVE WITH NITS, fixed                                                 |
 
 ### 3. Then, in order
 
