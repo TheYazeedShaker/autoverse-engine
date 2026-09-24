@@ -79,7 +79,7 @@ begin
 end $$;
 
 -- ---- 3b. a reused key carrying a DIFFERENT lead is refused, not silently absorbed ----
-do $
+do $$
 declare msg text;
 begin
   msg := test_helpers.try($q$select public.capture_lead(
@@ -89,7 +89,7 @@ begin
     raise exception 'CRITICAL: a different person under a reused submission id was dropped behind a success (%)', msg;
   end if;
   raise notice 'PASS: a reused submission id with different details is refused';
-end $;
+end $$;
 
 -- ---- 4. the key is per brand ----
 do $$
