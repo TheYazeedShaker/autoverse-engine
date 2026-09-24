@@ -1,12 +1,33 @@
-// Edge function: ingest-event (1·A slice 7).
+// Edge function: ingest-event (1·A slice 7, caller authorization from blocker 2). ADR 0013.
 //
-// Accepts one event or a batch, validates each against the schema, upserts the good ones on their
-// id (the idempotency key) and sends the rest to event_dlq. It answers 202 for anything it managed
-// to take responsibility for — including dead letters — and never 5xx for a bad payload: a consumer
-// surface must not break because our pipeline is unwell, and a retrying client hammering a failing
-// endpoint makes an incident worse.
+// Accepts one event or a batch from a page. It answers 202 for anything it managed to take
+// responsibility for, dead letters included, and never 5xx for a bad payload: a consumer surface
+// must not break because our pipeline is unwell.
+//
+// Reachable by anonymous visitors, so it holds NO service-role key (production plan §3.1, owner
+// decision). It calls public.ingest_events_public with the ANON key. That function resolves the
+// brand from the publishable key + origin + market header (never the body), rate-limits per event,
+// stores each event idempotently on its id (ON CONFLICT DO NOTHING), and dead-letters anything it
+// can't store. Events that fail the schema here are passed along as rejects, so they're
+// dead-lettered rather than lost. This function no longer holds a key that could write event_dlq.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { EVENTS_UPSERT_OPTIONS, decideBatch } from "./ingest.ts";
+import { logger, requireEnv } from "../shared/log.ts";
+import {
+  clientAddress,
+  clientId,
+  readPublicCaller,
+  refusalStatus,
+} from "../shared/public-caller.ts";
+import { decidePublicBatch } from "./ingest.ts";
+
+const log = logger("ingest-event");
+const REQUIRED = [
+  "SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
+  "CAPTURE_GATEWAY_SECRET",
+  "CLIENT_HASH_SECRET",
+] as const;
+const DB_TIMEOUT_MS = 10_000;
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -14,75 +35,68 @@ const json = (body: unknown, status: number) =>
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
 
-const log = (event: string, fields: Record<string, unknown> = {}) =>
-  console.log(JSON.stringify({ level: "info", event, ...fields }));
-
 Deno.serve(async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   const traceId = request.headers.get("x-trace-id") ?? crypto.randomUUID();
+
+  const env = requireEnv((name) => Deno.env.get(name), REQUIRED);
+  if (!env.ok) {
+    log("error", "capture_misconfigured", { trace_id: traceId, missing: env.missing });
+    return json({ error: "Could not accept events.", trace_id: traceId }, 503);
+  }
+  const secret = env.values as Record<(typeof REQUIRED)[number], string>;
+
+  const caller = readPublicCaller(request.headers);
+  if (!caller) {
+    log("warn", "events_refused_no_caller", { trace_id: traceId });
+    return json({ error: "Not authorized.", trace_id: traceId }, 403);
+  }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     // Not even JSON: nothing to dead-letter meaningfully, and nothing to retry.
+    log("warn", "events_refused_not_json", { trace_id: traceId });
     return json({ error: "Body must be JSON.", trace_id: traceId }, 400);
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } },
-  );
-
-  const decisions = decideBatch(body);
+  const decisions = decidePublicBatch(body);
   const accepted = decisions.flatMap((d) => (d.outcome === "accept" ? [d.event] : []));
-  const rejected = decisions.flatMap((d) => (d.outcome === "dead-letter" ? [d] : []));
-
-  if (accepted.length > 0) {
-    const { error } = await supabase.from("events").upsert(accepted, EVENTS_UPSERT_OPTIONS);
-    if (error) {
-      // The store itself failed, so everything in this request becomes a dead letter rather than
-      // being lost. Zero loss is the point of the queue.
-      rejected.push(
-        ...accepted.map((event) => ({
-          outcome: "dead-letter" as const,
-          source_payload: event as unknown as Record<string, unknown>,
-          error_message: `events upsert failed: ${error.code ?? error.message}`,
-        })),
-      );
-      accepted.length = 0;
-    }
-  }
-
-  if (rejected.length > 0) {
-    const { error } = await supabase
-      .from("event_dlq")
-      .insert(
-        rejected.map((r) => ({ source_payload: r.source_payload, error_message: r.error_message })),
-      );
-    if (error) {
-      // Nothing left to fall back on: this is the one case worth a 5xx, because the caller
-      // retrying is now the only way the event survives.
-      console.error(
-        JSON.stringify({
-          level: "error",
-          event: "event_dlq_write_failed",
-          trace_id: traceId,
-          code: error.code,
-        }),
-      );
-      return json({ error: "Could not accept events.", trace_id: traceId }, 503);
-    }
-  }
-
-  log("events_ingested", {
-    trace_id: traceId,
-    accepted: accepted.length,
-    dead_lettered: rejected.length,
-  });
-  return json(
-    { accepted: accepted.length, dead_lettered: rejected.length, trace_id: traceId },
-    202,
+  const rejected = decisions.flatMap((d) =>
+    d.outcome === "dead-letter"
+      ? [{ source_payload: d.source_payload, error_message: d.error_message }]
+      : [],
   );
+
+  const anon = createClient(secret.SUPABASE_URL, secret.SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+  });
+  const { data, error } = await anon
+    .rpc("ingest_events_public", {
+      p_gateway: secret.CAPTURE_GATEWAY_SECRET,
+      p_key: caller.key,
+      p_origin: caller.origin,
+      p_market_code: caller.market,
+      p_client: await clientId(clientAddress(request.headers), secret.CLIENT_HASH_SECRET),
+      p_events: accepted,
+      p_rejected: rejected,
+    })
+    .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
+
+  if (error) {
+    const refused = refusalStatus(error.code);
+    if (refused) {
+      log("warn", "events_refused", { trace_id: traceId, code: error.code, market: caller.market });
+      return json({ error: refused.error, trace_id: traceId }, refused.status);
+    }
+    // The database didn't take the batch at all (unreachable or timed out). The caller retrying is
+    // now the only way these events survive (they are idempotent on id, so a retry is safe).
+    log("error", "events_not_ingested", { trace_id: traceId, code: error.code });
+    return json({ error: "Could not accept events.", trace_id: traceId }, 503);
+  }
+
+  const result = (data ?? {}) as { accepted?: number; dead_lettered?: number };
+  log("info", "events_ingested", { trace_id: traceId, market: caller.market, ...result });
+  return json({ ...result, trace_id: traceId }, 202);
 });
