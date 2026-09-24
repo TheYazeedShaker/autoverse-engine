@@ -4,8 +4,8 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-24
-**Last session:** Adopted autonomous-loop Part 1 (backlog, architect, escalation protocol, permission model). Fixed the three no-decision BLOCK bugs. Built the job worker, with the phase gate now replaying through it, and the caller-auth groundwork. **Every PR now targets `main`; none are stacked.** Seven PRs are open for review. Six decisions are waiting in `#build-decisions`.
+**Last updated:** 2026-09-24 (evening)
+**Last session:** Merged #24–#28, #30 and #31. All seven `#build-decisions` threads were answered and acted on. Both 1·A blockers are built and reviewed: **#34** (public capture on the anon key) and **#33** (job worker: scheduled, authenticated, routes leads). Merge #34 first, then #33. Hosted setup is the owner's (Next Session §3).
 
 ---
 
@@ -17,16 +17,16 @@
 
 ## Status
 
-| Track                             | Status             | Notes                                                                                                                                                                                                                         |
-| --------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12 | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7).                                          |
-| Phase 0-H — Hardening             | ✅ On `main`       | All 7 groups landed on `main` via PR #10 (the stack had merged into its own branches first).                                                                                                                                  |
-| `ENGINE-CORE-1A` — Engine core    | 🟡 In progress     | Built and gate passed, but the security review BLOCKED it. Three bug fixes in #26–#28, the worker in #29 (draft), caller auth part 1 in #30. Stays in progress until both blockers close and the gate passes with the worker. |
-| `AUTONOMOUS-LOOP-P1`              | 🟡 In progress     | Backlog + architect (#24), permissions (#25). Escalation protocol and §7 rails in effect. Part 2 queued until 1·A closes.                                                                                                     |
-| Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                                                               |
-| Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                             |
-| Phase 1·C — Consumer app          | ⏳ Held            | Design-first.                                                                                                                                                                                                                 |
-| Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                                                               |
+| Track                             | Status             | Notes                                                                                                                                                                                                                                             |
+| --------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENGINE-MIGRATION`                | ✅ Done 2026-08-12 | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7).                                                              |
+| Phase 0-H — Hardening             | ✅ On `main`       | All 7 groups landed on `main` via PR #10 (the stack had merged into its own branches first).                                                                                                                                                      |
+| `ENGINE-CORE-1A` — Engine core    | 🟡 In progress     | BLOCK fixes #4–#6 merged (#26–#28), caller-auth foundation merged (#30). Both blockers built and reviewed: #34 (public capture) and #33 (worker), waiting on merge (#34 first) and the hosted setup. The gate passes with the worker in #33's CI. |
+| `AUTONOMOUS-LOOP-P1`              | 🟡 In progress     | Backlog + architect (#24), permissions (#25). Escalation protocol and §7 rails in effect. Part 2 queued until 1·A closes.                                                                                                                         |
+| Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                                                                                   |
+| Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                                                                                 |
+| Phase 1·C — Consumer app          | ⏳ Held            | Design-first.                                                                                                                                                                                                                                     |
+| Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                                                                                   |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
 
@@ -125,9 +125,9 @@
 
 > **Status 2026-09-24:**
 >
-> - Fixed in open PRs: #4 (#26), #5 (#27), #6 (#28).
-> - #2 and #3: the worker plus a worker-driven gate are in #29. The schedule is waiting on a decision.
-> - #1: the groundwork is in #30. Enforcement is waiting on the service-role decision.
+> - **Merged:** #4 (#26), #5 (#27), #6 (#28), and the #1 groundwork (#30).
+> - #2 and #3: the scheduled worker plus a worker-driven gate are in **#33**.
+> - #1: enforcement on the anon key, with Turnstile and rate limits, is in **#34**.
 > - #7–#9: open, not yet started.
 
 The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
@@ -182,52 +182,43 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ## Next Session — Start Here
 
-`ENGINE-CORE-1A` stays **in-progress** until both blockers are closed and the gate passes with the worker. Part 2 of the autonomous loop (runner, auto-merge, digest) stays queued until then.
+`ENGINE-CORE-1A` stays **in-progress** until #34 and #33 are merged, the hosted setup below is done, and the gate passes with the worker (it does in #33's CI). Part 2 of the autonomous loop (runner, auto-merge, digest) stays queued until then.
 
-### 1. Check `#build-decisions` first (every cycle)
+### 1. `#build-decisions`: all seven threads answered (2026-09-24)
 
-Six open threads, all posted 2026-09-24. Act on a Tier B only after a reply in its thread; act on a HUMAN ONLY only after the owner's own reply.
-
-| Tier       | Question                                                               | Blocks                                               |
-| ---------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
-| HUMAN ONLY | Make `isolation`, `secrets`, `phase-gate` required checks (A: all now) | nothing; the owner changes protection, not the agent |
-| B          | Where the worker runs (rec. pg_cron + pg_net → edge function)          | worker `index.ts` + cron migration                   |
-| B          | Public functions must drop the service role (rec. anon-key RPCs), §3.1 | blocker 2 part 2                                     |
-| B          | Worker auth (cron secret) + which staff roles may call validate-theme  | worker endpoint, validate-theme auth                 |
-| B          | Webhook signing secret (rec. Vault + HMAC)                             | `deliver-lead-webhook` handler                       |
-| HUMAN ONLY | Email provider for lead notifications                                  | `notify-lead-email` handler                          |
-| HUMAN ONLY | Bot check provider for lead capture                                    | the bot-check step of capture-lead                   |
+| Question                              | Answer                                                                                             | Where it landed                                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Required checks                       | A: add `isolation`, `secrets`, `phase-gate`                                                        | **Not applied**. The agent's protection change was refused by the permission classifier; the owner runs it |
+| Where the worker runs                 | A: pg_cron + pg_net → `job-worker` Edge Function, plus a daily reconciliation. ADR required        | #33, ADR 0011                                                                                              |
+| Public functions and the service role | A: anon key + SECURITY DEFINER RPCs, with the owner's guardrails                                   | #34, ADR 0013                                                                                              |
+| Worker auth / validate-theme roles    | A: cron shared secret, superadmin/ops JWT for "run now" and validate-theme. Rotation runbook       | #33                                                                                                        |
+| Webhook signing                       | A: per-brand-market Vault secret, HMAC over `timestamp.body`, 5-minute replay window. ADR required | #33, ADR 0012                                                                                              |
+| Email provider                        | Resend                                                                                             | #33                                                                                                        |
+| Bot check                             | Cloudflare Turnstile                                                                               | #34                                                                                                        |
 
 ### 2. Open PRs, all against `main`
 
-| PR  | What                                    | Tier  | State                                                                    |
-| --- | --------------------------------------- | ----- | ------------------------------------------------------------------------ |
-| #24 | Backlog, architect, loop spec, ADR 0009 | human | review fixes pushed                                                      |
-| #25 | Permission model, guard hook, ADR 0010  | human | review fixes pushed; check the deny rules take effect in a fresh session |
-| #26 | Events upsert fix                       | human | code + security review APPROVE                                           |
-| #27 | Job lease + reaper                      | human | APPROVE WITH NITS, nits fixed. **Merge before #28** (migration order)    |
-| #28 | Lead `submission_id`                    | human | security-review BLOCK items fixed, CI green                              |
-| #29 | Job worker + worker-driven gate         | human | **draft**. Holds #27 and #28 until they merge, then rebase + squash      |
-| #30 | Caller-auth foundation                  | human | APPROVE WITH NITS, fixed                                                 |
+| PR  | What                                                                   | Tier  | State                                                                                                            |
+| --- | ---------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------- |
+| #32 | Remove `docs/ADMIN-DESIGN-BRIEF.md`, committed by mistake in `a9539ea` | human | CI green, code-review APPROVE. The file is still in history (public repo); rewriting history is the owner's call |
+| #34 | Public capture on the anon key (blocker 2)                             | human | Both reviews addressed. **Merge first**                                                                          |
+| #33 | Job worker: schedule, auth, Resend, signed webhooks (blocker 1)        | human | security-review BLOCK (migration order) and code-review items addressed. **Merge after #34**                     |
 
-### 3. Then, in order
+### 3. After merge: hosted setup (owner; the agent is denied hosted actions)
 
-1. When #27 and #28 merge: rebase #29 onto `main`, squash, mark it ready, and post the gate evidence to Slack.
-2. When the scheduler + worker-auth threads are answered: worker `index.ts` (cron-secret auth), the pg_cron schedule migration, and the gate waiting on the schedule instead of calling the worker.
-3. When the service-role thread is answered: blocker 2 part 2. The edge functions resolve the brand via `resolve_public_caller`, rate-limit, and (capture-lead) add the bot check behind a verifier interface. validate-theme becomes staff-only. Then the three functions get deployed, which is a hosted action and needs the owner.
-   From the #30 security review, this PR must:
-   - Pass the page's market as `p_market_code`. Resolution is never guessed.
-   - Treat key + origin as a **browser-only** control, because Origin can be forged from a script. The bot check and the rate limit are what stop scripted abuse.
-   - Rate-limit a **per-brand** bucket as well as the per-client one, so rotating IPs are still capped.
-   - Build client buckets from an **HMAC** of the client address with a secret, never a plain hash of an IP.
-4. Still to do from the old list: regenerate `packages/engine-core/src/database.types.ts` once the migrations are applied, and run `docs/runbooks/flag-kill-path.md`.
+1. Protection: add the three required checks (thread answer A).
+2. Edge secrets: `RESEND_API_KEY`, `LEAD_EMAIL_FROM`, `TURNSTILE_SECRET_KEY`, `CLIENT_HASH_SECRET`, `CAPTURE_GATEWAY_SECRET`, `JOB_WORKER_CRON_SECRET`.
+3. Vault: `capture_gateway_secret` (= `CAPTURE_GATEWAY_SECRET`), `job_worker_url`, `job_worker_cron_secret` (= `JOB_WORKER_CRON_SECRET`). **Check `event_dlq` and `lead_dlq` are empty** before loading the two worker entries. They should be, since no edge function has ever been deployed.
+4. Deploy `ingest-event`, `capture-lead`, `validate-theme` and `job-worker`. Follow `docs/runbooks/public-capture-rollout.md` for the order.
+5. Then the agent: rerun the gate evidence, mark `ENGINE-CORE-1A` done in `BACKLOG.md`, and start `AUTONOMOUS-LOOP-P2`.
 
 ### Known follow-ups (not blocking)
 
-- BLOCK #7 (`lead_activities` composite FK), #8 (`LeadRepository.create` bypasses `capture_lead`), #9 (unbounded event payloads; size is a Tier B question, not yet posted).
-- Leases can't be renewed. The worker's per-job timeout (30s) stays well inside the lease (120s).
-- Routing jobs created before the email and webhook handlers exist will end `failed` after 5 attempts and need re-queuing once those handlers ship.
-- No daily reconciliation job yet (production plan §6.2).
+- BLOCK #7 (`lead_activities` composite FK), #8 (`LeadRepository.create` bypasses `capture_lead`), #9 (event payload size; a Tier B question, not yet posted).
+- When a `leads` CHECK constraint fails, Postgres logs the whole failing row (name, phone). `capture_lead` should raise its own messages before the insert.
+- Leases can't be renewed. The worker handles one job per claim with a 25s timeout inside an 85s lease.
+- The phase gate runs the worker via `run-once.ts`, not the scheduled pg_cron → Edge path. Test `0015` covers the schedule, and the first hosted run is the end-to-end proof.
+- Regenerate `packages/engine-core/src/database.types.ts` once the migrations are applied, and run `docs/runbooks/flag-kill-path.md`.
 - Pin `npm:@supabase/supabase-js` in the edge functions to the version the upsert test uses.
 
 ### Open questions carried from 2026-09-23 (each a one-line change)
