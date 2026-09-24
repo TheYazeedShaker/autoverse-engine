@@ -1,654 +1,2153 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Autoverse — Journey Blueprint (Phase 1)</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400..700&family=Google+Sans+Flex:wght@300..800&display=swap" rel="stylesheet">
-<style>
-:root{
-  --paper:#F4F7F5;        /* mist canvas */
-  --paper-2:#ECEFEE;      /* panel */
-  --paper-3:#E1E5E3;      /* card edge */
-  --ink:#08090A;          /* onyx text */
-  --ink-soft:#3C4044;     /* body secondary */
-  --muted:#575A5E;        /* slate labels */
-  --faint:#A7A2A9;        /* platinum */
-  --line:#DBE0DD;         /* hairline */
-  --line-soft:#E7EAE9;
-  --sand:#575A5E;         /* accent on light (slate) */
-  --sand-deep:#08090A;    /* deep accent / numbers */
-  --accent-soft:#A7A2A9;  /* accent on dark (platinum) */
-  --char:#222823;         /* gunmetal surface */
-  --char-2:#2A312B;
-  --char-line:#3A413B;
-  --font-en:"Google Sans Flex","Google Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --font-ar:"Cairo","Google Sans Flex",sans-serif;
-  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --font-label:var(--font-en);
-  --maxw:1280px;
-  --sidebar:268px;
-  --reading:74ch;
-  --r:14px;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
-body{
-  background:var(--paper);
-  color:var(--ink);
-  font-family:var(--font-en);
-  font-size:18px;
-  line-height:1.65;
-  -webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
-}
-:lang(ar),[lang="ar"]{font-family:var(--font-ar)}
-[dir="rtl"]{direction:rtl}
-::selection{background:var(--sand);color:#fff}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Autoverse — Journey Blueprint (Phase 1)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400..700&family=Google+Sans+Flex:wght@300..800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f4f7f5; /* mist canvas */
+        --paper-2: #ecefee; /* panel */
+        --paper-3: #e1e5e3; /* card edge */
+        --ink: #08090a; /* onyx text */
+        --ink-soft: #3c4044; /* body secondary */
+        --muted: #575a5e; /* slate labels */
+        --faint: #a7a2a9; /* platinum */
+        --line: #dbe0dd; /* hairline */
+        --line-soft: #e7eae9;
+        --sand: #575a5e; /* accent on light (slate) */
+        --sand-deep: #08090a; /* deep accent / numbers */
+        --accent-soft: #a7a2a9; /* accent on dark (platinum) */
+        --char: #222823; /* gunmetal surface */
+        --char-2: #2a312b;
+        --char-line: #3a413b;
+        --font-en:
+          "Google Sans Flex", "Google Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-ar: "Cairo", "Google Sans Flex", sans-serif;
+        --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --font-label: var(--font-en);
+        --maxw: 1280px;
+        --sidebar: 268px;
+        --reading: 74ch;
+        --r: 14px;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--font-en);
+        font-size: 18px;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      :lang(ar),
+      [lang="ar"] {
+        font-family: var(--font-ar);
+      }
+      [dir="rtl"] {
+        direction: rtl;
+      }
+      ::selection {
+        background: var(--sand);
+        color: #fff;
+      }
 
-/* ---- scroll progress ---- */
-#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--sand);z-index:200;transition:width .08s linear}
+      /* ---- scroll progress ---- */
+      #progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 2px;
+        width: 0;
+        background: var(--sand);
+        z-index: 200;
+        transition: width 0.08s linear;
+      }
 
-/* ---- top bar ---- */
-.topbar{
-  position:sticky;top:0;z-index:100;
-  background:rgba(244,247,245,.82);backdrop-filter:saturate(140%) blur(10px);
-  border-bottom:1px solid var(--line);
-}
-.topbar-inner{
-  max-width:var(--maxw);margin:0 auto;padding:14px 28px;
-  display:flex;align-items:center;justify-content:space-between;gap:20px;
-}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
-.brand .dot{width:11px;height:11px;border-radius:50%;background:var(--ink);position:relative}
-.brand .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
-.brand b{font-family:var(--font-en);font-weight:800;letter-spacing:.14em;font-size:.82rem;text-transform:uppercase}
-.brand span{font-family:var(--font-label);font-size:.66rem;color:var(--muted);letter-spacing:.08em}
-.docnav{display:flex;gap:6px;font-family:var(--font-label);font-size:.72rem}
-.docnav a{
-  text-decoration:none;color:var(--ink-soft);padding:7px 13px;border-radius:99px;
-  border:1px solid transparent;letter-spacing:.04em;transition:.18s;
-}
-.docnav a:hover{color:var(--ink);background:var(--paper-2)}
-.docnav a.active{border-color:var(--line);background:var(--paper-2);color:var(--ink)}
-.menu-btn{display:none;font-family:var(--font-label);font-size:.72rem;background:none;border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;color:var(--ink)}
+      /* ---- top bar ---- */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(244, 247, 245, 0.82);
+        backdrop-filter: saturate(140%) blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar-inner {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 14px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--ink);
+      }
+      .brand .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--ink);
+        position: relative;
+      }
+      .brand .dot::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        border-radius: 50%;
+        background: var(--sand);
+      }
+      .brand b {
+        font-family: var(--font-en);
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+      }
+      .brand span {
+        font-family: var(--font-label);
+        font-size: 0.66rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+      }
+      .docnav {
+        display: flex;
+        gap: 6px;
+        font-family: var(--font-label);
+        font-size: 0.72rem;
+      }
+      .docnav a {
+        text-decoration: none;
+        color: var(--ink-soft);
+        padding: 7px 13px;
+        border-radius: 99px;
+        border: 1px solid transparent;
+        letter-spacing: 0.04em;
+        transition: 0.18s;
+      }
+      .docnav a:hover {
+        color: var(--ink);
+        background: var(--paper-2);
+      }
+      .docnav a.active {
+        border-color: var(--line);
+        background: var(--paper-2);
+        color: var(--ink);
+      }
+      .menu-btn {
+        display: none;
+        font-family: var(--font-label);
+        font-size: 0.72rem;
+        background: none;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 11px;
+        cursor: pointer;
+        color: var(--ink);
+      }
 
-/* ---- shell grid ---- */
-.shell{max-width:var(--maxw);margin:0 auto;padding:0 28px;
-  display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:54px;align-items:start}
+      /* ---- shell grid ---- */
+      .shell {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 28px;
+        display: grid;
+        grid-template-columns: var(--sidebar) minmax(0, 1fr);
+        gap: 54px;
+        align-items: start;
+      }
 
-/* ---- sidebar / toc ---- */
-.toc{position:sticky;top:78px;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding:30px 0 60px}
-.toc h4{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:600}
-.toc ol{list-style:none}
-.toc li a{
-  display:flex;gap:10px;text-decoration:none;color:var(--ink-soft);
-  font-family:var(--font-en);font-size:.83rem;line-height:1.35;
-  padding:6px 10px 6px 0;border-left:2px solid transparent;padding-left:12px;transition:.16s;
-}
-.toc li a .n{font-family:var(--font-label);font-size:.66rem;color:var(--muted);min-width:20px}
-.toc li a:hover{color:var(--ink)}
-.toc li a.active{color:var(--ink);border-left-color:var(--sand);font-weight:600}
-.toc li a.active .n{color:var(--sand-deep)}
+      /* ---- sidebar / toc ---- */
+      .toc {
+        position: sticky;
+        top: 78px;
+        align-self: start;
+        max-height: calc(100vh - 100px);
+        overflow: auto;
+        padding: 30px 0 60px;
+      }
+      .toc h4 {
+        font-family: var(--font-label);
+        font-size: 0.64rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 14px;
+        font-weight: 600;
+      }
+      .toc ol {
+        list-style: none;
+      }
+      .toc li a {
+        display: flex;
+        gap: 10px;
+        text-decoration: none;
+        color: var(--ink-soft);
+        font-family: var(--font-en);
+        font-size: 0.83rem;
+        line-height: 1.35;
+        padding: 6px 10px 6px 0;
+        border-left: 2px solid transparent;
+        padding-left: 12px;
+        transition: 0.16s;
+      }
+      .toc li a .n {
+        font-family: var(--font-label);
+        font-size: 0.66rem;
+        color: var(--muted);
+        min-width: 20px;
+      }
+      .toc li a:hover {
+        color: var(--ink);
+      }
+      .toc li a.active {
+        color: var(--ink);
+        border-left-color: var(--sand);
+        font-weight: 600;
+      }
+      .toc li a.active .n {
+        color: var(--sand-deep);
+      }
 
-/* ---- main ---- */
-main{padding:0 0 120px;min-width:0}
+      /* ---- main ---- */
+      main {
+        padding: 0 0 120px;
+        min-width: 0;
+      }
 
-/* ---- hero ---- */
-.hero{
-  background:var(--char);color:var(--paper);border-radius:var(--r);
-  margin-top:34px;padding:54px 50px 46px;position:relative;overflow:hidden;
-  border:1px solid var(--char-line);
-}
-.hero::before{content:"";position:absolute;inset:0;
-  background:radial-gradient(120% 80% at 100% 0%, rgba(167,162,169,.16), transparent 60%);pointer-events:none}
-.hero .eyebrow{font-family:var(--font-label);font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:22px}
-.hero h1{font-family:var(--font-en);font-weight:800;line-height:1.02;letter-spacing:-.02em;
-  font-size:clamp(2.3rem,5vw,3.7rem);margin-bottom:18px}
-.hero h1 em{font-style:normal;color:var(--accent-soft)}
-.hero p.lede{font-size:1.12rem;color:#cfd3d1;max-width:54ch;line-height:1.55}
-.metastrip{margin-top:34px;padding-top:24px;border-top:1px solid var(--char-line);
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:22px}
-.metastrip .m .k{font-family:var(--font-label);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:#8d9290;margin-bottom:5px}
-.metastrip .m .v{font-family:var(--font-en);font-size:.92rem;font-weight:600;color:var(--paper)}
+      /* ---- hero ---- */
+      .hero {
+        background: var(--char);
+        color: var(--paper);
+        border-radius: var(--r);
+        margin-top: 34px;
+        padding: 54px 50px 46px;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--char-line);
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          120% 80% at 100% 0%,
+          rgba(167, 162, 169, 0.16),
+          transparent 60%
+        );
+        pointer-events: none;
+      }
+      .hero .eyebrow {
+        font-family: var(--font-label);
+        font-size: 0.7rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent-soft);
+        margin-bottom: 22px;
+      }
+      .hero h1 {
+        font-family: var(--font-en);
+        font-weight: 800;
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        font-size: clamp(2.3rem, 5vw, 3.7rem);
+        margin-bottom: 18px;
+      }
+      .hero h1 em {
+        font-style: normal;
+        color: var(--accent-soft);
+      }
+      .hero p.lede {
+        font-size: 1.12rem;
+        color: #cfd3d1;
+        max-width: 54ch;
+        line-height: 1.55;
+      }
+      .metastrip {
+        margin-top: 34px;
+        padding-top: 24px;
+        border-top: 1px solid var(--char-line);
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 22px;
+      }
+      .metastrip .m .k {
+        font-family: var(--font-label);
+        font-size: 0.62rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #8d9290;
+        margin-bottom: 5px;
+      }
+      .metastrip .m .v {
+        font-family: var(--font-en);
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--paper);
+      }
 
-/* ---- sections ---- */
-.section{padding:62px 0 8px;border-top:1px solid var(--line-soft);margin-top:34px;scroll-margin-top:84px}
-.section:first-of-type{border-top:none}
-.sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:26px}
-.sec-num{font-family:var(--font-label);font-size:.8rem;color:var(--muted);font-weight:600;padding-top:6px;letter-spacing:.04em}
-.sec-head h2{font-family:var(--font-en);font-weight:700;letter-spacing:-.015em;line-height:1.08;
-  font-size:clamp(1.5rem,3vw,2.15rem)}
-h3{font-family:var(--font-en);font-weight:600;font-size:1.18rem;letter-spacing:-.01em;margin:30px 0 12px;line-height:1.25}
-.section > p, .prose p{max-width:var(--reading);margin-bottom:16px;color:var(--ink-soft)}
-.section > p strong, .prose strong{color:var(--ink);font-weight:600}
-.prose{max-width:var(--reading)}
-a.inline{color:var(--sand-deep);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
-code{font-family:var(--font-mono);font-size:.84em;background:var(--paper-3);padding:1px 6px;border-radius:5px;color:var(--ink)}
+      /* ---- sections ---- */
+      .section {
+        padding: 62px 0 8px;
+        border-top: 1px solid var(--line-soft);
+        margin-top: 34px;
+        scroll-margin-top: 84px;
+      }
+      .section:first-of-type {
+        border-top: none;
+      }
+      .sec-head {
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+        margin-bottom: 26px;
+      }
+      .sec-num {
+        font-family: var(--font-label);
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        padding-top: 6px;
+        letter-spacing: 0.04em;
+      }
+      .sec-head h2 {
+        font-family: var(--font-en);
+        font-weight: 700;
+        letter-spacing: -0.015em;
+        line-height: 1.08;
+        font-size: clamp(1.5rem, 3vw, 2.15rem);
+      }
+      h3 {
+        font-family: var(--font-en);
+        font-weight: 600;
+        font-size: 1.18rem;
+        letter-spacing: -0.01em;
+        margin: 30px 0 12px;
+        line-height: 1.25;
+      }
+      .section > p,
+      .prose p {
+        max-width: var(--reading);
+        margin-bottom: 16px;
+        color: var(--ink-soft);
+      }
+      .section > p strong,
+      .prose strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .prose {
+        max-width: var(--reading);
+      }
+      a.inline {
+        color: var(--sand-deep);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-thickness: 1px;
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.84em;
+        background: var(--paper-3);
+        padding: 1px 6px;
+        border-radius: 5px;
+        color: var(--ink);
+      }
 
-ul.list,ol.list{max-width:var(--reading);margin:0 0 18px;padding-left:0;list-style:none}
-ul.list li,ol.list li{position:relative;padding-left:26px;margin-bottom:11px;color:var(--ink-soft)}
-ul.list li::before{content:"";position:absolute;left:4px;top:.62em;width:7px;height:7px;background:var(--sand);border-radius:2px;transform:rotate(45deg)}
-ol.list{counter-reset:li}
-ol.list li{counter-increment:li}
-ol.list li::before{content:counter(li,decimal-leading-zero);position:absolute;left:0;top:.05em;font-family:var(--font-label);font-size:.72rem;color:var(--sand-deep);font-weight:600}
-li strong{color:var(--ink);font-weight:600}
+      ul.list,
+      ol.list {
+        max-width: var(--reading);
+        margin: 0 0 18px;
+        padding-left: 0;
+        list-style: none;
+      }
+      ul.list li,
+      ol.list li {
+        position: relative;
+        padding-left: 26px;
+        margin-bottom: 11px;
+        color: var(--ink-soft);
+      }
+      ul.list li::before {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 0.62em;
+        width: 7px;
+        height: 7px;
+        background: var(--sand);
+        border-radius: 2px;
+        transform: rotate(45deg);
+      }
+      ol.list {
+        counter-reset: li;
+      }
+      ol.list li {
+        counter-increment: li;
+      }
+      ol.list li::before {
+        content: counter(li, decimal-leading-zero);
+        position: absolute;
+        left: 0;
+        top: 0.05em;
+        font-family: var(--font-label);
+        font-size: 0.72rem;
+        color: var(--sand-deep);
+        font-weight: 600;
+      }
+      li strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
 
-/* pills */
-.pill{display:inline-block;font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
-  padding:3px 9px;border-radius:99px;vertical-align:middle;font-weight:600}
-.pill.mvp{background:#222823;color:var(--accent-soft)}
-.pill.later{background:var(--paper-3);color:var(--ink-soft);border:1px solid var(--line)}
+      /* pills */
+      .pill {
+        display: inline-block;
+        font-family: var(--font-label);
+        font-size: 0.6rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 3px 9px;
+        border-radius: 99px;
+        vertical-align: middle;
+        font-weight: 600;
+      }
+      .pill.mvp {
+        background: #222823;
+        color: var(--accent-soft);
+      }
+      .pill.later {
+        background: var(--paper-3);
+        color: var(--ink-soft);
+        border: 1px solid var(--line);
+      }
 
-/* callout */
-.callout{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--sand);
-  border-radius:var(--r);padding:24px 28px;margin:26px 0;max-width:var(--reading)}
-.callout .label{font-family:var(--font-label);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:10px}
-.callout p{margin-bottom:10px}.callout p:last-child{margin-bottom:0}
-.callout.dark{background:var(--char);border-color:var(--char-line);border-left-color:var(--sand);color:#cfd3d1}
-.callout.dark .label{color:var(--accent-soft)}.callout.dark strong{color:var(--paper)}
-.callout.dark p,.callout.dark li{color:#cfd3d1}
+      /* callout */
+      .callout {
+        background: var(--paper-2);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--sand);
+        border-radius: var(--r);
+        padding: 24px 28px;
+        margin: 26px 0;
+        max-width: var(--reading);
+      }
+      .callout .label {
+        font-family: var(--font-label);
+        font-size: 0.64rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--sand-deep);
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+      .callout p {
+        margin-bottom: 10px;
+      }
+      .callout p:last-child {
+        margin-bottom: 0;
+      }
+      .callout.dark {
+        background: var(--char);
+        border-color: var(--char-line);
+        border-left-color: var(--sand);
+        color: #cfd3d1;
+      }
+      .callout.dark .label {
+        color: var(--accent-soft);
+      }
+      .callout.dark strong {
+        color: var(--paper);
+      }
+      .callout.dark p,
+      .callout.dark li {
+        color: #cfd3d1;
+      }
 
-/* cards grid */
-.grid{display:grid;gap:16px;margin:24px 0}
-.grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-.grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-.card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r);padding:22px 22px}
-.card .co{font-family:var(--font-label);font-size:.66rem;color:var(--sand-deep);letter-spacing:.08em;margin-bottom:9px;font-weight:600}
-.card h4{font-family:var(--font-en);font-size:1.02rem;font-weight:600;margin-bottom:7px;letter-spacing:-.01em}
-.card p{font-size:.92rem;color:var(--ink-soft);line-height:1.5}
+      /* cards grid */
+      .grid {
+        display: grid;
+        gap: 16px;
+        margin: 24px 0;
+      }
+      .grid.cols-2 {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .grid.cols-3 {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .card {
+        background: var(--paper-2);
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        padding: 22px 22px;
+      }
+      .card .co {
+        font-family: var(--font-label);
+        font-size: 0.66rem;
+        color: var(--sand-deep);
+        letter-spacing: 0.08em;
+        margin-bottom: 9px;
+        font-weight: 600;
+      }
+      .card h4 {
+        font-family: var(--font-en);
+        font-size: 1.02rem;
+        font-weight: 600;
+        margin-bottom: 7px;
+        letter-spacing: -0.01em;
+      }
+      .card p {
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+        line-height: 1.5;
+      }
 
-/* table */
-.table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);border-radius:var(--r)}
-table{border-collapse:collapse;width:100%;min-width:560px;background:var(--paper-2)}
-th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top}
-th{font-family:var(--font-label);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--paper-3)}
-td{font-size:.9rem;color:var(--ink-soft)}
-td:first-child{font-family:var(--font-en);color:var(--ink);font-weight:600;font-size:.92rem}
-tr:last-child td{border-bottom:none}
-td strong{color:var(--ink)}
+      /* table */
+      .table-wrap {
+        overflow-x: auto;
+        margin: 24px 0;
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 560px;
+        background: var(--paper-2);
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--line-soft);
+        vertical-align: top;
+      }
+      th {
+        font-family: var(--font-label);
+        font-size: 0.62rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+        background: var(--paper-3);
+      }
+      td {
+        font-size: 0.9rem;
+        color: var(--ink-soft);
+      }
+      td:first-child {
+        font-family: var(--font-en);
+        color: var(--ink);
+        font-weight: 600;
+        font-size: 0.92rem;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      td strong {
+        color: var(--ink);
+      }
 
-/* blueprint / code panel */
-.blueprint{background:var(--char);border:1px solid var(--char-line);border-radius:var(--r);
-  padding:26px 24px;margin:26px 0;overflow-x:auto}
-.blueprint .bp-label{font-family:var(--font-label);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-soft);margin-bottom:16px;font-weight:600}
-.blueprint pre{font-family:var(--font-mono);font-size:.74rem;line-height:1.5;color:#c4c9c6;white-space:pre}
-.blueprint pre .hl{color:var(--accent-soft)}
+      /* blueprint / code panel */
+      .blueprint {
+        background: var(--char);
+        border: 1px solid var(--char-line);
+        border-radius: var(--r);
+        padding: 26px 24px;
+        margin: 26px 0;
+        overflow-x: auto;
+      }
+      .blueprint .bp-label {
+        font-family: var(--font-label);
+        font-size: 0.62rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent-soft);
+        margin-bottom: 16px;
+        font-weight: 600;
+      }
+      .blueprint pre {
+        font-family: var(--font-mono);
+        font-size: 0.74rem;
+        line-height: 1.5;
+        color: #c4c9c6;
+        white-space: pre;
+      }
+      .blueprint pre .hl {
+        color: var(--accent-soft);
+      }
 
-/* timeline (roadmap) */
-.timeline{margin:28px 0;position:relative;padding-left:34px}
-.timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
-.phase{position:relative;margin-bottom:26px}
-.phase::before{content:"";position:absolute;left:-34px;top:4px;width:20px;height:20px;border-radius:50%;background:var(--paper);border:2px solid var(--sand);box-shadow:0 0 0 4px var(--paper)}
-.phase .ptag{font-family:var(--font-label);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:5px}
-.phase h4{font-family:var(--font-en);font-size:1.06rem;font-weight:600;margin-bottom:7px}
-.phase p{font-size:.92rem;color:var(--ink-soft);max-width:var(--reading)}
-.phase .mile{display:block;margin-top:8px;font-size:.86rem;color:var(--ink);background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:9px 13px}
-.phase .mile b{font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sand-deep);margin-right:8px}
+      /* timeline (roadmap) */
+      .timeline {
+        margin: 28px 0;
+        position: relative;
+        padding-left: 34px;
+      }
+      .timeline::before {
+        content: "";
+        position: absolute;
+        left: 9px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--line);
+      }
+      .phase {
+        position: relative;
+        margin-bottom: 26px;
+      }
+      .phase::before {
+        content: "";
+        position: absolute;
+        left: -34px;
+        top: 4px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--paper);
+        border: 2px solid var(--sand);
+        box-shadow: 0 0 0 4px var(--paper);
+      }
+      .phase .ptag {
+        font-family: var(--font-label);
+        font-size: 0.64rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--sand-deep);
+        font-weight: 600;
+        margin-bottom: 5px;
+      }
+      .phase h4 {
+        font-family: var(--font-en);
+        font-size: 1.06rem;
+        font-weight: 600;
+        margin-bottom: 7px;
+      }
+      .phase p {
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+        max-width: var(--reading);
+      }
+      .phase .mile {
+        display: block;
+        margin-top: 8px;
+        font-size: 0.86rem;
+        color: var(--ink);
+        background: var(--paper-2);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 9px 13px;
+      }
+      .phase .mile b {
+        font-family: var(--font-label);
+        font-size: 0.6rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--sand-deep);
+        margin-right: 8px;
+      }
 
-/* footer */
-.foot{background:var(--char);color:#b3b8b5;margin-top:80px;border-top:1px solid var(--char-line)}
-.foot-inner{max-width:var(--maxw);margin:0 auto;padding:40px 28px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
-.foot .fb{display:flex;align-items:center;gap:11px;color:var(--paper);font-family:var(--font-en);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.78rem}
-.foot .fb .dot{width:10px;height:10px;border-radius:50%;background:var(--paper);position:relative}
-.foot .fb .dot::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--sand)}
-.foot small{font-family:var(--font-label);font-size:.66rem;letter-spacing:.04em;color:#878c89}
+      /* footer */
+      .foot {
+        background: var(--char);
+        color: #b3b8b5;
+        margin-top: 80px;
+        border-top: 1px solid var(--char-line);
+      }
+      .foot-inner {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 40px 28px;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: center;
+      }
+      .foot .fb {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        color: var(--paper);
+        font-family: var(--font-en);
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+      }
+      .foot .fb .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--paper);
+        position: relative;
+      }
+      .foot .fb .dot::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        border-radius: 50%;
+        background: var(--sand);
+      }
+      .foot small {
+        font-family: var(--font-label);
+        font-size: 0.66rem;
+        letter-spacing: 0.04em;
+        color: #878c89;
+      }
 
-/* reveal */
-.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
-.reveal.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+      /* reveal */
+      .reveal {
+        opacity: 0;
+        transform: translateY(14px);
+        transition:
+          opacity 0.6s ease,
+          transform 0.6s ease;
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal {
+          opacity: 1;
+          transform: none;
+        }
+      }
 
-/* responsive */
-@media (max-width:1000px){
-  .shell{grid-template-columns:1fr;gap:0}
-  .toc{position:fixed;inset:58px 0 auto 0;z-index:90;background:var(--paper);max-height:0;overflow:hidden;
-    padding:0 28px;border-bottom:1px solid var(--line);max-width:none;transition:max-height .3s ease}
-  .toc.open{max-height:70vh;overflow:auto;padding:22px 28px 30px}
-  .menu-btn{display:block}
-  .docnav{display:none}
-}
-@media (max-width:680px){
-  body{font-size:17px}
-  .topbar-inner,.shell{padding-left:18px;padding-right:18px}
-  .hero{padding:38px 26px 34px;margin-top:24px}
-  .sec-head{gap:12px}
-  .callout,.blueprint{padding:20px 18px}
-  .foot-inner{padding:30px 18px}
-}
+      /* responsive */
+      @media (max-width: 1000px) {
+        .shell {
+          grid-template-columns: 1fr;
+          gap: 0;
+        }
+        .toc {
+          position: fixed;
+          inset: 58px 0 auto 0;
+          z-index: 90;
+          background: var(--paper);
+          max-height: 0;
+          overflow: hidden;
+          padding: 0 28px;
+          border-bottom: 1px solid var(--line);
+          max-width: none;
+          transition: max-height 0.3s ease;
+        }
+        .toc.open {
+          max-height: 70vh;
+          overflow: auto;
+          padding: 22px 28px 30px;
+        }
+        .menu-btn {
+          display: block;
+        }
+        .docnav {
+          display: none;
+        }
+      }
+      @media (max-width: 680px) {
+        body {
+          font-size: 17px;
+        }
+        .topbar-inner,
+        .shell {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+        .hero {
+          padding: 38px 26px 34px;
+          margin-top: 24px;
+        }
+        .sec-head {
+          gap: 12px;
+        }
+        .callout,
+        .blueprint {
+          padding: 20px 18px;
+        }
+        .foot-inner {
+          padding: 30px 18px;
+        }
+      }
 
-/* ---- wireframe kit ---- */
-.wf{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:22px 0;box-shadow:0 14px 34px -26px rgba(8,9,10,.35)}
-.wf-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--paper-2);border:1px solid var(--line-soft);border-radius:9px;margin-bottom:10px;font-family:var(--font-label);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.wf-bar b{color:var(--ink);letter-spacing:.14em}
-.wf-bar .sp{margin-left:auto;display:flex;gap:6px}
-.wf-row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
-.wf-row:last-child{margin-bottom:0}
-.wf-col{flex:1;min-width:120px;display:flex;flex-direction:column;gap:10px}
-.wf-box{border:1.5px dashed var(--faint);border-radius:9px;padding:12px;background:var(--paper);color:var(--muted);font-family:var(--font-label);font-size:.66rem;letter-spacing:.06em;display:flex;flex-direction:column;gap:6px;justify-content:center;min-height:44px;position:relative}
-.wf-box b{color:var(--ink);font-size:.7rem;letter-spacing:.08em}
-.wf-box small{font-size:.6rem;color:var(--muted);letter-spacing:.03em;line-height:1.45}
-.wf-dark{background:var(--char);border:1px solid var(--char-line);border-radius:9px;color:#cfd3d1;padding:12px;font-family:var(--font-label);font-size:.66rem;letter-spacing:.06em;display:flex;flex-direction:column;gap:6px;justify-content:center;min-height:44px;position:relative}
-.wf-dark b{color:var(--paper);font-size:.7rem}
-.wf-dark small{color:#9ba09d;font-size:.6rem;line-height:1.45}
-.wf-chip{display:inline-block;border:1px solid var(--line);background:var(--paper-2);border-radius:99px;padding:3px 10px;font-family:var(--font-label);font-size:.58rem;letter-spacing:.08em;color:var(--ink-soft)}
-.wf-chip.on{background:var(--char);color:var(--paper);border-color:var(--char)}
-.wf-cta{display:inline-block;background:var(--ink);color:var(--paper);border-radius:8px;padding:7px 14px;font-family:var(--font-label);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase}
-.wf-cta.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
-.wf-sw{width:16px;height:16px;border-radius:50%;border:1px solid var(--line);display:inline-block;vertical-align:middle}
-.mark{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:var(--sand-deep);color:#fff;font-family:var(--font-label);font-size:.6rem;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:2}
-.legend{max-width:var(--reading);margin:14px 0 6px}
-.legend li{font-size:.9rem}
-.legend .n{display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--sand-deep);color:#fff;font-family:var(--font-label);font-size:.58rem;align-items:center;justify-content:center;font-weight:700;margin-right:8px;vertical-align:1px}
-/* flow strip */
-.flow{display:flex;gap:12px 6px;align-items:stretch;flex-wrap:wrap;margin:22px 0}
-.flow .st{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:150px;flex:1}
-.flow .st .t{font-family:var(--font-label);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sand-deep);font-weight:600;margin-bottom:5px}
-.flow .st p{font-size:.8rem;color:var(--ink-soft);line-height:1.4;margin:0;max-width:none}
-.flow .ar{align-self:center;padding:0 8px;color:var(--faint);font-size:1rem}
-.flow .st.dark{background:var(--char);border-color:var(--char-line)}
-.flow .st.dark .t{color:var(--accent-soft)}
-.flow .st.dark p{color:#cfd3d1}
-@media(max-width:760px){.flow{flex-direction:column}.flow .ar{transform:rotate(90deg);align-self:flex-start;padding:2px 0 2px 18px}}
-</style>
-</head><body>
-<div id="progress"></div>
+      /* ---- wireframe kit ---- */
+      .wf {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        padding: 14px;
+        margin: 22px 0;
+        box-shadow: 0 14px 34px -26px rgba(8, 9, 10, 0.35);
+      }
+      .wf-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: var(--paper-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 9px;
+        margin-bottom: 10px;
+        font-family: var(--font-label);
+        font-size: 0.62rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .wf-bar b {
+        color: var(--ink);
+        letter-spacing: 0.14em;
+      }
+      .wf-bar .sp {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+      }
+      .wf-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .wf-row:last-child {
+        margin-bottom: 0;
+      }
+      .wf-col {
+        flex: 1;
+        min-width: 120px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .wf-box {
+        border: 1.5px dashed var(--faint);
+        border-radius: 9px;
+        padding: 12px;
+        background: var(--paper);
+        color: var(--muted);
+        font-family: var(--font-label);
+        font-size: 0.66rem;
+        letter-spacing: 0.06em;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        justify-content: center;
+        min-height: 44px;
+        position: relative;
+      }
+      .wf-box b {
+        color: var(--ink);
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+      }
+      .wf-box small {
+        font-size: 0.6rem;
+        color: var(--muted);
+        letter-spacing: 0.03em;
+        line-height: 1.45;
+      }
+      .wf-dark {
+        background: var(--char);
+        border: 1px solid var(--char-line);
+        border-radius: 9px;
+        color: #cfd3d1;
+        padding: 12px;
+        font-family: var(--font-label);
+        font-size: 0.66rem;
+        letter-spacing: 0.06em;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        justify-content: center;
+        min-height: 44px;
+        position: relative;
+      }
+      .wf-dark b {
+        color: var(--paper);
+        font-size: 0.7rem;
+      }
+      .wf-dark small {
+        color: #9ba09d;
+        font-size: 0.6rem;
+        line-height: 1.45;
+      }
+      .wf-chip {
+        display: inline-block;
+        border: 1px solid var(--line);
+        background: var(--paper-2);
+        border-radius: 99px;
+        padding: 3px 10px;
+        font-family: var(--font-label);
+        font-size: 0.58rem;
+        letter-spacing: 0.08em;
+        color: var(--ink-soft);
+      }
+      .wf-chip.on {
+        background: var(--char);
+        color: var(--paper);
+        border-color: var(--char);
+      }
+      .wf-cta {
+        display: inline-block;
+        background: var(--ink);
+        color: var(--paper);
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-family: var(--font-label);
+        font-size: 0.6rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .wf-cta.ghost {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--ink);
+      }
+      .wf-sw {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        display: inline-block;
+        vertical-align: middle;
+      }
+      .mark {
+        position: absolute;
+        top: -9px;
+        right: -9px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--sand-deep);
+        color: #fff;
+        font-family: var(--font-label);
+        font-size: 0.6rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        z-index: 2;
+      }
+      .legend {
+        max-width: var(--reading);
+        margin: 14px 0 6px;
+      }
+      .legend li {
+        font-size: 0.9rem;
+      }
+      .legend .n {
+        display: inline-flex;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--sand-deep);
+        color: #fff;
+        font-family: var(--font-label);
+        font-size: 0.58rem;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        margin-right: 8px;
+        vertical-align: 1px;
+      }
+      /* flow strip */
+      .flow {
+        display: flex;
+        gap: 12px 6px;
+        align-items: stretch;
+        flex-wrap: wrap;
+        margin: 22px 0;
+      }
+      .flow .st {
+        background: var(--paper-2);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+        min-width: 150px;
+        flex: 1;
+      }
+      .flow .st .t {
+        font-family: var(--font-label);
+        font-size: 0.6rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--sand-deep);
+        font-weight: 600;
+        margin-bottom: 5px;
+      }
+      .flow .st p {
+        font-size: 0.8rem;
+        color: var(--ink-soft);
+        line-height: 1.4;
+        margin: 0;
+        max-width: none;
+      }
+      .flow .ar {
+        align-self: center;
+        padding: 0 8px;
+        color: var(--faint);
+        font-size: 1rem;
+      }
+      .flow .st.dark {
+        background: var(--char);
+        border-color: var(--char-line);
+      }
+      .flow .st.dark .t {
+        color: var(--accent-soft);
+      }
+      .flow .st.dark p {
+        color: #cfd3d1;
+      }
+      @media (max-width: 760px) {
+        .flow {
+          flex-direction: column;
+        }
+        .flow .ar {
+          transform: rotate(90deg);
+          align-self: flex-start;
+          padding: 2px 0 2px 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="progress"></div>
 
-<header class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="#top">
-      <span class="dot"></span>
-      <span><b>Autoverse</b><br><span>Internal Documentation</span></span>
-    </a>
-    <span class="docnav" style="color:var(--muted);font-family:var(--font-label);font-size:.72rem;letter-spacing:.06em">Journey Blueprint · Phase 1</span>
-    <button class="menu-btn" id="menuBtn">Contents</button>
-  </div>
-</header>
-
-<div class="shell" id="top">
-  <aside class="toc" id="toc">
-    <h4>Contents</h4>
-    <ol>
-      <li><a href="#s0"><span class="n">00</span> How to read this</a></li>
-      <li><a href="#s1"><span class="n">01</span> The journey at a glance</a></li>
-      <li><a href="#s2"><span class="n">02</span> Brand URLs &amp; entry</a></li>
-      <li><a href="#s3"><span class="n">03</span> Virtual Showroom</a></li>
-      <li><a href="#s4"><span class="n">04</span> Digital Brochure</a></li>
-      <li><a href="#s5"><span class="n">05</span> Configurator page</a></li>
-      <li><a href="#s6"><span class="n">06</span> CTA &amp; lead layer</a></li>
-      <li><a href="#s7"><span class="n">07</span> Admin — production pipeline</a></li>
-      <li><a href="#s8"><span class="n">08</span> Admin — publish flow</a></li>
-      <li><a href="#s9"><span class="n">09</span> Brand dashboard</a></li>
-      <li><a href="#s10"><span class="n">10</span> Data capture map</a></li>
-      <li><a href="#s11"><span class="n">11</span> Packaging &amp; tier gating</a></li>
-      <li><a href="#s12"><span class="n">12</span> Degraded journeys</a></li>
-      <li><a href="#s13"><span class="n">13</span> Confirmation checklist</a></li>
-    </ol>
-  </aside>
-
-  <main>
-    <section class="hero reveal">
-      <div class="eyebrow">Phase 1 · Journey Blueprint · v1.0</div>
-      <h1>The <em>journey</em>, drawn before it is built.</h1>
-      <p class="lede">Every screen of the consumer journey, the admin production pipeline, and the brand dashboard — at wireframe fidelity, for confirmation before a line of implementation. React to structure and flow here; polish comes next.</p>
-      <div class="metastrip">
-        <div class="m"><div class="k">Scope</div><div class="v">Engine + 5 Phase-1 apps</div></div>
-        <div class="m"><div class="k">Fidelity</div><div class="v">Wireframe · flow-accurate</div></div>
-        <div class="m"><div class="k">References</div><div class="v">Porsche range · model · Lotus config</div></div>
-        <div class="m"><div class="k">Decision doc</div><div class="v">§13 checklist</div></div>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#top">
+          <span class="dot"></span>
+          <span><b>Autoverse</b><br /><span>Internal Documentation</span></span>
+        </a>
+        <span
+          class="docnav"
+          style="
+            color: var(--muted);
+            font-family: var(--font-label);
+            font-size: 0.72rem;
+            letter-spacing: 0.06em;
+          "
+          >Journey Blueprint · Phase 1</span
+        >
+        <button class="menu-btn" id="menuBtn">Contents</button>
       </div>
-    </section>
+    </header>
 
-    <!-- 00 -->
-    <section class="section reveal" id="s0">
-      <div class="sec-head"><div class="sec-num">00</div><h2>How to read this document</h2></div>
-      <div class="prose">
-        <p>This is a <strong>flow-confirmation artifact</strong>, not visual design. Boxes show <strong>what exists on each screen and how it groups</strong> — not where it finally sits. Position, size and order in these wireframes are illustrative only (in the showroom, search and filters need not sit side by side on top); real placement, hierarchy and composition are decided at the high-fidelity design step, per page, on the locked design system. Numbered markers <span class="legend" style="display:inline"><span class="n" style="vertical-align:-3px">1</span></span> explain the intent beneath each wireframe. The locked design language (monochrome system, car carries the colour, controls on solid surfaces) applies to everything here but is deliberately not rendered — approving flow and approving pixels are two different decisions and we take them in that order.</p>
-        <p>Read it as three loops: the <strong>consumer journey</strong> (§2–§6), the <strong>admin production pipeline</strong> that manufactures that journey (§7–§8), and the <strong>brand dashboard</strong> that monetises its data (§9). §10 maps what we capture at every step, §12 shows what each screen does when something fails, and §13 is the list of things you are actually approving.</p>
-      </div>
-      <div class="callout">
-        <div class="label">What this blueprint assumes (locked upstream)</div>
-        <p>Nmesis (studio) creates and delivers 3D models; everything from the upload event onward — rendering on the in-house Unreal farm, the configurator, content, data, hosting — is this system. The engine’s pipeline is triggered by a 3D file landing in the structured asset store; rendering runs on the in-house Unreal farm via a job the engine queues, watches, and reports progress on. Assets live in a structured S3/R2 file system. Configurator is the mandatory base SKU. Data is always collected in full; visibility is tier-gated. Production doctrine v2.0 applies without exception.</p>
-      </div>
-    </section>
+    <div class="shell" id="top">
+      <aside class="toc" id="toc">
+        <h4>Contents</h4>
+        <ol>
+          <li>
+            <a href="#s0"><span class="n">00</span> How to read this</a>
+          </li>
+          <li>
+            <a href="#s1"><span class="n">01</span> The journey at a glance</a>
+          </li>
+          <li>
+            <a href="#s2"><span class="n">02</span> Brand URLs &amp; entry</a>
+          </li>
+          <li>
+            <a href="#s3"><span class="n">03</span> Virtual Showroom</a>
+          </li>
+          <li>
+            <a href="#s4"><span class="n">04</span> Digital Brochure</a>
+          </li>
+          <li>
+            <a href="#s5"><span class="n">05</span> Configurator page</a>
+          </li>
+          <li>
+            <a href="#s6"><span class="n">06</span> CTA &amp; lead layer</a>
+          </li>
+          <li>
+            <a href="#s7"><span class="n">07</span> Admin — production pipeline</a>
+          </li>
+          <li>
+            <a href="#s8"><span class="n">08</span> Admin — publish flow</a>
+          </li>
+          <li>
+            <a href="#s9"><span class="n">09</span> Brand dashboard</a>
+          </li>
+          <li>
+            <a href="#s10"><span class="n">10</span> Data capture map</a>
+          </li>
+          <li>
+            <a href="#s11"><span class="n">11</span> Packaging &amp; tier gating</a>
+          </li>
+          <li>
+            <a href="#s12"><span class="n">12</span> Degraded journeys</a>
+          </li>
+          <li>
+            <a href="#s13"><span class="n">13</span> Confirmation checklist</a>
+          </li>
+        </ol>
+      </aside>
 
-    <!-- 01 -->
-    <section class="section reveal" id="s1">
-      <div class="sec-head"><div class="sec-num">01</div><h2>The journey at a glance</h2></div>
-      <div class="prose"><p>Two pipelines meet in the middle. The admin pipeline manufactures the experience; the consumer journey walks through it; every step of the walk feeds the data layer that the brand dashboard and, later, Autoverse itself are built on.</p></div>
-      <div class="flow">
-        <div class="st dark"><div class="t">Admin pipeline</div><p>Upload detected → render → configurator ready → content → approval → data fill → publish</p></div>
-        <div class="ar">→</div>
-        <div class="st"><div class="t">Consumer journey</div><p>Showroom → Brochure (per trim) → Configurator → CTA / lead</p></div>
-        <div class="ar">→</div>
-        <div class="st dark"><div class="t">Data layer</div><p>Every event captured → leads scored per brand → dashboard views → (later) Autoverse</p></div>
-      </div>
-      <div class="prose"><p>The consumer journey is deliberately a funnel with three depths: <strong>browse</strong> (showroom — low commitment, many models), <strong>consider</strong> (brochure — one trim, rich content, light configurator), <strong>desire</strong> (configurator — live Unreal session, personal build, CTAs). Each step down the funnel is a higher-intent signal, which is exactly what lead scoring will weight.</p></div>
-    </section>
-
-    <!-- 02 -->
-    <section class="section reveal" id="s2">
-      <div class="sec-head"><div class="sec-num">02</div><h2>Brand URLs &amp; journey entry</h2></div>
-      <ul class="list">
-        <li><strong>One URL per brand per market</strong>, e.g. <code>{brand}.engine-domain.com/{market}</code> — subdomain now, custom domain (their own) as a Later upgrade. Market sets currency, language (incl. Arabic/RTL), and consent defaults.</li>
-        <li><strong>The URL exposes only what the brand bought.</strong> Showroom tier → entry is the showroom. Brochure+configurator only → entry is the model's brochure. Configurator only → entry is the configurator page itself. Same engine, same data capture, different front doors.</li>
-        <li><strong>Every entry carries attribution:</strong> UTM/source captured on first touch and attached to the session — the lead's origin story starts here.</li>
-      </ul>
-    </section>
-
-    <!-- 03 -->
-    <section class="section reveal" id="s3">
-      <div class="sec-head"><div class="sec-num">03</div><h2>Virtual Showroom <span class="pill mvp">App 3</span></h2></div>
-      <div class="prose"><p>The brand's full range on one page — Porsche model-range pattern. Models grouped, trims beneath each, two exits per trim card: deeper (brochure) or straight to the configurator.</p></div>
-
-      <div class="wf">
-        <div class="wf-bar"><b>{BRAND}</b> Showroom<span class="sp"><span class="wf-chip">EN/AR</span><span class="wf-chip">Market: EG</span></span></div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:3"><b>Filter bar</b><small>Model · Body type · Fuel · Drive · Seats</small><span class="mark">1</span></div>
-          <div class="wf-box" style="flex:1"><b>Search</b><small>by model name</small></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:1"><b>MODEL GROUP — "Model A"</b><small>group header · body style · from-price (market currency)</small><span class="mark">2</span></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-col">
-            <div class="wf-dark"><b>Trim card — A Base</b><small>render image (from multiples) · key stats · from-price</small><span class="mark">3</span></div>
-            <div class="wf-row" style="margin:0"><span class="wf-cta ghost">View trim →</span><span class="wf-cta">Configure</span></div>
+      <main>
+        <section class="hero reveal">
+          <div class="eyebrow">Phase 1 · Journey Blueprint · v1.0</div>
+          <h1>The <em>journey</em>, drawn before it is built.</h1>
+          <p class="lede">
+            Every screen of the consumer journey, the admin production pipeline, and the brand
+            dashboard — at wireframe fidelity, for confirmation before a line of implementation.
+            React to structure and flow here; polish comes next.
+          </p>
+          <div class="metastrip">
+            <div class="m">
+              <div class="k">Scope</div>
+              <div class="v">Engine + 5 Phase-1 apps</div>
+            </div>
+            <div class="m">
+              <div class="k">Fidelity</div>
+              <div class="v">Wireframe · flow-accurate</div>
+            </div>
+            <div class="m">
+              <div class="k">References</div>
+              <div class="v">Porsche range · model · Lotus config</div>
+            </div>
+            <div class="m">
+              <div class="k">Decision doc</div>
+              <div class="v">§13 checklist</div>
+            </div>
           </div>
-          <div class="wf-col">
-            <div class="wf-dark"><b>Trim card — A Sport</b><small>render · stats · price</small></div>
-            <div class="wf-row" style="margin:0"><span class="wf-cta ghost">View trim →</span><span class="wf-cta">Configure</span></div>
+        </section>
+
+        <!-- 00 -->
+        <section class="section reveal" id="s0">
+          <div class="sec-head">
+            <div class="sec-num">00</div>
+            <h2>How to read this document</h2>
           </div>
-          <div class="wf-col">
-            <div class="wf-dark"><b>Trim card — A GT</b><small>render · stats · price</small></div>
-            <div class="wf-row" style="margin:0"><span class="wf-cta ghost">View trim →</span><span class="wf-cta">Configure</span></div>
+          <div class="prose">
+            <p>
+              This is a <strong>flow-confirmation artifact</strong>, not visual design. Boxes show
+              <strong>what exists on each screen and how it groups</strong> — not where it finally
+              sits. Position, size and order in these wireframes are illustrative only (in the
+              showroom, search and filters need not sit side by side on top); real placement,
+              hierarchy and composition are decided at the high-fidelity design step, per page, on
+              the locked design system. Numbered markers
+              <span class="legend" style="display: inline"
+                ><span class="n" style="vertical-align: -3px">1</span></span
+              >
+              explain the intent beneath each wireframe. The locked design language (monochrome
+              system, car carries the colour, controls on solid surfaces) applies to everything here
+              but is deliberately not rendered — approving flow and approving pixels are two
+              different decisions and we take them in that order.
+            </p>
+            <p>
+              Read it as three loops: the <strong>consumer journey</strong> (§2–§6), the
+              <strong>admin production pipeline</strong> that manufactures that journey (§7–§8), and
+              the <strong>brand dashboard</strong> that monetises its data (§9). §10 maps what we
+              capture at every step, §12 shows what each screen does when something fails, and §13
+              is the list of things you are actually approving.
+            </p>
           </div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:1"><b>MODEL GROUP — "Model B"</b><small>… repeats per model, collapsible</small><span class="mark">4</span></div>
-        </div>
-      </div>
-      <ol class="list legend">
-        <li><span class="n">1</span><strong>Filters are CMS-driven data</strong>, not hardcoded — the same filter entities the admin manages. Every filter interaction is an event.</li>
-        <li><span class="n">2</span><strong>Model group = the unit of rendering.</strong> A model appears here only when its pipeline status is Published (§8).</li>
-        <li><span class="n">3</span><strong>Trim card imagery comes from the rendered multiples</strong> — hero angle, default colour — served content-hashed from the CDN. No bespoke photography needed.</li>
-        <li><span class="n">4</span><strong>"View trim" → Brochure for that trim. "Configure" → Configurator preloaded with that trim.</strong> Both exits carry the trim context so no step asks the visitor to re-choose.</li>
-      </ol>
-    </section>
-
-    <!-- 04 -->
-    <section class="section reveal" id="s4">
-      <div class="sec-head"><div class="sec-num">04</div><h2>Digital Brochure <span class="pill mvp">App 2</span></h2></div>
-      <div class="prose"><p>One trim, told richly — the Porsche model-page pattern. This is where the AI-generated content lives (its primary purpose), alongside the <strong>light configurator</strong> built purely from the pre-rendered multiples. No Unreal session on this page.</p></div>
-
-      <div class="wf">
-        <div class="wf-bar"><b>{BRAND}</b> Model A · <span style="color:var(--ink)">Sport</span><span class="sp"><span class="wf-chip on">Sport</span><span class="wf-chip">Base</span><span class="wf-chip">GT</span></span></div>
-        <div class="wf-row">
-          <div class="wf-dark" style="flex:1;min-height:110px"><b>HERO — trim content</b><small>AI-generated cinematic imagery / 1–2 videos per trim, seeded from this trim's renders · trim name · tagline · from-price</small><span class="mark">1</span></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:2;min-height:90px"><b>Light configurator</b><small>pre-rendered multiples: colour swatches <span class="wf-sw" style="background:#08090A"></span> <span class="wf-sw" style="background:#C8CDD0"></span> <span class="wf-sw" style="background:#6E1622"></span> · view toggle · instant image swap, no streaming</small><span class="mark">2</span></div>
-          <div class="wf-box" style="flex:1"><b>Key specs strip</b><small>power · 0-100 · top speed · range</small></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:1"><b>Content blocks</b><small>feature sections mixing renders + approved AI content + copy (CMS-ordered)</small><span class="mark">3</span></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:2"><b>Full specs table</b><small>per-trim, comparable columns when multiple trims</small></div>
-          <div class="wf-col" style="flex:1">
-            <div class="wf-box"><b>CTA rail</b><small>Configure this trim · Book test drive · Contact</small><span class="mark">4</span></div>
-            <div class="wf-box"><b>Recommendations</b><small>other models, same brand</small><span class="mark">5</span></div>
+          <div class="callout">
+            <div class="label">What this blueprint assumes (locked upstream)</div>
+            <p>
+              Nmesis (studio) creates and delivers 3D models; everything from the upload event
+              onward — rendering on the in-house Unreal farm, the configurator, content, data,
+              hosting — is this system. The engine’s pipeline is triggered by a 3D file landing in
+              the structured asset store; rendering runs on the in-house Unreal farm via a job the
+              engine queues, watches, and reports progress on. Assets live in a structured S3/R2
+              file system. Configurator is the mandatory base SKU. Data is always collected in full;
+              visibility is tier-gated. Production doctrine v2.0 applies without exception.
+            </p>
           </div>
-        </div>
-      </div>
-      <ol class="list legend">
-        <li><span class="n">1</span><strong>Trim switching stays on this page</strong> (top-right chips) — content, specs, light configurator and price all swap in place. Each switch is a high-value comparison event.</li>
-        <li><span class="n">2</span><strong>The light configurator is image swapping, not streaming</strong> — the multiples make it instant and free to serve. It is the appetiser for the full configurator, and every swatch touch is captured.</li>
-        <li><span class="n">3</span><strong>Only admin-approved AI content renders here</strong> (§8). Blocks are CMS entities with ordering — the brochure is data, not a bespoke page per trim.</li>
-        <li><span class="n">4</span><strong>"Configure this trim" carries trim + chosen colour into the configurator session</strong> — the visitor never restarts their choice.</li>
-        <li><span class="n">5</span><strong>Recommendations are same-brand only</strong> (rule-based now, ML Later). Never cross-brand — a brand's journey never advertises a competitor.</li>
-      </ol>
-    </section>
+        </section>
 
-    <!-- 05 -->
-    <section class="section reveal" id="s5">
-      <div class="sec-head"><div class="sec-num">05</div><h2>Configurator page <span class="pill mvp">App 1 · the base SKU</span></h2></div>
-      <div class="prose"><p>The Lotus-pattern deep experience: the Unreal pixel-stream session in an iframe, wrapped in engine-owned controls and CTAs — the TV screen and the remote: the page owns every control and CTA; the render surface only draws and reports.</p></div>
-
-      <div class="wf">
-        <div class="wf-bar"><b>{BRAND}</b> Configurator · Model A Sport<span class="sp"><span class="wf-chip">Session: live</span></span></div>
-        <div class="wf-row">
-          <div class="wf-dark" style="flex:2.6;min-height:150px"><b>UNREAL PIXEL-STREAM IFRAME</b><small>render surface only — receives commands, emits signals · no controls, no forms, no keys inside · origin-locked postMessage, versioned</small><span class="mark">1</span></div>
-          <div class="wf-col" style="flex:1">
-            <div class="wf-box"><b>Build summary</b><small>trim · colour · interior · price updates live</small><span class="mark">2</span></div>
-            <div class="wf-box"><b>CTA stack</b><small>Share build · Book test drive · Contact seller · WhatsApp agent</small><span class="mark">3</span></div>
+        <!-- 01 -->
+        <section class="section reveal" id="s1">
+          <div class="sec-head">
+            <div class="sec-num">01</div>
+            <h2>The journey at a glance</h2>
           </div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:1"><b>Control dock — the remote</b><small>exterior colours · interior / materials · view · lighting · feature animations — all engine-owned buttons</small><span class="mark">4</span></div>
-        </div>
-      </div>
-      <ol class="list legend">
-        <li><span class="n">1</span><strong>Session lifecycle is managed and metered:</strong> requested → queued (if at capacity) → live → idle-timeout → ended. Every state is an event; cost per session is trackable from day one. Hosting provider = the open research track.</li>
-        <li><span class="n">2</span><strong>Share build generates a URL that restores the exact configuration</strong> — shareable, and each open of a shared build is itself a captured (and attributable) event.</li>
-        <li><span class="n">3</span><strong>The CTA set is configurable per brand</strong> from brand dashboard or admin: which CTAs, in what order, WhatsApp number, seller routing. Checkout joins this stack Later.</li>
-        <li><span class="n">4</span><strong>Controls render from the engine's own option catalogue instantly</strong> — never waiting on the stream — and every touch is first-party data before the command is even sent. Manifest drift-check on handshake.</li>
-      </ol>
-    </section>
-
-    <!-- 06 -->
-    <section class="section reveal" id="s6">
-      <div class="sec-head"><div class="sec-num">06</div><h2>The CTA &amp; lead layer</h2></div>
-      <div class="prose"><p>CTAs appear on all three screens but always resolve to the same engine-owned lead flow — one pipeline, one schema, wherever the journey converts.</p></div>
-      <div class="flow">
-        <div class="st"><div class="t">CTA tap</div><p>Any screen · context attached: brand, model, trim, current build, session</p></div>
-        <div class="ar">→</div>
-        <div class="st"><div class="t">Lead form</div><p>Minimal fields + consent checkbox (market-specific wording) · WhatsApp deep-links with prefilled context</p></div>
-        <div class="ar">→</div>
-        <div class="st dark"><div class="t">Engine lead record</div><p>Synchronous, acknowledged write · full journey history attached · DLQ + page on any failure</p></div>
-        <div class="ar">→</div>
-        <div class="st"><div class="t">Routing</div><p>Brand dashboard (tier permitting) · notification to brand · scoring queue</p></div>
-      </div>
-      <ul class="list">
-        <li><strong>A lead is never just a form fill</strong> — it carries the entire journey behind it: models viewed, trims compared, colours tried, time in configurator, shared builds. That history is what scoring consumes and what makes the lead worth paying for.</li>
-        <li><strong>Consent is captured at the form, per market,</strong> stored with the lead. Wording per market comes from counsel; resale consent is a separate, Later checkbox — documented in the lead schema now.</li>
-      </ul>
-    </section>
-
-    <!-- 07 -->
-    <section class="section reveal" id="s7">
-      <div class="sec-head"><div class="sec-num">07</div><h2>Admin — the production pipeline <span class="pill mvp">App 5</span></h2></div>
-      <div class="prose"><p>The pipeline board is the heart of the admin portal: every model for every brand is a card moving left to right, and the engine automates every hand-off it can see. <strong>The pipeline begins when a 3D file lands in the structured bucket.</strong> Everything upstream of that moment is studio work outside this system’s scope; the upload event is the trigger, and the delivered manifest’s variant declarations (trims, exterior and interior colours) define the expected render matrix the engine verifies against.</p></div>
-
-      <div class="flow">
-        <div class="st dark"><div class="t">1 · Upload detected</div><p>3D file lands in the structured bucket → engine event → admin notification with metadata (model, brand, expected variant matrix)</p></div>
-        <div class="ar">→</div>
-        <div class="st dark"><div class="t">2 · Render</div><p>Admin clicks Start → Unreal farm API fires the matrix → progress = files present ÷ expected</p></div>
-        <div class="ar">→</div>
-        <div class="st dark"><div class="t">3 · Configurator ready</div><p>All frames present → configurator URL registered → contract handshake verified</p></div>
-        <div class="ar">→</div>
-        <div class="st dark"><div class="t">4 · Content generation</div><p>Generate button unlocks → fixed prompts × fixed counts, conditioned on this trim's renders → images + 1–2 videos per trim into their folders</p></div>
-        <div class="ar">→</div>
-        <div class="st"><div class="t">5 · Approve</div><p>Human review of every AI asset: approve / regenerate / reject — nothing unapproved can publish</p></div>
-        <div class="ar">→</div>
-        <div class="st"><div class="t">6 · Data fill</div><p>Specs, copy, prices per market, filters, CTA config</p></div>
-        <div class="ar">→</div>
-        <div class="st dark"><div class="t">7 · Publish</div><p>Showroom, brochure &amp; configurator page go live behind the brand's flags</p></div>
-      </div>
-
-      <div class="wf">
-        <div class="wf-bar"><b>ADMIN</b> Pipeline · Brand X · Model A<span class="sp"><span class="wf-chip on">Rendering</span></span></div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:2"><b>Render progress</b><small>Expected 96 (4 trims × 8 ext × 3 int) · rendered 61 · <span style="color:var(--ink)">64%</span> · per-trim breakdown · failed frames listed with retry</small><span class="mark">1</span></div>
-          <div class="wf-col" style="flex:1">
-            <div class="wf-box"><b>Upload metadata</b><small>uploaded by · file version · checksum · expected variant matrix</small></div>
-            <div class="wf-box"><b>Actions</b><small>Pause · Re-render failed · View folder</small></div>
+          <div class="prose">
+            <p>
+              Two pipelines meet in the middle. The admin pipeline manufactures the experience; the
+              consumer journey walks through it; every step of the walk feeds the data layer that
+              the brand dashboard and, later, Autoverse itself are built on.
+            </p>
           </div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:1"><b>Activity log</b><small>every state change, actor, timestamp, trace — the audit trail of the pipeline itself</small><span class="mark">2</span></div>
-        </div>
+          <div class="flow">
+            <div class="st dark">
+              <div class="t">Admin pipeline</div>
+              <p>
+                Upload detected → render → configurator ready → content → approval → data fill →
+                publish
+              </p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st">
+              <div class="t">Consumer journey</div>
+              <p>Showroom → Brochure (per trim) → Configurator → CTA / lead</p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st dark">
+              <div class="t">Data layer</div>
+              <p>
+                Every event captured → leads scored per brand → dashboard views → (later) Autoverse
+              </p>
+            </div>
+          </div>
+          <div class="prose">
+            <p>
+              The consumer journey is deliberately a funnel with three depths:
+              <strong>browse</strong> (showroom — low commitment, many models),
+              <strong>consider</strong> (brochure — one trim, rich content, light configurator),
+              <strong>desire</strong> (configurator — live Unreal session, personal build, CTAs).
+              Each step down the funnel is a higher-intent signal, which is exactly what lead
+              scoring will weight.
+            </p>
+          </div>
+        </section>
+
+        <!-- 02 -->
+        <section class="section reveal" id="s2">
+          <div class="sec-head">
+            <div class="sec-num">02</div>
+            <h2>Brand URLs &amp; journey entry</h2>
+          </div>
+          <ul class="list">
+            <li>
+              <strong>One URL per brand per market</strong>, e.g.
+              <code>{brand}.engine-domain.com/{market}</code> — subdomain now, custom domain (their
+              own) as a Later upgrade. Market sets currency, language (incl. Arabic/RTL), and
+              consent defaults.
+            </li>
+            <li>
+              <strong>The URL exposes only what the brand bought.</strong> Showroom tier → entry is
+              the showroom. Brochure+configurator only → entry is the model's brochure. Configurator
+              only → entry is the configurator page itself. Same engine, same data capture,
+              different front doors.
+            </li>
+            <li>
+              <strong>Every entry carries attribution:</strong> UTM/source captured on first touch
+              and attached to the session — the lead's origin story starts here.
+            </li>
+          </ul>
+        </section>
+
+        <!-- 03 -->
+        <section class="section reveal" id="s3">
+          <div class="sec-head">
+            <div class="sec-num">03</div>
+            <h2>Virtual Showroom <span class="pill mvp">App 3</span></h2>
+          </div>
+          <div class="prose">
+            <p>
+              The brand's full range on one page — Porsche model-range pattern. Models grouped,
+              trims beneath each, two exits per trim card: deeper (brochure) or straight to the
+              configurator.
+            </p>
+          </div>
+
+          <div class="wf">
+            <div class="wf-bar">
+              <b>{BRAND}</b> Showroom<span class="sp"
+                ><span class="wf-chip">EN/AR</span><span class="wf-chip">Market: EG</span></span
+              >
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 3">
+                <b>Filter bar</b><small>Model · Body type · Fuel · Drive · Seats</small
+                ><span class="mark">1</span>
+              </div>
+              <div class="wf-box" style="flex: 1"><b>Search</b><small>by model name</small></div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 1">
+                <b>MODEL GROUP — "Model A"</b
+                ><small>group header · body style · from-price (market currency)</small
+                ><span class="mark">2</span>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-col">
+                <div class="wf-dark">
+                  <b>Trim card — A Base</b
+                  ><small>render image (from multiples) · key stats · from-price</small
+                  ><span class="mark">3</span>
+                </div>
+                <div class="wf-row" style="margin: 0">
+                  <span class="wf-cta ghost">View trim →</span><span class="wf-cta">Configure</span>
+                </div>
+              </div>
+              <div class="wf-col">
+                <div class="wf-dark">
+                  <b>Trim card — A Sport</b><small>render · stats · price</small>
+                </div>
+                <div class="wf-row" style="margin: 0">
+                  <span class="wf-cta ghost">View trim →</span><span class="wf-cta">Configure</span>
+                </div>
+              </div>
+              <div class="wf-col">
+                <div class="wf-dark">
+                  <b>Trim card — A GT</b><small>render · stats · price</small>
+                </div>
+                <div class="wf-row" style="margin: 0">
+                  <span class="wf-cta ghost">View trim →</span><span class="wf-cta">Configure</span>
+                </div>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 1">
+                <b>MODEL GROUP — "Model B"</b><small>… repeats per model, collapsible</small
+                ><span class="mark">4</span>
+              </div>
+            </div>
+          </div>
+          <ol class="list legend">
+            <li>
+              <span class="n">1</span><strong>Filters are CMS-driven data</strong>, not hardcoded —
+              the same filter entities the admin manages. Every filter interaction is an event.
+            </li>
+            <li>
+              <span class="n">2</span><strong>Model group = the unit of rendering.</strong> A model
+              appears here only when its pipeline status is Published (§8).
+            </li>
+            <li>
+              <span class="n">3</span
+              ><strong>Trim card imagery comes from the rendered multiples</strong> — hero angle,
+              default colour — served content-hashed from the CDN. No bespoke photography needed.
+            </li>
+            <li>
+              <span class="n">4</span
+              ><strong
+                >"View trim" → Brochure for that trim. "Configure" → Configurator preloaded with
+                that trim.</strong
+              >
+              Both exits carry the trim context so no step asks the visitor to re-choose.
+            </li>
+          </ol>
+        </section>
+
+        <!-- 04 -->
+        <section class="section reveal" id="s4">
+          <div class="sec-head">
+            <div class="sec-num">04</div>
+            <h2>Digital Brochure <span class="pill mvp">App 2</span></h2>
+          </div>
+          <div class="prose">
+            <p>
+              One trim, told richly — the Porsche model-page pattern. This is where the AI-generated
+              content lives (its primary purpose), alongside the
+              <strong>light configurator</strong> built purely from the pre-rendered multiples. No
+              Unreal session on this page.
+            </p>
+          </div>
+
+          <div class="wf">
+            <div class="wf-bar">
+              <b>{BRAND}</b> Model A · <span style="color: var(--ink)">Sport</span
+              ><span class="sp"
+                ><span class="wf-chip on">Sport</span><span class="wf-chip">Base</span
+                ><span class="wf-chip">GT</span></span
+              >
+            </div>
+            <div class="wf-row">
+              <div class="wf-dark" style="flex: 1; min-height: 110px">
+                <b>HERO — trim content</b
+                ><small
+                  >AI-generated cinematic imagery / 1–2 videos per trim, seeded from this trim's
+                  renders · trim name · tagline · from-price</small
+                ><span class="mark">1</span>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 2; min-height: 90px">
+                <b>Light configurator</b
+                ><small
+                  >pre-rendered multiples: colour swatches
+                  <span class="wf-sw" style="background: #08090a"></span>
+                  <span class="wf-sw" style="background: #c8cdd0"></span>
+                  <span class="wf-sw" style="background: #6e1622"></span> · view toggle · instant
+                  image swap, no streaming</small
+                ><span class="mark">2</span>
+              </div>
+              <div class="wf-box" style="flex: 1">
+                <b>Key specs strip</b><small>power · 0-100 · top speed · range</small>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 1">
+                <b>Content blocks</b
+                ><small
+                  >feature sections mixing renders + approved AI content + copy (CMS-ordered)</small
+                ><span class="mark">3</span>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 2">
+                <b>Full specs table</b
+                ><small>per-trim, comparable columns when multiple trims</small>
+              </div>
+              <div class="wf-col" style="flex: 1">
+                <div class="wf-box">
+                  <b>CTA rail</b><small>Configure this trim · Book test drive · Contact</small
+                  ><span class="mark">4</span>
+                </div>
+                <div class="wf-box">
+                  <b>Recommendations</b><small>other models, same brand</small
+                  ><span class="mark">5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ol class="list legend">
+            <li>
+              <span class="n">1</span><strong>Trim switching stays on this page</strong> (top-right
+              chips) — content, specs, light configurator and price all swap in place. Each switch
+              is a high-value comparison event.
+            </li>
+            <li>
+              <span class="n">2</span
+              ><strong>The light configurator is image swapping, not streaming</strong> — the
+              multiples make it instant and free to serve. It is the appetiser for the full
+              configurator, and every swatch touch is captured.
+            </li>
+            <li>
+              <span class="n">3</span
+              ><strong>Only admin-approved AI content renders here</strong> (§8). Blocks are CMS
+              entities with ordering — the brochure is data, not a bespoke page per trim.
+            </li>
+            <li>
+              <span class="n">4</span
+              ><strong
+                >"Configure this trim" carries trim + chosen colour into the configurator
+                session</strong
+              >
+              — the visitor never restarts their choice.
+            </li>
+            <li>
+              <span class="n">5</span
+              ><strong>Recommendations are same-brand only</strong> (rule-based now, ML Later).
+              Never cross-brand — a brand's journey never advertises a competitor.
+            </li>
+          </ol>
+        </section>
+
+        <!-- 05 -->
+        <section class="section reveal" id="s5">
+          <div class="sec-head">
+            <div class="sec-num">05</div>
+            <h2>Configurator page <span class="pill mvp">App 1 · the base SKU</span></h2>
+          </div>
+          <div class="prose">
+            <p>
+              The Lotus-pattern deep experience: the Unreal pixel-stream session in an iframe,
+              wrapped in engine-owned controls and CTAs — the TV screen and the remote: the page
+              owns every control and CTA; the render surface only draws and reports.
+            </p>
+          </div>
+
+          <div class="wf">
+            <div class="wf-bar">
+              <b>{BRAND}</b> Configurator · Model A Sport<span class="sp"
+                ><span class="wf-chip">Session: live</span></span
+              >
+            </div>
+            <div class="wf-row">
+              <div class="wf-dark" style="flex: 2.6; min-height: 150px">
+                <b>UNREAL PIXEL-STREAM IFRAME</b
+                ><small
+                  >render surface only — receives commands, emits signals · no controls, no forms,
+                  no keys inside · origin-locked postMessage, versioned</small
+                ><span class="mark">1</span>
+              </div>
+              <div class="wf-col" style="flex: 1">
+                <div class="wf-box">
+                  <b>Build summary</b><small>trim · colour · interior · price updates live</small
+                  ><span class="mark">2</span>
+                </div>
+                <div class="wf-box">
+                  <b>CTA stack</b
+                  ><small>Share build · Book test drive · Contact seller · WhatsApp agent</small
+                  ><span class="mark">3</span>
+                </div>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 1">
+                <b>Control dock — the remote</b
+                ><small
+                  >exterior colours · interior / materials · view · lighting · feature animations —
+                  all engine-owned buttons</small
+                ><span class="mark">4</span>
+              </div>
+            </div>
+          </div>
+          <ol class="list legend">
+            <li>
+              <span class="n">1</span
+              ><strong>Session lifecycle is managed and metered:</strong> requested → queued (if at
+              capacity) → live → idle-timeout → ended. Every state is an event; cost per session is
+              trackable from day one. Hosting provider = the open research track.
+            </li>
+            <li>
+              <span class="n">2</span
+              ><strong>Share build generates a URL that restores the exact configuration</strong> —
+              shareable, and each open of a shared build is itself a captured (and attributable)
+              event.
+            </li>
+            <li>
+              <span class="n">3</span><strong>The CTA set is configurable per brand</strong> from
+              brand dashboard or admin: which CTAs, in what order, WhatsApp number, seller routing.
+              Checkout joins this stack Later.
+            </li>
+            <li>
+              <span class="n">4</span
+              ><strong>Controls render from the engine's own option catalogue instantly</strong> —
+              never waiting on the stream — and every touch is first-party data before the command
+              is even sent. Manifest drift-check on handshake.
+            </li>
+          </ol>
+        </section>
+
+        <!-- 06 -->
+        <section class="section reveal" id="s6">
+          <div class="sec-head">
+            <div class="sec-num">06</div>
+            <h2>The CTA &amp; lead layer</h2>
+          </div>
+          <div class="prose">
+            <p>
+              CTAs appear on all three screens but always resolve to the same engine-owned lead flow
+              — one pipeline, one schema, wherever the journey converts.
+            </p>
+          </div>
+          <div class="flow">
+            <div class="st">
+              <div class="t">CTA tap</div>
+              <p>Any screen · context attached: brand, model, trim, current build, session</p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st">
+              <div class="t">Lead form</div>
+              <p>
+                Minimal fields + consent checkbox (market-specific wording) · WhatsApp deep-links
+                with prefilled context
+              </p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st dark">
+              <div class="t">Engine lead record</div>
+              <p>
+                Synchronous, acknowledged write · full journey history attached · DLQ + page on any
+                failure
+              </p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st">
+              <div class="t">Routing</div>
+              <p>Brand dashboard (tier permitting) · notification to brand · scoring queue</p>
+            </div>
+          </div>
+          <ul class="list">
+            <li>
+              <strong>A lead is never just a form fill</strong> — it carries the entire journey
+              behind it: models viewed, trims compared, colours tried, time in configurator, shared
+              builds. That history is what scoring consumes and what makes the lead worth paying
+              for.
+            </li>
+            <li>
+              <strong>Consent is captured at the form, per market,</strong> stored with the lead.
+              Wording per market comes from counsel; resale consent is a separate, Later checkbox —
+              documented in the lead schema now.
+            </li>
+          </ul>
+        </section>
+
+        <!-- 07 -->
+        <section class="section reveal" id="s7">
+          <div class="sec-head">
+            <div class="sec-num">07</div>
+            <h2>Admin — the production pipeline <span class="pill mvp">App 5</span></h2>
+          </div>
+          <div class="prose">
+            <p>
+              The pipeline board is the heart of the admin portal: every model for every brand is a
+              card moving left to right, and the engine automates every hand-off it can see.
+              <strong>The pipeline begins when a 3D file lands in the structured bucket.</strong>
+              Everything upstream of that moment is studio work outside this system’s scope; the
+              upload event is the trigger, and the delivered manifest’s variant declarations (trims,
+              exterior and interior colours) define the expected render matrix the engine verifies
+              against.
+            </p>
+          </div>
+
+          <div class="flow">
+            <div class="st dark">
+              <div class="t">1 · Upload detected</div>
+              <p>
+                3D file lands in the structured bucket → engine event → admin notification with
+                metadata (model, brand, expected variant matrix)
+              </p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st dark">
+              <div class="t">2 · Render</div>
+              <p>
+                Admin clicks Start → Unreal farm API fires the matrix → progress = files present ÷
+                expected
+              </p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st dark">
+              <div class="t">3 · Configurator ready</div>
+              <p>All frames present → configurator URL registered → contract handshake verified</p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st dark">
+              <div class="t">4 · Content generation</div>
+              <p>
+                Generate button unlocks → fixed prompts × fixed counts, conditioned on this trim's
+                renders → images + 1–2 videos per trim into their folders
+              </p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st">
+              <div class="t">5 · Approve</div>
+              <p>
+                Human review of every AI asset: approve / regenerate / reject — nothing unapproved
+                can publish
+              </p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st">
+              <div class="t">6 · Data fill</div>
+              <p>Specs, copy, prices per market, filters, CTA config</p>
+            </div>
+            <div class="ar">→</div>
+            <div class="st dark">
+              <div class="t">7 · Publish</div>
+              <p>Showroom, brochure &amp; configurator page go live behind the brand's flags</p>
+            </div>
+          </div>
+
+          <div class="wf">
+            <div class="wf-bar">
+              <b>ADMIN</b> Pipeline · Brand X · Model A<span class="sp"
+                ><span class="wf-chip on">Rendering</span></span
+              >
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 2">
+                <b>Render progress</b
+                ><small
+                  >Expected 96 (4 trims × 8 ext × 3 int) · rendered 61 ·
+                  <span style="color: var(--ink)">64%</span> · per-trim breakdown · failed frames
+                  listed with retry</small
+                ><span class="mark">1</span>
+              </div>
+              <div class="wf-col" style="flex: 1">
+                <div class="wf-box">
+                  <b>Upload metadata</b
+                  ><small>uploaded by · file version · checksum · expected variant matrix</small>
+                </div>
+                <div class="wf-box">
+                  <b>Actions</b><small>Pause · Re-render failed · View folder</small>
+                </div>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 1">
+                <b>Activity log</b
+                ><small
+                  >every state change, actor, timestamp, trace — the audit trail of the pipeline
+                  itself</small
+                ><span class="mark">2</span>
+              </div>
+            </div>
+          </div>
+          <ol class="list legend">
+            <li>
+              <span class="n">1</span
+              ><strong>Progress is computed from the output folder, not from trust:</strong> the
+              engine lists the bucket path and divides by the expected matrix from the brief.
+              Stalled renders (no new file within a threshold) raise a Notify alert automatically.
+            </li>
+            <li>
+              <span class="n">2</span><strong>The pipeline is itself observable</strong> under the
+              v2.0 contract — every transition logged, every failure a DLQ entry, every stage timed
+              so we learn the real cost per model.
+            </li>
+          </ol>
+        </section>
+
+        <!-- 08 -->
+        <section class="section reveal" id="s8">
+          <div class="sec-head">
+            <div class="sec-num">08</div>
+            <h2>Admin — content approval, data fill &amp; the rest of the portal</h2>
+          </div>
+          <div class="wf">
+            <div class="wf-bar"><b>ADMIN</b> Content review · Model A · Sport</div>
+            <div class="wf-row">
+              <div class="wf-dark"><b>Gen 01</b><small>image · prompt #3</small></div>
+              <div class="wf-dark"><b>Gen 02</b><small>image · prompt #5</small></div>
+              <div class="wf-dark"><b>Video 01</b><small>seeded from hero render</small></div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 1">
+                <b>Per asset</b
+                ><small
+                  >Approve · Regenerate (same prompt) · Reject — approved assets become CMS content
+                  blocks assignable to the brochure</small
+                ><span class="mark">1</span>
+              </div>
+            </div>
+          </div>
+          <ol class="list legend">
+            <li>
+              <span class="n">1</span><strong>Approval is a hard gate:</strong> the brochure can
+              only reference assets in the approved state. Fixed prompts live in admin as versioned
+              data — refining the prompt set improves every future model without code.
+            </li>
+          </ol>
+          <div class="prose">
+            <p>
+              Beyond the pipeline, the portal carries the operator's world — each of these is a
+              section of the admin app, listed here so nothing is silently descoped:
+            </p>
+          </div>
+          <div class="grid cols-3">
+            <div class="card">
+              <div class="co">Catalogue</div>
+              <h4>Brands · models · trims</h4>
+              <p>CRUD, markets, filters, option vocabulary — the CMS source of truth.</p>
+            </div>
+            <div class="card">
+              <div class="co">Commercial</div>
+              <h4>Subscriptions &amp; tiers</h4>
+              <p>
+                Tier definitions as data, free periods, flags per brand, finance view &amp;
+                forecast.
+              </p>
+            </div>
+            <div class="card">
+              <div class="co">Cross-brand</div>
+              <h4>God-view analytics</h4>
+              <p>
+                All brands, models, trims, markets — the market intelligence that later feeds
+                Autoverse.
+              </p>
+            </div>
+            <div class="card">
+              <div class="co">Leads</div>
+              <h4>All leads, all brands</h4>
+              <p>Scoring oversight, export; resale workflows Later, behind legal + consent.</p>
+            </div>
+            <div class="card">
+              <div class="co">Ops</div>
+              <h4>Logs &amp; monitoring</h4>
+              <p>Pipeline health, session costs, DLQs, reconciliation reports, alerts.</p>
+            </div>
+            <div class="card">
+              <div class="co">Access</div>
+              <h4>Staff &amp; RBAC</h4>
+              <p>Roles, permissions, audit log of every sensitive action.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 09 -->
+        <section class="section reveal" id="s9">
+          <div class="sec-head">
+            <div class="sec-num">09</div>
+            <h2>Brand dashboard <span class="pill mvp">App 4</span></h2>
+          </div>
+          <div class="prose">
+            <p>
+              Tenant-isolated by RLS; every module is a flag resolved server-side against the
+              brand's tier. The layout is the same for every brand — what varies is which modules
+              are open.
+            </p>
+          </div>
+          <div class="wf">
+            <div class="wf-bar">
+              <b>BRAND X</b> Dashboard<span class="sp"
+                ><span class="wf-chip on">Tier: Pro</span></span
+              >
+            </div>
+            <div class="wf-row">
+              <div class="wf-box">
+                <b>Overview</b><small>sessions · configurator starts · leads · top model</small>
+              </div>
+              <div class="wf-box">
+                <b>Journey analytics</b
+                ><small>funnel: showroom → brochure → configurator → CTA</small
+                ><span class="mark">1</span>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box">
+                <b>Model &amp; trim insights</b
+                ><small>most-viewed trims · most-tried colours · comparison patterns</small>
+              </div>
+              <div class="wf-box">
+                <b>Leads</b><small>list · journey history per lead · score · status · export</small
+                ><span class="mark">2</span>
+              </div>
+            </div>
+            <div class="wf-row">
+              <div class="wf-box" style="flex: 2">
+                <b>Settings</b
+                ><small
+                  >CTA configuration · WhatsApp number · notification recipients · team &amp; roles
+                  (RBAC)</small
+                >
+              </div>
+              <div class="wf-box" style="flex: 1; border-style: solid; opacity: 0.55">
+                <b>🔒 Locked module</b><small>visible, teasing the next tier — upgrade prompt</small
+                ><span class="mark">3</span>
+              </div>
+            </div>
+          </div>
+          <ol class="list legend">
+            <li>
+              <span class="n">1</span
+              ><strong>Dashboards read aggregates, never raw events</strong> — the p95 latency SLO
+              from the production plan applies here.
+            </li>
+            <li>
+              <span class="n">2</span><strong>Lead visibility is the sharpest tier lever:</strong> a
+              lower tier may see counts but not contact details; unlocking is a flag flip, no
+              deploy. Data was captured all along either way.
+            </li>
+            <li>
+              <span class="n">3</span><strong>Locked modules are visible but inert</strong> — the
+              upgrade path is part of the UI, and the server refuses locked data regardless of what
+              the UI shows.
+            </li>
+          </ol>
+        </section>
+
+        <!-- 10 -->
+        <section class="section reveal" id="s10">
+          <div class="sec-head">
+            <div class="sec-num">10</div>
+            <h2>Data capture map — everything, everywhere</h2>
+          </div>
+          <div class="prose">
+            <p>
+              The concrete answer to "literally everything the user did." Every event follows the
+              envelope and delivery guarantees of the production plan (idempotent, at-least-once,
+              DLQ, daily reconciliation). Time-on-everything comes from paired enter/leave events,
+              so duration is derived, not guessed.
+            </p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Journey step</th>
+                  <th>
+                    Captured events (each with full context: brand · market · model · trim · session
+                    · source)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Entry</td>
+                  <td>page_view · source/UTM attribution · language · device · consent state</td>
+                </tr>
+                <tr>
+                  <td>Showroom</td>
+                  <td>
+                    filter_applied (which, value) · search_query · model_group_viewed (enter/leave)
+                    · trim_card_viewed · trim_card_cta (view/configure)
+                  </td>
+                </tr>
+                <tr>
+                  <td>Brochure</td>
+                  <td>
+                    trim_switched (from→to) · content_block_viewed (enter/leave) ·
+                    video_play/progress/complete · light_config_swatch (colour, dwell) ·
+                    light_config_view_toggle · specs_table_opened · recommendation_clicked
+                  </td>
+                </tr>
+                <tr>
+                  <td>Configurator</td>
+                  <td>
+                    session_requested/queued/started/ended (duration, cost) · every control touch:
+                    colour_selected, interior_selected, view_changed, lighting_changed,
+                    feature_played · canvas_interaction (spin/zoom from the signal channel) ·
+                    build_shared · shared_build_opened
+                  </td>
+                </tr>
+                <tr>
+                  <td>Conversion</td>
+                  <td>
+                    cta_viewed · cta_clicked (which, where) ·
+                    lead_form_opened/field_completed/abandoned/submitted · whatsapp_deeplink_opened
+                  </td>
+                </tr>
+                <tr>
+                  <td>System</td>
+                  <td>
+                    configurator_error/timeout · degraded_mode_shown · perf samples — failures are
+                    data too
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="prose">
+            Colour affinity ("which colour did he try most") is a query over
+            <code>colour_selected</code> events, not a special feature — which is the point: capture
+            atomically, aggregate freely, and every future question is answerable without new
+            instrumentation.
+          </p>
+        </section>
+
+        <!-- 11 -->
+        <section class="section reveal" id="s11">
+          <div class="sec-head">
+            <div class="sec-num">11</div>
+            <h2>Packaging &amp; tier gating on the journey</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Package</th>
+                  <th>Consumer surfaces live</th>
+                  <th>Rule</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Configurator</strong> (base)</td>
+                  <td>Configurator page only</td>
+                  <td>Mandatory in every deal — nothing sells without it</td>
+                </tr>
+                <tr>
+                  <td>+ Brochure</td>
+                  <td>Brochure(s) + configurator</td>
+                  <td>Brochure links into the configurator it requires</td>
+                </tr>
+                <tr>
+                  <td>+ Showroom</td>
+                  <td>Showroom + configurator (brochure optional)</td>
+                  <td>Showroom trim cards deep-link to whatever depth exists</td>
+                </tr>
+                <tr>
+                  <td>Full journey</td>
+                  <td>Showroom → brochure → configurator</td>
+                  <td>The complete funnel of §1</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ul class="list">
+            <li>
+              <strong>Surfaces are entitlements; dashboard modules are tiers</strong> — two
+              independent axes, both implemented as flags per brand per market, resolved
+              server-side.
+            </li>
+            <li>
+              <strong>Capture is never gated.</strong> A brand on the lowest tier still generates
+              full data; upgrading reveals history retroactively — the strongest upsell in the
+              product.
+            </li>
+          </ul>
+        </section>
+
+        <!-- 12 -->
+        <section class="section reveal" id="s12">
+          <div class="sec-head">
+            <div class="sec-num">12</div>
+            <h2>Degraded journeys</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Failure</th>
+                  <th>The journey becomes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Pixel-stream capacity full</td>
+                  <td>
+                    Configurator page opens with the light configurator + "join session" queue with
+                    position; CTAs fully live — conversion never waits for a GPU
+                  </td>
+                </tr>
+                <tr>
+                  <td>Stream session drops mid-build</td>
+                  <td>
+                    Build state is engine-side, so reconnect restores it; light configurator covers
+                    the gap
+                  </td>
+                </tr>
+                <tr>
+                  <td>Render matrix incomplete for a trim</td>
+                  <td>Trim publishes only when complete; other trims of the model unaffected</td>
+                </tr>
+                <tr>
+                  <td>AI content rejected / unavailable</td>
+                  <td>
+                    Brochure renders from renders + copy alone — content blocks are optional by
+                    design
+                  </td>
+                </tr>
+                <tr>
+                  <td>Lead write fails</td>
+                  <td>
+                    Explicit user-facing failure + retry, DLQ, immediate page — per the production
+                    plan, zero tolerance
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 13 -->
+        <section class="section reveal" id="s13">
+          <div class="sec-head">
+            <div class="sec-num">13</div>
+            <h2>Confirmation checklist — what you are approving</h2>
+          </div>
+          <div class="prose">
+            <p>
+              Approve, amend, or strike each. When this list is clean, the three consumer pages go
+              to high-fidelity and the engine + admin specs go to Claude Code.
+            </p>
+          </div>
+          <ol class="list">
+            <li>
+              <strong>The funnel shape</strong> — showroom → brochure → configurator as three
+              depths, with the two exits per trim card (§3.4).
+            </li>
+            <li>
+              <strong
+                >Brochure owns the light configurator; configurator page owns the Unreal
+                session</strong
+              >
+              — no streaming on the brochure (§4.2, §5).
+            </li>
+            <li>
+              <strong>Trim switching in place on the brochure</strong> rather than separate pages
+              per trim (§4.1).
+            </li>
+            <li>
+              <strong>AI content is brochure-first, approval-gated, conditioned on renders</strong>
+              (not fine-tuned) with per-model LoRA as Later (§8.1).
+            </li>
+            <li>
+              <strong>The 7-stage pipeline board (upload → publish)</strong> and folder-computed
+              render progress (§7).
+            </li>
+            <li>
+              <strong>CTA set per brand</strong> — Share build · Test drive · Contact seller ·
+              WhatsApp — configurable from both dashboard and admin (§5.3).
+            </li>
+            <li>
+              <strong>Brand URL model</strong> — subdomain per brand per market now; custom domains
+              Later (§2).
+            </li>
+            <li>
+              <strong>Packaging matrix</strong> as in §11, entitlements and tiers as separate flag
+              axes.
+            </li>
+            <li>
+              <strong>The event taxonomy of §10</strong> as the capture baseline (additions welcome;
+              removals discouraged).
+            </li>
+            <li>
+              <strong>Degraded journeys of §12</strong>, in particular: conversion never waits for a
+              GPU.
+            </li>
+          </ol>
+        </section>
+      </main>
+    </div>
+
+    <footer class="foot">
+      <div class="foot-inner">
+        <div class="fb"><span class="dot"></span> Autoverse</div>
+        <small>Journey Blueprint · Phase 1 · v1.0 · Internal — confidential</small>
       </div>
-      <ol class="list legend">
-        <li><span class="n">1</span><strong>Progress is computed from the output folder, not from trust:</strong> the engine lists the bucket path and divides by the expected matrix from the brief. Stalled renders (no new file within a threshold) raise a Notify alert automatically.</li>
-        <li><span class="n">2</span><strong>The pipeline is itself observable</strong> under the v2.0 contract — every transition logged, every failure a DLQ entry, every stage timed so we learn the real cost per model.</li>
-      </ol>
-    </section>
+    </footer>
 
-    <!-- 08 -->
-    <section class="section reveal" id="s8">
-      <div class="sec-head"><div class="sec-num">08</div><h2>Admin — content approval, data fill &amp; the rest of the portal</h2></div>
-      <div class="wf">
-        <div class="wf-bar"><b>ADMIN</b> Content review · Model A · Sport</div>
-        <div class="wf-row">
-          <div class="wf-dark"><b>Gen 01</b><small>image · prompt #3</small></div>
-          <div class="wf-dark"><b>Gen 02</b><small>image · prompt #5</small></div>
-          <div class="wf-dark"><b>Video 01</b><small>seeded from hero render</small></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:1"><b>Per asset</b><small>Approve · Regenerate (same prompt) · Reject — approved assets become CMS content blocks assignable to the brochure</small><span class="mark">1</span></div>
-        </div>
-      </div>
-      <ol class="list legend">
-        <li><span class="n">1</span><strong>Approval is a hard gate:</strong> the brochure can only reference assets in the approved state. Fixed prompts live in admin as versioned data — refining the prompt set improves every future model without code.</li>
-      </ol>
-      <div class="prose"><p>Beyond the pipeline, the portal carries the operator's world — each of these is a section of the admin app, listed here so nothing is silently descoped:</p></div>
-      <div class="grid cols-3">
-        <div class="card"><div class="co">Catalogue</div><h4>Brands · models · trims</h4><p>CRUD, markets, filters, option vocabulary — the CMS source of truth.</p></div>
-        <div class="card"><div class="co">Commercial</div><h4>Subscriptions &amp; tiers</h4><p>Tier definitions as data, free periods, flags per brand, finance view &amp; forecast.</p></div>
-        <div class="card"><div class="co">Cross-brand</div><h4>God-view analytics</h4><p>All brands, models, trims, markets — the market intelligence that later feeds Autoverse.</p></div>
-        <div class="card"><div class="co">Leads</div><h4>All leads, all brands</h4><p>Scoring oversight, export; resale workflows Later, behind legal + consent.</p></div>
-        <div class="card"><div class="co">Ops</div><h4>Logs &amp; monitoring</h4><p>Pipeline health, session costs, DLQs, reconciliation reports, alerts.</p></div>
-        <div class="card"><div class="co">Access</div><h4>Staff &amp; RBAC</h4><p>Roles, permissions, audit log of every sensitive action.</p></div>
-      </div>
-    </section>
-
-    <!-- 09 -->
-    <section class="section reveal" id="s9">
-      <div class="sec-head"><div class="sec-num">09</div><h2>Brand dashboard <span class="pill mvp">App 4</span></h2></div>
-      <div class="prose"><p>Tenant-isolated by RLS; every module is a flag resolved server-side against the brand's tier. The layout is the same for every brand — what varies is which modules are open.</p></div>
-      <div class="wf">
-        <div class="wf-bar"><b>BRAND X</b> Dashboard<span class="sp"><span class="wf-chip on">Tier: Pro</span></span></div>
-        <div class="wf-row">
-          <div class="wf-box"><b>Overview</b><small>sessions · configurator starts · leads · top model</small></div>
-          <div class="wf-box"><b>Journey analytics</b><small>funnel: showroom → brochure → configurator → CTA</small><span class="mark">1</span></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box"><b>Model &amp; trim insights</b><small>most-viewed trims · most-tried colours · comparison patterns</small></div>
-          <div class="wf-box"><b>Leads</b><small>list · journey history per lead · score · status · export</small><span class="mark">2</span></div>
-        </div>
-        <div class="wf-row">
-          <div class="wf-box" style="flex:2"><b>Settings</b><small>CTA configuration · WhatsApp number · notification recipients · team &amp; roles (RBAC)</small></div>
-          <div class="wf-box" style="flex:1;border-style:solid;opacity:.55"><b>🔒 Locked module</b><small>visible, teasing the next tier — upgrade prompt</small><span class="mark">3</span></div>
-        </div>
-      </div>
-      <ol class="list legend">
-        <li><span class="n">1</span><strong>Dashboards read aggregates, never raw events</strong> — the p95 latency SLO from the production plan applies here.</li>
-        <li><span class="n">2</span><strong>Lead visibility is the sharpest tier lever:</strong> a lower tier may see counts but not contact details; unlocking is a flag flip, no deploy. Data was captured all along either way.</li>
-        <li><span class="n">3</span><strong>Locked modules are visible but inert</strong> — the upgrade path is part of the UI, and the server refuses locked data regardless of what the UI shows.</li>
-      </ol>
-    </section>
-
-    <!-- 10 -->
-    <section class="section reveal" id="s10">
-      <div class="sec-head"><div class="sec-num">10</div><h2>Data capture map — everything, everywhere</h2></div>
-      <div class="prose"><p>The concrete answer to "literally everything the user did." Every event follows the envelope and delivery guarantees of the production plan (idempotent, at-least-once, DLQ, daily reconciliation). Time-on-everything comes from paired enter/leave events, so duration is derived, not guessed.</p></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Journey step</th><th>Captured events (each with full context: brand · market · model · trim · session · source)</th></tr></thead>
-          <tbody>
-            <tr><td>Entry</td><td>page_view · source/UTM attribution · language · device · consent state</td></tr>
-            <tr><td>Showroom</td><td>filter_applied (which, value) · search_query · model_group_viewed (enter/leave) · trim_card_viewed · trim_card_cta (view/configure)</td></tr>
-            <tr><td>Brochure</td><td>trim_switched (from→to) · content_block_viewed (enter/leave) · video_play/progress/complete · light_config_swatch (colour, dwell) · light_config_view_toggle · specs_table_opened · recommendation_clicked</td></tr>
-            <tr><td>Configurator</td><td>session_requested/queued/started/ended (duration, cost) · every control touch: colour_selected, interior_selected, view_changed, lighting_changed, feature_played · canvas_interaction (spin/zoom from the signal channel) · build_shared · shared_build_opened</td></tr>
-            <tr><td>Conversion</td><td>cta_viewed · cta_clicked (which, where) · lead_form_opened/field_completed/abandoned/submitted · whatsapp_deeplink_opened</td></tr>
-            <tr><td>System</td><td>configurator_error/timeout · degraded_mode_shown · perf samples — failures are data too</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="prose">Colour affinity ("which colour did he try most") is a query over <code>colour_selected</code> events, not a special feature — which is the point: capture atomically, aggregate freely, and every future question is answerable without new instrumentation.</p>
-    </section>
-
-    <!-- 11 -->
-    <section class="section reveal" id="s11">
-      <div class="sec-head"><div class="sec-num">11</div><h2>Packaging &amp; tier gating on the journey</h2></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Package</th><th>Consumer surfaces live</th><th>Rule</th></tr></thead>
-          <tbody>
-            <tr><td><strong>Configurator</strong> (base)</td><td>Configurator page only</td><td>Mandatory in every deal — nothing sells without it</td></tr>
-            <tr><td>+ Brochure</td><td>Brochure(s) + configurator</td><td>Brochure links into the configurator it requires</td></tr>
-            <tr><td>+ Showroom</td><td>Showroom + configurator (brochure optional)</td><td>Showroom trim cards deep-link to whatever depth exists</td></tr>
-            <tr><td>Full journey</td><td>Showroom → brochure → configurator</td><td>The complete funnel of §1</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <ul class="list">
-        <li><strong>Surfaces are entitlements; dashboard modules are tiers</strong> — two independent axes, both implemented as flags per brand per market, resolved server-side.</li>
-        <li><strong>Capture is never gated.</strong> A brand on the lowest tier still generates full data; upgrading reveals history retroactively — the strongest upsell in the product.</li>
-      </ul>
-    </section>
-
-    <!-- 12 -->
-    <section class="section reveal" id="s12">
-      <div class="sec-head"><div class="sec-num">12</div><h2>Degraded journeys</h2></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Failure</th><th>The journey becomes</th></tr></thead>
-          <tbody>
-            <tr><td>Pixel-stream capacity full</td><td>Configurator page opens with the light configurator + "join session" queue with position; CTAs fully live — conversion never waits for a GPU</td></tr>
-            <tr><td>Stream session drops mid-build</td><td>Build state is engine-side, so reconnect restores it; light configurator covers the gap</td></tr>
-            <tr><td>Render matrix incomplete for a trim</td><td>Trim publishes only when complete; other trims of the model unaffected</td></tr>
-            <tr><td>AI content rejected / unavailable</td><td>Brochure renders from renders + copy alone — content blocks are optional by design</td></tr>
-            <tr><td>Lead write fails</td><td>Explicit user-facing failure + retry, DLQ, immediate page — per the production plan, zero tolerance</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- 13 -->
-    <section class="section reveal" id="s13">
-      <div class="sec-head"><div class="sec-num">13</div><h2>Confirmation checklist — what you are approving</h2></div>
-      <div class="prose"><p>Approve, amend, or strike each. When this list is clean, the three consumer pages go to high-fidelity and the engine + admin specs go to Claude Code.</p></div>
-      <ol class="list">
-        <li><strong>The funnel shape</strong> — showroom → brochure → configurator as three depths, with the two exits per trim card (§3.4).</li>
-        <li><strong>Brochure owns the light configurator; configurator page owns the Unreal session</strong> — no streaming on the brochure (§4.2, §5).</li>
-        <li><strong>Trim switching in place on the brochure</strong> rather than separate pages per trim (§4.1).</li>
-        <li><strong>AI content is brochure-first, approval-gated, conditioned on renders</strong> (not fine-tuned) with per-model LoRA as Later (§8.1).</li>
-        <li><strong>The 7-stage pipeline board (upload → publish)</strong> and folder-computed render progress (§7).</li>
-        <li><strong>CTA set per brand</strong> — Share build · Test drive · Contact seller · WhatsApp — configurable from both dashboard and admin (§5.3).</li>
-        <li><strong>Brand URL model</strong> — subdomain per brand per market now; custom domains Later (§2).</li>
-        <li><strong>Packaging matrix</strong> as in §11, entitlements and tiers as separate flag axes.</li>
-        <li><strong>The event taxonomy of §10</strong> as the capture baseline (additions welcome; removals discouraged).</li>
-        <li><strong>Degraded journeys of §12</strong>, in particular: conversion never waits for a GPU.</li>
-      </ol>
-    </section>
-  </main>
-</div>
-
-<footer class="foot">
-  <div class="foot-inner">
-    <div class="fb"><span class="dot"></span> Autoverse</div>
-    <small>Journey Blueprint · Phase 1 · v1.0 · Internal — confidential</small>
-  </div>
-</footer>
-
-<script>
-const prog=document.getElementById('progress');
-const onScroll=()=>{const h=document.documentElement;const sc=h.scrollTop;const max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?(sc/max*100):0)+'%';};
-document.addEventListener('scroll',onScroll,{passive:true});onScroll();
-const toc=document.getElementById('toc');
-document.getElementById('menuBtn').addEventListener('click',()=>toc.classList.toggle('open'));
-toc.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>toc.classList.remove('open')));
-const links=[...toc.querySelectorAll('a')];
-const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
-const io=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const a=map.get(e.target.id);if(a)a.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px',threshold:0});
-document.querySelectorAll('section[id]').forEach(s=>io.observe(s));
-const rio=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rio.unobserve(e.target);}});},{rootMargin:'0px 0px -10% 0px',threshold:.08});
-document.querySelectorAll('.reveal').forEach(el=>rio.observe(el));
-</script>
-</body>
+    <script>
+      const prog = document.getElementById("progress");
+      const onScroll = () => {
+        const h = document.documentElement;
+        const sc = h.scrollTop;
+        const max = h.scrollHeight - h.clientHeight;
+        prog.style.width = (max > 0 ? (sc / max) * 100 : 0) + "%";
+      };
+      document.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+      const toc = document.getElementById("toc");
+      document
+        .getElementById("menuBtn")
+        .addEventListener("click", () => toc.classList.toggle("open"));
+      toc
+        .querySelectorAll("a")
+        .forEach((a) => a.addEventListener("click", () => toc.classList.remove("open")));
+      const links = [...toc.querySelectorAll("a")];
+      const map = new Map(links.map((a) => [a.getAttribute("href").slice(1), a]));
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              links.forEach((l) => l.classList.remove("active"));
+              const a = map.get(e.target.id);
+              if (a) a.classList.add("active");
+            }
+          });
+        },
+        { rootMargin: "-20% 0px -70% 0px", threshold: 0 },
+      );
+      document.querySelectorAll("section[id]").forEach((s) => io.observe(s));
+      const rio = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              rio.unobserve(e.target);
+            }
+          });
+        },
+        { rootMargin: "0px 0px -10% 0px", threshold: 0.08 },
+      );
+      document.querySelectorAll(".reveal").forEach((el) => rio.observe(el));
+    </script>
+  </body>
 </html>

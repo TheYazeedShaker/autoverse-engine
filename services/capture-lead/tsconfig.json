@@ -1,5 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "noEmit": true },
-  "include": ["lead.ts", "lead.test.ts"]
+  "include": [
+    "lead.ts",
+    "lead.test.ts",
+    "public.test.ts",
+    "../shared/public-caller.ts",
+    "../shared/turnstile.ts"
+  ]
 }
