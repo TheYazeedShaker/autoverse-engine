@@ -1,0 +1,35 @@
+name: deno
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # Every edge function must deploy on Supabase's Deno runtime. tsc and vitest run the
+  # services under Node, where a bare import like "zod" resolves from node_modules and a
+  # deploy-breaking import goes unnoticed. This type-checks and bundles each entrypoint
+  # the way the deploy does: under Deno, through services/deno.json, lockfile frozen.
+  deno:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check and bundle every edge function under Deno
+        run: |
+          set -euo pipefail
+          functions=$(grep -oE '^\[functions\.[a-z0-9-]+\]' supabase/config.toml | sed -E 's/\[functions\.(.*)\]/\1/')
+          [ -n "$functions" ] || { echo "::error::no functions found in supabase/config.toml"; exit 1; }
+          for fn in $functions; do
+            entry="services/$fn/index.ts"
+            echo "::group::$fn"
+            deno check --frozen --config services/deno.json "$entry"
+            deno bundle --frozen --config services/deno.json --platform deno -o "$RUNNER_TEMP/$fn.js" "$entry"
+            echo "::endgroup::"
+          done
