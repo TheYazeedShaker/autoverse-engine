@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-25
-**Last session:** **Loop Part 2: runner revised, merge-tiers ADR drafted.** `agent-loop.yml` and `.github/scripts/loop/*` rewritten with the owner's five fixes (Slack wiring, `persist-credentials: false` with the App token in the agent step only, every action SHA-pinned, schedule + dispatch only, Claude Code pinned at 2.1.274 with `--max-budget-usd` verified) and sent to the owner. ADR 0015 (merge tiers) is **proposed**; auto-merge stays off until the owner accepts it. ADR 0014 amended to match the runner.
+**Last session:** **Loop Part 2: runner revised, merge-tiers ADR drafted.** `agent-loop.yml` and `.github/scripts/loop/*` rewritten with the owner's five fixes (Slack wiring, `persist-credentials: false`, every action SHA-pinned, schedule + dispatch only, Claude Code pinned at 2.1.274 with `--max-budget-usd` verified). `security-review` returned BLOCK on the first draft: the agent can get a shell, so no secret may share its job. The runner is now five jobs, and the agent's job holds only the Anthropic key. ADR 0015 (merge tiers) is **proposed**; auto-merge stays off until the owner accepts it. ADR 0014 amended to match the runner.
 
 ---
 
@@ -214,9 +214,10 @@ The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `ma
 
 **Done this session (2026-09-25):**
 
-- **Runner, revised per the owner's five fixes.** Sent to the owner as files to add (`.github/` is denied to the agent): `.github/workflows/agent-loop.yml` and `.github/scripts/loop/{slack,inbox,outbox,digest}.mjs`, `prompt.md`, `loop.test.mjs` (15 tests, all pass; actionlint + shellcheck clean).
-  - Slack: `inbox.mjs` passes only `OWNER_SLACK_USER_ID`'s messages to the agent (`.loop/inbox.md`); the bot's own replies, a Tier C "approved" included, are dropped. The agent queues posts in `.loop/outbox/*.json`; `outbox.mjs` posts them as the bot afterwards. `digest.mjs` runs on the `43 4 * * *` cron or a dispatch with `digest=true`.
-  - Credentials: checkout with `persist-credentials: false`; the App token (contents + pull-requests only, no `workflows`) is minted right before the agent step and reaches git through a credential helper that reads it from that step's env.
+- **Runner, revised per the owner's five fixes.** Sent to the owner as files to add (`.github/` is denied to the agent): `.github/workflows/agent-loop.yml` and `.github/scripts/loop/{kill-switch.sh,slack,inbox,outbox,digest,publish}.mjs`, `prompt.md`, `loop.test.mjs` (19 tests, all pass; actionlint + shellcheck clean).
+  - Jobs: `gate` (PostHog) → `inbox` (Slack; owner messages go out as job outputs) → `agent` (Anthropic key + read-only token; leaves a git bundle of `agent/*` branches, PR requests, Slack messages and a pause request in a one-day artifact) → `publish` (fresh runner on `main`; re-checks the kill switch; the only holder of the App key; pushes `agent/*` fast-forward only, opens PRs, creates `loop/pause`) → `post` (fresh runner; Slack outbox, inbox ack, digest).
+  - Slack: `inbox.mjs` passes only `OWNER_SLACK_USER_ID`'s messages to the agent (`.loop/inbox.md`); the bot's own replies, a Tier C "approved" included, are dropped. The agent queues posts in `.loop/outbox/*.json`, and the `post` job sends them as the bot. The ack list comes from the `inbox` job, so the agent can't choose what gets marked read. `digest.mjs` runs on the `43 4 * * *` cron or a dispatch with `digest=true`.
+  - Residual risk: the agent job can become root through docker (the local Supabase tests need it), so it could write Actions cache entries that CI's `cache: pnpm` restores. **Fix (owner, `.github/`): drop `cache: pnpm` from `ci.yml`.**
   - Every action pinned to a commit SHA. Triggers: schedule + `workflow_dispatch` only. Claude Code pinned at 2.1.274 (`stable`); `--max-budget-usd` confirmed in its `--help`, and the install step refuses to run if it's missing.
   - Kill switch: `PAUSE` on `main`, a `loop/pause` branch (how the agent pauses itself, spec §7), an unset `LOOP_MAX_BUDGET_USD`, or the flag off/unreadable. The agent runs with `--permission-mode dontAsk`.
   - Isolation drill: dispatch with `drill=isolation`.

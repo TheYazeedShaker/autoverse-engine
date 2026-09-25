@@ -64,8 +64,8 @@ it.
    - does nothing unless the Actions variable `AUTO_MERGE_ENABLED` is exactly `true`.
 
    The agent itself still never merges, approves or enables auto-merge (ADR 0010). In the runner it
-   uses `--permission-mode dontAsk`, so any command outside the allow list is refused, including
-   `gh pr merge` (denied outright) and raw API calls (`curl` isn't allowed).
+   holds no GitHub write credential at all (ADR 0014): its branches and PR requests are published
+   by a separate job that can push `agent/*` branches and open PRs, and nothing else.
 
 6. **Defence in depth.** If the workflow is wrong, the rulesets still hold: an owned path can't merge
    without the owner's review, and nothing merges red or out of date. The worst a bug can do is merge
@@ -111,8 +111,9 @@ Still unowned by design (the auto-merge tier): `docs/` outside `docs/adr/`, `PRO
 - **`pull_request` instead of `pull_request_target`.** Rejected: with `pull_request` the workflow file
   comes from the PR's head, so a PR could rewrite the rule that judges it. The App can't push
   workflow changes (its token has no `workflows` permission), but that shouldn't be the only guard.
-- **Let the runner enable auto-merge with the App token.** Rejected: the agent step holds that
-  token, and ADR 0010 keeps every merge path out of the agent's hands.
+- **Let the runner's publish job enable auto-merge with the App token.** Rejected: it would put
+  the merge decision in the same job that handles the agent's output. ADR 0010 keeps every merge
+  path away from anything the agent can influence.
 - **A separate "merger" App.** Deferred; see Consequences.
 
 ## Consequences
