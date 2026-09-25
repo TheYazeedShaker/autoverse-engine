@@ -41,8 +41,9 @@ begin
   if err = '' then
     raise exception 'CRITICAL: an activity under brand B was attached to brand A''s lead';
   end if;
-  if err not like '23503:%' then
-    raise exception 'expected a foreign key violation, got: %', err;
+  -- The constraint's name too, so a fixture change that trips some other foreign key can't pass.
+  if err not like '23503:%lead_activities_lead_brand_fkey%' then
+    raise exception 'expected lead_activities_lead_brand_fkey to refuse it, got: %', err;
   end if;
   raise notice 'PASS: an activity cannot name a brand other than its lead''s';
 end $$;
