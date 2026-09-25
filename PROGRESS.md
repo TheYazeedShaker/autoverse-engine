@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-25
-**Last session:** **Loop Part 2: runner revised, merge-tiers ADR drafted.** `agent-loop.yml` and `.github/scripts/loop/*` rewritten with the owner's five fixes (Slack wiring, `persist-credentials: false`, every action SHA-pinned, schedule + dispatch only, Claude Code pinned at 2.1.274 with `--max-budget-usd` verified). `security-review` returned BLOCK on the first draft: the agent can get a shell, so no secret may share its job. The runner is now five jobs, and the agent's job holds only the Anthropic key. ADR 0015 (merge tiers) is **proposed**; auto-merge stays off until the owner accepts it. ADR 0014 amended to match the runner.
+**Last session:** **Interactive session. The loop runner is OFF.** BLOCK #7 and #8 are fixed in PRs #57 and #58, and both passed `code-reviewer` and `security-review`. The runner's workspace-trust failure is recorded in ADR 0014, together with the difference between the monthly spend limit and the per-run budget. A patch that fails any untrusted run was handed to the owner (`.github/` is theirs).
 
 ---
 
@@ -22,7 +22,8 @@
 | `ENGINE-MIGRATION`                | ✅ Done 2026-08-12 | Spec archived in `specs/archive/`. Loop-proof merged (PR #1) and deployed to production. Two leftovers moved into 0-H: smoke test + flag exercise (0-H.6), old-repo archive (0-H.7). |
 | Phase 0-H — Hardening             | ✅ On `main`       | All 7 groups landed on `main` via PR #10 (the stack had merged into its own branches first).                                                                                         |
 | `ENGINE-CORE-1A` — Engine core    | ✅ Done 2026-09-24 | All nine slices, the theming REV, the BLOCK fixes and both blockers are on `main` and deployed. The gate passes with the worker (CI run 36034118352).                                |
-| `AUTONOMOUS-LOOP-P1`              | 🟡 In progress     | Backlog + architect (#24), permissions (#25). Escalation protocol and §7 rails in effect. Part 2 queued until 1·A closes.                                                            |
+| `AUTONOMOUS-LOOP-P1`              | 🟡 In progress     | Backlog + architect (#24), permissions (#25). Escalation protocol and §7 rails in effect.                                                                                            |
+| `AUTONOMOUS-LOOP-P2`              | ⏸ Runner OFF       | Runner on `main`. `agent_loop_enabled` inactive since 2026-09-25 and stays off until the owner decides on a measured trial. Work continues in interactive sessions.                  |
 | Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
 | Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
 | Phase 1·C — Consumer app          | ⏳ Held            | Design-first.                                                                                                                                                                        |
@@ -54,32 +55,25 @@
 
 ## What Was Built Last Session
 
-**Autonomous loop, Part 1** (`AUTONOMOUS-LOOP-P1`, in progress):
+Interactive session, 2026-09-25. The unattended runner is **off** (see _Decisions_).
 
-- `BACKLOG.md`, the `architect` subagent and the spec (#24).
-- The escalation protocol is live: architect first, Tier B/C to `#build-decisions` (ADR 0009).
-- The permission model: allow list, deny list and a fail-closed guard hook (#25, ADR 0010).
-- The §7 safety rails apply from now on.
+**BLOCK #7, PR #57** (`fix/block-7-lead-activities-brand-fk`):
 
-**Verified:** the Supabase check is green on `main`, and all ten migrations (the eight 1·A ones included) are on the hosted database. No edge function is deployed there yet.
+- Migration `20260925120000_lead_activities_brand_fk.sql`: `leads` gets `unique (id, brand_id)`, and `lead_activities` now references `(lead_id, brand_id)`. An activity can no longer claim a different brand from its lead.
+- Test `0017`: a mismatched activity is refused on `lead_activities_lead_brand_fkey`, even with RLS bypassed. Legitimate writes still land. CI is fully green, and `isolation` ran 0017.
+- Reviews: both approved.
 
-**BLOCK bugs that needed no decision, fixed:**
+**BLOCK #8, PR #58** (`fix/block-8-lead-repository-capture`):
 
-- **#4** Events upsert: `ON CONFLICT DO NOTHING`, with a test of the request the code actually sends (#26).
-- **#5** Job lease + reaper: a job whose worker dies comes back, and a late worker can't overwrite it (#27).
-- **#6** Lead idempotency on `submission_id`: a replay is a no-op, and a reused key carrying a different person is refused (#28).
+- `LeadRepository.create` now goes through the `capture_lead` RPC instead of inserting into `leads`. The lead, its first activity and its routing jobs are written together, and the call is idempotent on `submission_id`, which is now required. It returns the lead id.
+- `EngineDb` gains a narrow `rpc()`.
+- Checked locally: typecheck, lint, prettier, vitest 20/20. Reviews: both approved.
 
-**Blocker 1, queue worker (#29, draft):**
+**Runner trust finding, recorded** (ADR 0014 amendments):
 
-- `services/job-worker` claims, runs and completes jobs under leases, and sweeps both DLQs.
-- Dead letters are resolved rather than deleted, so the incident history stays.
-- The phase gate no longer replays anything itself; the worker does, through the real store and API.
-- Its first run caught a real mismatch: the gate's lead payload wasn't in the form capture-lead dead-letters. The worker refused it and paged. The gate is fixed; the rerun is in CI.
-
-**Blocker 2, caller authorization, part 1 (#30):**
-
-- Origin allowlist on `brand_markets`, per-brand publishable keys and a Postgres rate limiter.
-- `resolve_public_caller` returns a brand only when the key, the origin and a live market all belong to that same brand.
+- The first unattended run ignored all 48 `permissions.allow` entries because the workspace wasn't trusted. `claude -p` never shows the trust dialog. The owner fixed it in _Prepare the run_ by setting `projects[$GITHUB_WORKSPACE].hasTrustDialogAccepted`.
+- **Patch for the owner to apply** (sent in chat as `agent-loop-trust-check.patch`; checked against `main` with `git apply --check`). It makes three checks: read the key back, run a one-turn $0.05 probe that fails on the `this workspace has not been trusted` stderr warning, and apply the same check to the real run's stderr.
+- The workspace monthly spend limit and `LOOP_MAX_BUDGET_USD` are separate limits. A $3 monthly limit stopped the second run mid-task.
 
 ## Decisions Made (must be remembered)
 
@@ -103,6 +97,10 @@
 - **Leads are idempotent on a form-minted `submission_id`**, unique per brand. The consumer form (1·C) must mint one per submit and keep it across retries.
 - **Loop runner** (ADR 0014, owner 2026-09-25): GitHub Actions, one fresh session per run. It uses the `ANTHROPIC_API_KEY` secret (spend-capped), not federation. OIDC federation is recorded as future hardening. The agent's GitHub App secrets are `APP_ID` / `APP_PRIVATE_KEY`.
 - **Dead letters are resolved (`resolved_at`), never deleted.** `error_message` keeps the original cause; `last_error` holds the latest replay failure.
+- **The unattended runner is OFF** (owner, 2026-09-25): `agent_loop_enabled` is inactive in PostHog, and it stays off until the owner decides on a measured trial. Until then, backlog work happens in interactive sessions. Never switch it on from a session.
+- **The loop's workspace must be trusted, and an untrusted run must fail** (ADR 0014 amendment). An untrusted `claude -p` ignores every project allow rule. The only sign is a stderr warning; the exit code stays 0.
+- **Two spend limits** (ADR 0014): the workspace's monthly limit is the backstop for a leaked key; `LOOP_MAX_BUDGET_USD` caps each run. The monthly limit must be at least runs per month × the per-run budget.
+- **Lead writes go through `capture_lead` only.** No code path inserts into `leads` directly (BLOCK #8).
 
 ## Known Issues / TODOs
 
@@ -129,7 +127,9 @@
 > - **Merged:** #4 (#26), #5 (#27), #6 (#28), and the #1 groundwork (#30).
 > - #2 and #3: the scheduled worker plus a worker-driven gate are in **#33**.
 > - #1: enforcement on the anon key, with Turnstile and rate limits, is in **#34**.
-> - #7–#9: open, not yet started.
+> - #7: **PR #57** (composite FK + test 0017), 2026-09-25.
+> - #8: **PR #58** (`LeadRepository.create` → `capture_lead`), 2026-09-25.
+> - #9: open (a Tier B question, not yet posted).
 
 The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
 Both are true, and the second is the more important one: **the gate passes on a system that, deployed
@@ -183,7 +183,13 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ## Next Session — Start Here
 
-`ENGINE-CORE-1A` is **done**. **`AUTONOMOUS-LOOP-P2` is in progress** (BACKLOG). `AUTONOMOUS-LOOP-P1` stays in progress until its acceptance items are proven (several are proven by P2's own acceptance run).
+`ENGINE-CORE-1A` is **done**. **`AUTONOMOUS-LOOP-P2` is in progress, with the runner OFF** (`agent_loop_enabled` inactive, owner's call, until a measured trial). Sessions are interactive. `AUTONOMOUS-LOOP-P1` stays in progress until its acceptance items are proven (several are proven by P2's own acceptance run).
+
+### 0. First thing next session
+
+1. **PRs #57 (BLOCK #7) and #58 (BLOCK #8):** both approved by both reviewers, and both fully green in CI (every check passed; only `smoke` and `Supabase Preview` skipped). Once they merge, set `BLOCK-FIX-7`/`-8` to `done` in `BACKLOG.md`. #57's migration then reaches the hosted DB. It fails if any existing activity's brand doesn't match its lead's, which is the intended outcome. A one-off count on the hosted DB beforehand avoids a surprise (owner: the guard blocks the agent from hosted-DB reads).
+2. **Owner: apply the trust-check patch** to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the workspace monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD` before any trial.
+3. Nothing in `BACKLOG.md` is startable after #57/#58: BLOCK #9 is a Tier B question (event payload size cap) that hasn't been posted yet, and everything else is `awaiting-spec`.
 
 ### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
@@ -212,7 +218,7 @@ The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `ma
 
 ### 3. Build Part 2
 
-**Done this session (2026-09-25):**
+**Done earlier on 2026-09-25 (runner session):**
 
 - **Runner, revised per the owner's five fixes.** Sent to the owner as files to add (`.github/` is denied to the agent): `.github/workflows/agent-loop.yml` and `.github/scripts/loop/{kill-switch.sh,slack,inbox,outbox,digest,publish}.mjs`, `prompt.md`, `loop.test.mjs` (21 tests, all pass; actionlint + shellcheck clean). A second `security-review` approved the five-job design, with one condition (below).
   - Jobs: `gate` (PostHog) → `inbox` (Slack; owner messages go out as job outputs) → `agent` (Anthropic key + read-only token; leaves a git bundle of `agent/*` branches, PR requests, Slack messages and a pause request in a one-day artifact) → `publish` (fresh runner on `main`; re-checks the kill switch; the only holder of the App key; pushes `agent/*` fast-forward only, opens PRs, creates `loop/pause`) → `post` (fresh runner; Slack outbox, inbox ack, digest).
@@ -230,10 +236,11 @@ The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `ma
 
 **Next:**
 
-1. Owner: add the runner files in a PR, set the remaining variables, run it by dispatch.
-2. Owner: answer ADR 0015's open questions and accept it; the agent then drafts `agent-automerge.yml`.
-3. **Queue a startable task in `BACKLOG.md`.** Nothing is startable today: #2 and #3 are in progress (and #3's remaining work is under `.github/`), and everything else is `awaiting-spec`. The first unattended run would find nothing to do. BLOCK #7/#8 would make good first loop tasks.
-4. Part 2 acceptance runs (spec, _Acceptance criteria_): inbox pickup, kill switch, tiered merge, Tier B round trip, digest, isolation drill.
+1. ✅ The runner is on `main` (owner). Two unattended runs happened. The first ran untrusted and ignored the allow list. The second hit the $3 monthly spend limit mid-task. Both are recorded in ADR 0014. The runner is now **off**.
+2. Owner: apply the trust-check patch; set the monthly spend limit to fit the per-run budget.
+3. Owner: answer ADR 0015's open questions and accept it; the agent then drafts `agent-automerge.yml`.
+4. Owner: decide on a measured trial. Only then do the Part 2 acceptance runs happen (spec, _Acceptance criteria_: inbox pickup, kill switch, tiered merge, Tier B round trip, digest, isolation drill). The `cache: pnpm` precondition above still applies before the flag goes on.
+5. BLOCK #7/#8, which were meant as the first loop tasks, were done interactively instead (#57, #58).
 
 ### 4. End-to-end lead test (owner-led)
 
@@ -244,7 +251,15 @@ The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberat
 - **Scratch branch `chore/scratch-deny-test`** (PR #43, closed) is still on GitHub. This environment's git proxy cut off `git push --delete` twice. Owner: use "Delete branch" on #43.
 - **Guard over-block:** GitHub's `list_branches` is blocked as a Supabase tool (the two connectors share the name). Next guard PR: add it to the shared-name exemption keyed on `project_id`. This fails closed, so it isn't a hole.
 
-- BLOCK #7 (`lead_activities` composite FK), #8 (`LeadRepository.create` bypasses `capture_lead`), #9 (event payload size; a Tier B question, not yet posted).
+- BLOCK #9 (event payload size; a Tier B question, not yet posted). #7 and #8 are in PRs #57 and #58.
+- From the #57/#58 reviews (none introduced by those PRs):
+  - A CI canary for 0017 (drop `lead_activities_lead_brand_fkey`, require a `CRITICAL`). This goes in `ci.yml`, so the owner adds it.
+  - A lead with activities can't be hard-deleted: the cascade hits the append-only trigger. The erasure / right-to-delete path needs a design (ADR).
+  - `EngineDb` calls have no timeout or abort signal. CLAUDE.md requires one on every external call.
+  - The caller-supplied `source` is unbounded when it's written to `lead_activities`; it needs a length cap.
+  - The logger must redact `EngineDbError.cause.details`: a CHECK failure carries "Failing row contains (…)" with the name and phone.
+  - When the first real supabase-js adapter for `EngineDb` is written, add a type-level test that the client satisfies it.
+- `EventRepository.record` still upserts with `onConflict: "id"` and without `ignoreDuplicates`. BLOCK #4 fixed the ingest path, not this repository method. Check whether it has any caller before the next events change.
 - When a `leads` CHECK constraint fails, Postgres logs the whole failing row (name, phone). `capture_lead` should raise its own messages first.
 - The CI gate runs the worker via `run-once.ts`. The hosted schedule is now proven separately (the pg_cron ticks above).
 - Regenerate `packages/engine-core/src/database.types.ts` from the live schema; run `docs/runbooks/flag-kill-path.md`.

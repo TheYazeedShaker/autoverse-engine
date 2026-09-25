@@ -1,6 +1,6 @@
 # 0014 — the autonomous loop runs on GitHub Actions, authenticated with an API-key secret
 
-**Status:** accepted — 2026-09-25 (owner)
+**Status:** accepted — 2026-09-25 (owner). Amended 2026-09-25: workspace trust, spend limits.
 
 ## Context
 
@@ -56,6 +56,50 @@ owner's.
 
 - **The agent runs under the repo's `.claude/settings.json`** (ADR 0010). The runner doesn't pass
   extra allow rules, and it doesn't skip permission checks.
+
+## Amendment — workspace trust (2026-09-25)
+
+**What happened.** The first unattended run ignored all 48 `permissions.allow` entries in
+`.claude/settings.json`, because Claude Code had not been told to trust the runner's checkout.
+Claude Code applies a project's allow rules only after the workspace trust dialog is accepted, and
+a `claude -p` run never shows that dialog. In `-p` mode the rules are simply not used, a
+`this workspace has not been trusted` warning goes to stderr, and the exit code stays 0. Deny and
+ask rules still apply, since they only restrict. Source:
+[Configure permissions — project allow rules and workspace trust](https://code.claude.com/docs/en/permissions).
+Under `--permission-mode dontAsk`, any tool call the allow list would have covered was denied
+instead.
+
+**Fix (owner).** The agent job's _Prepare the run_ step sets
+`projects[$GITHUB_WORKSPACE].hasTrustDialogAccepted = true` in `~/.claude.json`, the key the docs
+give for trusting a folder by hand. This is safe because runs happen only from `main`, where
+`.claude/` is code-owned (ADR 0010).
+
+**Guard (owner to apply).** A wrong trust state must fail the run, never pass quietly. Three checks,
+cheapest first:
+
+1. _Prepare the run_ reads the key back and fails if it isn't `true`.
+2. A new step, _Prove Claude Code trusts this workspace_, runs a one-turn `claude -p` probe capped
+   at $0.05 and fails if stderr carries the warning. This catches the case where the key is written
+   but Claude Code doesn't match it to this folder, before the real run spends its budget.
+3. _Run the agent_ keeps its stderr and fails the job if the warning shows up there too.
+
+The probe step gets `ANTHROPIC_API_KEY`, so "only the agent step gets it" above now means "only
+steps in the agent job". The job's threat model is unchanged.
+
+## Amendment — two different spend limits (2026-09-25)
+
+The second run stopped mid-task because the workspace's **monthly** spend limit was $3. That is not
+the per-run budget. There are two independent limits:
+
+| Limit                         | Set where                                           | Scope                                                 | What happens when it's hit                                                                                       |
+| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Workspace monthly spend limit | Anthropic Console, on the workspace holding the key | Every call with the key, all runs, per calendar month | The API refuses calls until the month rolls over or the limit is raised. A run in progress stops wherever it is. |
+| `LOOP_MAX_BUDGET_USD`         | Actions variable, passed as `--max-budget-usd`      | One run                                               | Claude Code ends that session. The next run starts with a fresh budget.                                          |
+
+The monthly limit is the backstop for a leaked key. The per-run budget is the everyday control.
+Set the monthly limit to at least the expected runs per month × `LOOP_MAX_BUDGET_USD`, plus
+headroom. If it's lower, it becomes the real per-run cap and stops runs mid-task, which leaves
+half-done branches and no digest.
 
 ## Alternatives considered
 
