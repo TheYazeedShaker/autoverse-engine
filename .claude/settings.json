@@ -11,7 +11,7 @@
         ]
       },
       {
-        "matcher": "Bash|PowerShell|mcp__.*__(apply_migration|execute_sql|deploy_edge_function|list_migrations|list_tables|list_extensions|list_edge_functions|get_edge_function|get_advisors|query_logs|get_logs|generate_typescript_types|get_publishable_keys|get_project_url|create_branch|delete_branch|merge_branch|reset_branch|rebase_branch|list_branches|restore_project|confirm_cost|get_cost|list_organizations|get_organization|pause_project|create_project|get_project|list_projects)",
+        "matcher": "Bash|PowerShell|mcp__.*__(apply_migration|execute_sql|deploy_edge_function|list_migrations|list_tables|list_extensions|list_edge_functions|get_edge_function|get_advisors|query_logs|get_logs|generate_typescript_types|get_publishable_keys|get_project_url|create_branch|delete_branch|merge_branch|reset_branch|rebase_branch|list_branches|restore_project|confirm_cost|get_cost|list_organizations|get_organization|pause_project|create_project|get_project|list_projects|merge_pull_request|enable_pr_auto_merge|pull_request_review_write|push_files|create_or_update_file|delete_file)",
         "hooks": [
           {
             "type": "command",
@@ -123,7 +123,11 @@
       "Bash(gh secret*)",
       "Bash(gh variable*)",
       "Bash(gh workflow*)",
-      "Bash(gh pr merge*--admin*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr review*)",
+      "mcp__github__merge_pull_request",
+      "mcp__github__enable_pr_auto_merge",
+      "mcp__github__pull_request_review_write",
       "PowerShell(gh *)",
       "Read(./.env)",
       "Read(./.env.local)",
