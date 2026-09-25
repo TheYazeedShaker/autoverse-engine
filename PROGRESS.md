@@ -203,12 +203,12 @@ The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `ma
 | Item                                                                  | State                                                                                                                      |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Slack bot in `#build-inbox` + `SLACK_BOT_TOKEN` secret                | ✅ bot is a channel member (checked). The secret is set per the owner (the agent can't read Actions secrets)               |
-| Owner's Slack user ID                                                 | ✅ confirmed. It goes in the `OWNER_SLACK_USER_ID` Actions variable, not in the repo                                       |
+| Owner's Slack user ID                                                 | ✅ confirmed, and set as the `OWNER_SLACK_USER_ID` Actions variable per the owner. It stays out of the repo                |
 | `ANTHROPIC_API_KEY` secret with a spend cap                           | ✅ per the owner. The key stays; OIDC federation is future hardening (ADR 0014)                                            |
 | GitHub App                                                            | ✅ per the owner. Secrets are named **`APP_ID`** and **`APP_PRIVATE_KEY`** (these replace the earlier `AGENT_APP_*` names) |
 | PostHog flag `agent_loop_enabled`                                     | ✅ exists and is off (checked)                                                                                             |
-| `POSTHOG_PERSONAL_API_KEY` secret (the runner reads the flag with it) | ❓ not confirmed                                                                                                           |
-| Allow auto-merge; require code-owner review with 0 approvals          | ⏳ the owner turns these on once this PR merges                                                                            |
+| `POSTHOG_PERSONAL_API_KEY` secret (the runner reads the flag with it) | ✅ per the owner                                                                                                           |
+| Allow auto-merge; require code-owner review with 0 approvals          | ⏳ held until the owner decides how owner-authored human-tier PRs merge (options in `#build-decisions`, 2026-09-25)        |
 
 ### 3. Build Part 2
 
