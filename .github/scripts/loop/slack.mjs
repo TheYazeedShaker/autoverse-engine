@@ -20,13 +20,19 @@ export function createSlack(token, { fetchImpl = fetch, sleepImpl = sleep } = {}
     for (let attempt = 1; ; attempt++) {
       let res;
       try {
+        // Reads go form-encoded: some Slack read methods (conversations.replies among them) reject
+        // JSON bodies with `invalid_arguments`. Writes keep JSON, which they accept.
+        const form = new URLSearchParams();
+        for (const [k, v] of Object.entries(params)) if (v !== undefined) form.append(k, String(v));
         res = await fetchImpl(API + method, {
           method: "POST",
           headers: {
             authorization: `Bearer ${token}`,
-            "content-type": "application/json; charset=utf-8",
+            "content-type": write
+              ? "application/json; charset=utf-8"
+              : "application/x-www-form-urlencoded",
           },
-          body: JSON.stringify(params),
+          body: write ? JSON.stringify(params) : form.toString(),
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
       } catch (err) {
