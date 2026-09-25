@@ -17,8 +17,9 @@ import {
 // the brand filter is there: one missing .eq("brand_id", …) on a service-role call is a
 // cross-tenant read, and it would never show up in a test that only checked the returned rows.
 interface Call {
+  /** The table, or the function name for an rpc. */
   table: string;
-  op: "select" | "insert" | "update" | "upsert";
+  op: "select" | "insert" | "update" | "upsert" | "rpc";
   filters: Array<[string, unknown]>;
   values?: unknown;
   onConflict?: string;
@@ -74,6 +75,10 @@ function fakeDb(rows: unknown[] = [], error: { message: string } | null = null) 
         upsert: (values, opts) => make("upsert", values, opts?.onConflict),
       };
     },
+    async rpc<T>(fn: string, args?: Record<string, unknown>) {
+      calls.push({ table: fn, op: "rpc", filters: [], values: args });
+      return { data: (rows[0] ?? null) as T | null, error };
+    },
   };
 
   return { db, calls };
@@ -83,6 +88,15 @@ const BRAND = "11111111-1111-1111-1111-111111111111";
 const OTHER = "22222222-2222-2222-2222-222222222222";
 
 const brandFilter = (call: Call) => call.filters.find(([c]) => c === "brand_id")?.[1];
+
+const lead = {
+  market_code: "EG",
+  full_name: "Fatma Hassan",
+  phone: "+201000000001",
+  consent_text_version: "eg-v1",
+  consent_at: "2026-09-22T00:00:00.000Z",
+  submission_id: "33333333-3333-3333-3333-333333333333",
+};
 
 describe("brand scoping is applied by the repository, not by the caller", () => {
   it("scopes every read to the repository's brand", async () => {
@@ -97,16 +111,14 @@ describe("brand scoping is applied by the repository, not by the caller", () => 
   });
 
   it("stamps the brand on a captured lead rather than trusting the input", async () => {
-    const { db, calls } = fakeDb([{ id: "lead-1" }]);
+    const { db, calls } = fakeDb(["lead-1"]);
     await new LeadRepository(db, BRAND).create({
-      market_code: "EG",
-      full_name: "Fatma Hassan",
-      phone: "+201000000001",
-      consent_text_version: "eg-v1",
-      consent_at: "2026-09-22T00:00:00.000Z",
-      // A caller trying to write into another tenant cannot: brand_id is not part of LeadInput.
+      ...lead,
+      // brand_id is not part of LeadInput; one smuggled in anyway must not win.
+      ...({ brand_id: OTHER } as object),
     });
-    expect((calls[0]!.values as { brand_id: string }).brand_id).toBe(BRAND);
+    const payload = (calls[0]!.values as { payload: { brand_id: string } }).payload;
+    expect(payload.brand_id).toBe(BRAND);
   });
 
   it("records an event idempotently, on the id the caller supplied", async () => {
@@ -154,6 +166,38 @@ describe("brand scoping is applied by the repository, not by the caller", () => 
       EngineDbError,
     );
     await expect(new BrandRepository(db).getBySlug("brand-a")).rejects.toThrow(/permission denied/);
+  });
+});
+
+// BLOCK finding #8: a lead written straight into `leads` has no first activity and no routing
+// jobs, so no brand is ever told about it. Every capture goes through capture_lead.
+describe("a lead is captured through capture_lead, never inserted", () => {
+  it("calls capture_lead with the whole submission, and touches no table", async () => {
+    const { db, calls } = fakeDb(["lead-1"]);
+    await new LeadRepository(db, BRAND).create({ ...lead, source: "dealer-import" });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.op).toBe("rpc");
+    expect(calls[0]!.table).toBe("capture_lead");
+    expect(calls[0]!.values).toEqual({
+      payload: { ...lead, source: "dealer-import", brand_id: BRAND },
+    });
+  });
+
+  // Replay semantics (same submission_id, same lead) are capture_lead's, proven in SQL test 0012.
+  it("returns the id capture_lead returned", async () => {
+    const { db } = fakeDb(["lead-1"]);
+    expect(await new LeadRepository(db, BRAND).create(lead)).toBe("lead-1");
+  });
+
+  it("surfaces capture_lead's refusal instead of reporting a capture", async () => {
+    const { db } = fakeDb([], { message: "submission_id was already used for a different lead" });
+    await expect(new LeadRepository(db, BRAND).create(lead)).rejects.toBeInstanceOf(EngineDbError);
+  });
+
+  it("treats a missing lead id as a failure, not a success", async () => {
+    const { db } = fakeDb([]);
+    await expect(new LeadRepository(db, BRAND).create(lead)).rejects.toThrow(/no lead id/);
   });
 });
 

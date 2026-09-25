@@ -43,6 +43,11 @@ export interface TableApi<Row> {
 
 export interface EngineDb {
   from<Row>(table: string): TableApi<Row>;
+  /** A Postgres function. Used where a write must happen inside the database's own transaction. */
+  rpc<T>(
+    fn: string,
+    args?: Record<string, unknown>,
+  ): PromiseLike<{ data: T | null; error: DbError | null }>;
 }
 
 /** Thrown instead of returning a null row with an error nobody checked. */
