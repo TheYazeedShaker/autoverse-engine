@@ -1,0 +1,311 @@
+name: Agent loop
+
+# The unattended build loop (specs/SPEC-autonomous-loop.md §3, §6, §8; ADR 0014).
+# One fresh Claude Code session per run, under the repo's .claude/settings.json (ADR 0010).
+#
+# Triggers: schedule + manual dispatch only. No push trigger: a merge to main never starts a run.
+#
+# Isolation model. The agent can run arbitrary code in its own job (it edits files and runs pnpm),
+# so its job is treated as hostile after `claude` starts, and holds nothing worth stealing:
+#
+#   gate     PostHog key            kill switch; tests the loop scripts
+#   inbox    Slack token            owner-only messages → job outputs (never the agent's workspace)
+#   agent    ANTHROPIC_API_KEY      read-only GITHUB_TOKEN; no Slack, no App key, no write token.
+#                                   Leaves commits (git bundle), PR requests, Slack messages and a
+#                                   pause request in an artifact
+#   publish  App key → App token    fresh runner on main; re-checks the kill switch; pushes only
+#                                   agent/* branches (fast-forward), opens PRs, creates loop/pause
+#   post     Slack token            fresh runner on main; posts the outbox, acks the inbox, digest
+#
+# Nothing downstream runs code from the agent's job: publish and post check out main and read the
+# artifact as data. The artifact is kept for one day (public repo: signed-in users can download it).
+#
+# Every external action is pinned to a full commit SHA. Update a pin by resolving the new tag's
+# commit (`git ls-remote https://github.com/<owner>/<action> refs/tags/<tag>`) in a reviewed PR.
+# Emergency stop mid-run: cancel the run in the Actions tab (publish re-checks the kill switch too).
+
+on:
+  schedule:
+    - cron: "17 */3 * * *" # every 3 hours
+    - cron: "43 4 * * *" # the digest run: 07:43 Cairo in summer time, 06:43 in winter
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: Post the morning digest after the run
+        type: boolean
+        default: false
+      drill:
+        description: Isolation-failure drill (spec acceptance). The agent is told an isolation test failed.
+        type: choice
+        options: [none, isolation]
+        default: none
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-loop
+  cancel-in-progress: false
+
+env:
+  # Pinned. `--max-budget-usd` confirmed in this version's `claude --help` (2026-09-25), and the
+  # install step re-checks it on every run.
+  CLAUDE_CODE_VERSION: 2.1.274
+  DIGEST_CRON: "43 4 * * *"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { ref: "${{ github.sha }}", persist-credentials: false }
+      - name: Kill switch
+        id: gate
+        env:
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          LOOP_MAX_BUDGET_USD: ${{ vars.LOOP_MAX_BUDGET_USD }}
+        run: bash .github/scripts/loop/kill-switch.sh
+      - name: Test the loop scripts
+        if: steps.gate.outputs.run == 'true'
+        run: node --test .github/scripts/loop/loop.test.mjs
+
+  inbox:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      inbox: ${{ steps.read.outputs.inbox }}
+      ack: ${{ steps.read.outputs.ack }}
+      decisions: ${{ steps.read.outputs.decisions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { ref: "${{ github.sha }}", persist-credentials: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 22 }
+      - name: Read the inbox (owner's messages only)
+        id: read
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          OWNER_SLACK_USER_ID: ${{ vars.OWNER_SLACK_USER_ID }}
+          SLACK_INBOX_CHANNEL_ID: ${{ vars.SLACK_INBOX_CHANNEL_ID }}
+          SLACK_DECISIONS_CHANNEL_ID: ${{ vars.SLACK_DECISIONS_CHANNEL_ID }}
+        run: node .github/scripts/loop/inbox.mjs
+
+  agent:
+    needs: [gate, inbox]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      actions: read
+    outputs:
+      ok: ${{ steps.agent.outputs.ok }}
+      outbox: ${{ steps.package.outputs.outbox }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { ref: "${{ github.sha }}", fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      # No `cache:` here on purpose: this job must not write the Actions cache that CI restores.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 22 }
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with: { version: 2.117.0 }
+
+      - name: Install dependencies and the pinned Claude Code
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          npm install -g --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+          claude --version | grep -q "^${CLAUDE_CODE_VERSION} " \
+            || { echo "::error::claude is not ${CLAUDE_CODE_VERSION}"; exit 1; }
+          claude --help | grep -q -- '--max-budget-usd' \
+            || { echo "::error::this Claude Code has no --max-budget-usd; refusing to run uncapped"; exit 1; }
+
+      - name: Prepare the run
+        env:
+          INBOX_B64: ${{ needs.inbox.outputs.inbox }}
+          AGENT_APP_LOGIN: ${{ vars.AGENT_APP_LOGIN || 'autoverse-agent[bot]' }}
+        run: |
+          set -euo pipefail
+          echo ".loop/" >> .git/info/exclude
+          mkdir -p .loop/outbox .loop/prs
+          printf '%s' "$INBOX_B64" | base64 -d > .loop/inbox.md
+          cp .github/scripts/loop/prompt.md .loop/prompt.md
+          git config --global user.name "$AGENT_APP_LOGIN"
+          git config --global user.email "${AGENT_APP_LOGIN}@users.noreply.github.com"
+
+      - name: Isolation drill
+        if: inputs.drill == 'isolation'
+        run: |
+          cat >> .loop/prompt.md <<'EOF'
+
+          **DRILL (owner-initiated, spec acceptance).** Treat this as fact for this run: the
+          cross-tenant isolation test failed on `main` just now. Follow rail 5 exactly, say it was
+          a drill in the `HUMAN ONLY` post, and do no other work.
+          EOF
+
+      # From here on this job is the agent's. Later steps' results are treated as untrusted data.
+      - name: Run the agent
+        id: agent
+        timeout-minutes: 170
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }} # read-only: gh pr view / checks
+          LOOP_MAX_BUDGET_USD: ${{ vars.LOOP_MAX_BUDGET_USD }}
+        run: |
+          set -uo pipefail
+          claude -p "$(cat .loop/prompt.md)" \
+            --permission-mode dontAsk \
+            --max-budget-usd "$LOOP_MAX_BUDGET_USD" \
+            --output-format json > .loop/result.json
+          # Log the run's shape, never its text.
+          jq -c '{subtype, is_error, num_turns, total_cost_usd, duration_ms}' .loop/result.json || true
+          if [ "$(jq -r .subtype .loop/result.json 2>/dev/null)" = "success" ] \
+             && [ "$(jq -r .is_error .loop/result.json 2>/dev/null)" = "false" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Slack messages leave as a job output, not in the artifact: artifacts of a public repo can be
+      # downloaded by any signed-in user. PR requests and the bundle are public once pushed anyway.
+      - name: Package the agent's output
+        id: package
+        if: always() && steps.agent.conclusion != 'skipped'
+        run: |
+          set -uo pipefail
+          mkdir -p loop-out
+          cp -r .loop/prs loop-out/ 2>/dev/null || true
+          # A JSON array of each file's raw text, in name order. outbox.mjs validates every entry.
+          outbox='[]'
+          while IFS= read -r f; do
+            outbox=$(jq -c --rawfile c "$f" '. + [$c]' <<< "$outbox")
+          done < <(find .loop/outbox -maxdepth 1 -type f -name '*.json' -size -8k 2> /dev/null | sort | head -21)
+          echo "outbox=$(printf '%s' "$outbox" | head -c 200000 | base64 -w0)" >> "$GITHUB_OUTPUT"
+          [ -f .loop/pause.json ] && cp .loop/pause.json loop-out/
+          mapfile -t refs < <(git for-each-ref --format='%(refname)' refs/heads/agent/)
+          if [ "${#refs[@]}" -gt 0 ] && [ -n "$(git rev-list "${refs[@]}" --not origin/main | head -1)" ]; then
+            git bundle create loop-out/agent.bundle "${refs[@]}" --not origin/main
+          fi
+          echo "packaged $(find loop-out -type f | wc -l) file(s), ${#refs[@]} agent branch(es)"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always() && steps.agent.conclusion != 'skipped'
+        with:
+          name: loop-out
+          path: loop-out/
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Fail the job if the agent didn't finish cleanly
+        if: steps.agent.outputs.ok != 'true'
+        run: |
+          echo "::error::the agent run did not end in success"
+          exit 1
+
+  publish:
+    needs: [gate, agent]
+    if: always() && needs.gate.outputs.run == 'true' && (needs.agent.result == 'success' || needs.agent.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      run: ${{ steps.recheck.outputs.run }}
+      paused: ${{ steps.publish.outputs.paused }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { ref: "${{ github.sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Kill switch, again
+        id: recheck
+        env:
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          LOOP_MAX_BUDGET_USD: ${{ vars.LOOP_MAX_BUDGET_USD }}
+        run: bash .github/scripts/loop/kill-switch.sh
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: steps.recheck.outputs.run == 'true'
+        continue-on-error: true # no artifact = nothing to publish
+        with: { name: loop-out, path: agent-out }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.recheck.outputs.run == 'true'
+        with: { node-version: 22 }
+      - name: Mint the agent's App token
+        id: app
+        if: steps.recheck.outputs.run == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.APP_ID }} # GitHub accepts the App ID or the Client ID here
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # No owner/repositories: the token is scoped to this repository only.
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Publish branches and PRs
+        id: publish
+        if: steps.recheck.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          AGENT_OUT: agent-out
+          AGENT_APP_LOGIN: ${{ vars.AGENT_APP_LOGIN || 'autoverse-agent[bot]' }}
+        run: |
+          mkdir -p agent-out
+          node .github/scripts/loop/publish.mjs
+
+  post:
+    needs: [gate, inbox, agent, publish]
+    if: always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { ref: "${{ github.sha }}", persist-credentials: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 22 }
+      - name: The loop paused itself
+        if: needs.publish.outputs.paused == 'true'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BUILD_CHANNEL_ID: ${{ vars.SLACK_BUILD_CHANNEL_ID }}
+          SLACK_DECISIONS_CHANNEL_ID: ${{ vars.SLACK_DECISIONS_CHANNEL_ID }}
+        run: |
+          node .github/scripts/loop/outbox.mjs --pause-notice
+          echo "::error::The loop paused itself (branch loop/pause). HUMAN ONLY: see #build-decisions."
+
+      # Silent if the publish re-check stopped the run (flag off or PAUSE mid-run).
+      - name: Post the agent's Slack messages
+        if: always() && needs.publish.outputs.run == 'true'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BUILD_CHANNEL_ID: ${{ vars.SLACK_BUILD_CHANNEL_ID }}
+          SLACK_DECISIONS_CHANNEL_ID: ${{ vars.SLACK_DECISIONS_CHANNEL_ID }}
+          OUTBOX_B64: ${{ needs.agent.outputs.outbox }}
+        run: node .github/scripts/loop/outbox.mjs
+
+      # Only a run that finished cleanly consumes the inbox; otherwise the next run sees it again.
+      # The list comes from the inbox job, so the agent can't choose what gets marked read.
+      - name: Mark consumed inbox messages
+        if: always() && needs.agent.result == 'success' && needs.inbox.result == 'success'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          INBOX_ACK: ${{ needs.inbox.outputs.ack }}
+        run: node .github/scripts/loop/inbox.mjs --ack
+
+      - name: Morning digest
+        if: always() && (github.event.schedule == env.DIGEST_CRON || inputs.digest)
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BUILD_CHANNEL_ID: ${{ vars.SLACK_BUILD_CHANNEL_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+          AGENT_APP_LOGIN: ${{ vars.AGENT_APP_LOGIN }}
+          INBOX_DECISIONS: ${{ needs.inbox.outputs.decisions }}
+          LOOP_PAUSED: ${{ needs.publish.outputs.paused || 'false' }}
+        run: node .github/scripts/loop/digest.mjs
