@@ -214,7 +214,7 @@ The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `ma
 
 In this order:
 
-1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014.
+1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014. **Drafted 2026-09-25 and handed to the owner in the session** as `agent-loop.yml`, for the owner to add under `.github/workflows/`. The kill switch's flag logic was tested against mocked PostHog responses and fails closed. It needs three new Actions variables: `POSTHOG_HOST`, `POSTHOG_PROJECT_ID`, and `LOOP_MAX_BUDGET_USD` (the per-run spend cap, the owner's call; the run doesn't start while it's unset).
 2. CODEOWNERS and the tiered auto-merge, plus an ADR for the merge tiers.
 3. The `#build-inbox` reader with the user-ID check, and posting as the bot.
 4. The morning digest.
