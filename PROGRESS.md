@@ -129,7 +129,7 @@ Interactive session, 2026-09-25. The unattended runner is **off** (see _Decision
 > - #1: enforcement on the anon key, with Turnstile and rate limits, is in **#34**.
 > - #7: **PR #57** (composite FK + test 0017), 2026-09-25.
 > - #8: **PR #58** (`LeadRepository.create` → `capture_lead`), 2026-09-25.
-> - #9: open (a Tier B question, not yet posted).
+> - #9: Tier B posted in `#build-decisions` 2026-09-25 (payload size cap; recommendation: 8 KB, Zod + DB CHECK, refuse rather than dead-letter). Waiting on the owner's reply.
 
 The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
 Both are true, and the second is the more important one: **the gate passes on a system that, deployed
@@ -189,7 +189,7 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 1. **PRs #57 (BLOCK #7) and #58 (BLOCK #8):** both approved by both reviewers, and both fully green in CI (every check passed; only `smoke` and `Supabase Preview` skipped). Once they merge, set `BLOCK-FIX-7`/`-8` to `done` in `BACKLOG.md`. #57's migration then reaches the hosted DB. It fails if any existing activity's brand doesn't match its lead's, which is the intended outcome. A one-off count on the hosted DB beforehand avoids a surprise (owner: the guard blocks the agent from hosted-DB reads).
 2. **Owner: apply the trust-check patch** to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the workspace monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD` before any trial.
-3. Nothing in `BACKLOG.md` is startable after #57/#58: BLOCK #9 is a Tier B question (event payload size cap) that hasn't been posted yet, and everything else is `awaiting-spec`.
+3. Nothing in `BACKLOG.md` is startable after #57/#58: BLOCK #9 waits on the owner's reply to its Tier B post in `#build-decisions` (event payload size cap), and everything else is `awaiting-spec`. Check that thread first.
 
 ### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
@@ -251,7 +251,7 @@ The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberat
 - **Scratch branch `chore/scratch-deny-test`** (PR #43, closed) is still on GitHub. This environment's git proxy cut off `git push --delete` twice. Owner: use "Delete branch" on #43.
 - **Guard over-block:** GitHub's `list_branches` is blocked as a Supabase tool (the two connectors share the name). Next guard PR: add it to the shared-name exemption keyed on `project_id`. This fails closed, so it isn't a hole.
 
-- BLOCK #9 (event payload size; a Tier B question, not yet posted). #7 and #8 are in PRs #57 and #58.
+- BLOCK #9 (event payload size): Tier B posted 2026-09-25, awaiting a reply. #7 and #8 are in PRs #57 and #58.
 - From the #57/#58 reviews (none introduced by those PRs):
   - A CI canary for 0017 (drop `lead_activities_lead_brand_fkey`, require a `CRITICAL`). This goes in `ci.yml`, so the owner adds it.
   - A lead with activities can't be hard-deleted: the cascade hits the append-only trigger. The erasure / right-to-delete path needs a design (ADR).
