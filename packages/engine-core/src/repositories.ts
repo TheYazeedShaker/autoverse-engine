@@ -8,7 +8,7 @@ import type {
   SpecRowRow,
   TrimRow,
 } from "./database.types";
-import { type EngineDb, unwrap } from "./client";
+import { type EngineDb, EngineDbError, unwrap } from "./client";
 
 // Typed repositories. Every brand-scoped repository is CONSTRUCTED with a brand id and applies it
 // to every query itself — callers cannot forget it, because they never pass it. RLS is still the
@@ -27,6 +27,10 @@ export interface LeadInput {
   consent_text_version: string;
   consent_at: string;
   session_id?: string | null;
+  /** Minted once per form submission and reused on every retry: the idempotency key. */
+  submission_id: string;
+  /** Recorded on the lead's first activity. capture_lead defaults it to "consumer-form". */
+  source?: string;
 }
 
 export interface EventInput {
@@ -153,18 +157,30 @@ export class ThemeRepository {
 
 export class LeadRepository extends BrandScopedRepository {
   /**
-   * Capture a lead. Consent is required by the type as well as by the database: a caller cannot
-   * reach this method without having carried the consent version and timestamp along with it.
+   * Capture a lead through `capture_lead`, never by inserting into `leads`. The function writes the
+   * lead, its first activity and its routing jobs in one transaction; a plain insert would leave a
+   * lead with no audit trail that no brand is ever told about. Replaying the same submission_id
+   * returns the same lead and writes nothing.
+   *
+   * Consent is required by the type as well as by the database. `capture_lead` is granted to the
+   * service role only, so this works from server-side jobs, not from a user's session.
+   *
+   * @returns the lead's id.
    */
-  async create(input: LeadInput): Promise<LeadRow | null> {
-    return unwrap(
+  async create(input: LeadInput): Promise<string> {
+    // brand_id goes last so nothing smuggled into the input can override it.
+    const id = unwrap(
       "LeadRepository.create",
-      await this.db
-        .from<LeadRow>("leads")
-        .insert({ ...input, brand_id: this.brandId })
-        .select("*")
-        .single(),
+      await this.db.rpc<string>("capture_lead", {
+        payload: { ...input, brand_id: this.brandId },
+      }),
     );
+    if (!id) {
+      throw new EngineDbError("LeadRepository.create", {
+        message: "capture_lead returned no lead id",
+      });
+    }
+    return id;
   }
 
   async listRecent(limit = 50): Promise<LeadRow[]> {
