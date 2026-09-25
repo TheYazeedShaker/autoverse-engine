@@ -187,7 +187,7 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ### 0. First thing next session
 
-1. **PRs #57 (BLOCK #7) and #58 (BLOCK #8):** both approved by both reviewers. #57 was fully green; #58 was waiting on `phase-gate` when the session ended. Once they merge, set `BLOCK-FIX-7`/`-8` to `done` in `BACKLOG.md`. #57's migration then reaches the hosted DB. It fails if any existing activity's brand doesn't match its lead's, which is the intended outcome. A one-off count on the hosted DB beforehand avoids a surprise (owner: the guard blocks the agent from hosted-DB reads).
+1. **PRs #57 (BLOCK #7) and #58 (BLOCK #8):** both approved by both reviewers, and both fully green in CI (every check passed; only `smoke` and `Supabase Preview` skipped). Once they merge, set `BLOCK-FIX-7`/`-8` to `done` in `BACKLOG.md`. #57's migration then reaches the hosted DB. It fails if any existing activity's brand doesn't match its lead's, which is the intended outcome. A one-off count on the hosted DB beforehand avoids a surprise (owner: the guard blocks the agent from hosted-DB reads).
 2. **Owner: apply the trust-check patch** to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the workspace monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD` before any trial.
 3. Nothing in `BACKLOG.md` is startable after #57/#58: BLOCK #9 is a Tier B question (event payload size cap) that hasn't been posted yet, and everything else is `awaiting-spec`.
 
