@@ -49,7 +49,10 @@ view/list`, and the local Supabase CLI (`start`, `stop`, `db start`, `db reset`,
      blocked when the input carries Supabase's `project_id` / `organization_id`;
    - `gh pr merge`, `gh pr review` and `gh api`, also behind `env` / `xargs` / `bash -c`, and the
      GitHub merge/approve MCP tools by name, under any server id. The permission rules alone match
-     only a command's start, so they miss `env … gh pr merge`.
+     only a command's start, so they miss `env … gh pr merge`;
+   - the GitHub file tools (`push_files`, `create_or_update_file`, `delete_file`) when they target
+     `main`. They commit through the API, so the `git push … main` deny never sees them. A missing
+     branch counts as `main`, because the API then writes to the default branch.
      It **fails closed**: if it errors or can't read its input, it blocks. Its cases are in
      `.claude/hooks/guard.test.mjs` (`node --test .claude/hooks/guard.test.mjs`).
 
