@@ -4,8 +4,8 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-24 (late)
-**Last session:** #38 merged; **AUTONOMOUS-LOOP-P2 started**. Per the updated spec, nothing is built until the Part 2 precondition passes: a _fresh_ session must show the §1 denylist refusing a hosted-DB read, an `.env` read and a `.github/` edit, with evidence in `#build`. A fresh-session task is queued for the owner. The human-only accounts and settings the loop needs are posted in `#build-decisions`.
+**Last updated:** 2026-09-25
+**Last session:** **AUTONOMOUS-LOOP-P2 started, and its precondition PASSED.** A fresh session tried seven denied actions: a hosted-DB read over MCP, `.env` and `.env.local` reads, an Edit and a shell write under `.github/`, `gh api`, and a `design/` read. All seven were refused, and nothing changed on disk. Evidence is in `#build`. The owner finished most of the human-only setup, and the runner decision is recorded in ADR 0014.
 
 ---
 
@@ -101,6 +101,7 @@
 - **Every PR targets `main`. Never stack PRs on each other's branches** (owner, 2026-09-24). Work that needs an unmerged PR waits, or opens as a draft against `main` and is rebased once its dependency lands.
 - **Escalation protocol** (ADR 0009). Tier A: the architect cites the docs, and the citation goes in the PR. Tier B: post in `#build-decisions` in the spec's format, move to independent work, and check the threads every cycle. Tier C: HUMAN ONLY, act only on the owner's reply.
 - **Leads are idempotent on a form-minted `submission_id`**, unique per brand. The consumer form (1·C) must mint one per submit and keep it across retries.
+- **Loop runner** (ADR 0014, owner 2026-09-25): GitHub Actions, one fresh session per run. It uses the `ANTHROPIC_API_KEY` secret (spend-capped), not federation. OIDC federation is recorded as future hardening. The agent's GitHub App secrets are `APP_ID` / `APP_PRIVATE_KEY`.
 - **Dead letters are resolved (`resolved_at`), never deleted.** `error_message` keeps the original cause; `last_error` holds the latest replay failure.
 
 ## Known Issues / TODOs
@@ -184,25 +185,42 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 `ENGINE-CORE-1A` is **done**. **`AUTONOMOUS-LOOP-P2` is in progress** (BACKLOG). `AUTONOMOUS-LOOP-P1` stays in progress until its acceptance items are proven (several are proven by P2's own acceptance run).
 
-### 1. Hard gate before building anything (spec, Part 2 precondition)
+### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
-- A **fresh** session must attempt at least three denied actions (hosted-DB read, `.env` read, `.github/` edit) and post each refusal to `#build`. It's queued as a task for the owner: "Prove the agent denylist is enforced (fresh session)".
-- Why: the long-running 1·A session read the hosted DB although ADR 0010's guard hook should have blocked it. Most likely hooks are captured at session start, and that session predates the hook. Permission rules did apply (`gh api` and `.github/` edits were refused).
-- **Until that check posts PASS, build nothing.** If it posts FAIL, stop and raise it as HUMAN ONLY.
+A fresh session tried seven denied actions, and all seven were refused (evidence in `#build`):
 
-### 2. Waiting on the owner (`#build-decisions`, HUMAN ONLY post, 2026-09-24)
+- **Guard hook:** a hosted-DB read over MCP (`list_migrations`), a shell append to `.github/workflows/ci.yml`, and a shell read inside `design/`.
+- **Permission rules:** Read `.env`, Read `.env.local`, an Edit to `.github/workflows/ci.yml`, and `gh api`.
 
-1. A Slack bot identity for the agent, a new `#build-inbox` channel, and the `SLACK_BOT_TOKEN` Actions secret. Confirm the owner's Slack user ID (the only one whose inbox and HUMAN ONLY replies are honoured).
-2. `ANTHROPIC_API_KEY` Actions secret with a monthly spend cap.
-3. A GitHub App identity for the agent (`AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY`), separate from the owner so its PRs can be approved.
-4. Repo settings: allow auto-merge; require code-owner review with 0 required approvals.
-5. PostHog flag `agent_loop_enabled` (off), plus `POSTHOG_PERSONAL_API_KEY`.
+This confirms that hooks load at session start. The 1·A session that read the hosted DB started before the hook existed. **Keep the loop's runs fresh sessions**: a new process per run, never a resumed long-lived one.
 
-Runner choice is Tier A (spec §3: implementer's choice): GitHub Actions. Record it as an ADR when building starts.
+The guard matches command text, including text inside heredocs, so a shell command that only _mentions_ a `design/` path is blocked too. Use the Edit tool for docs that name such paths.
 
-### 3. Then build Part 2 (after the gate passes)
+The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `main` yet. The agent can't edit the spec (ADR 0010), so the owner opens that PR. Run `pnpm format` on it first: the edit removed the blank lines before lists, so it may fail the format check.
 
-Runner workflow + kill switch (`PAUSE`, flag), CODEOWNERS + tiered auto-merge, the `#build-inbox` reader with a user-ID check, bot-identity posting, the morning digest, the isolation-failure drill, and ADRs (runner, merge tiers). Everything under `.github/` and `.claude/` is denied to the agent, so hand the owner exact files to add, as #36 did.
+### 2. Human-only setup (owner, 2026-09-25)
+
+| Item                                                                  | State                                                                                                                      |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Slack bot in `#build-inbox` + `SLACK_BOT_TOKEN` secret                | ✅ bot is a channel member (checked). The secret is set per the owner (the agent can't read Actions secrets)               |
+| Owner's Slack user ID                                                 | ✅ confirmed. It goes in the `OWNER_SLACK_USER_ID` Actions variable, not in the repo                                       |
+| `ANTHROPIC_API_KEY` secret with a spend cap                           | ✅ per the owner. The key stays; OIDC federation is future hardening (ADR 0014)                                            |
+| GitHub App                                                            | ✅ per the owner. Secrets are named **`APP_ID`** and **`APP_PRIVATE_KEY`** (these replace the earlier `AGENT_APP_*` names) |
+| PostHog flag `agent_loop_enabled`                                     | ✅ exists and is off (checked)                                                                                             |
+| `POSTHOG_PERSONAL_API_KEY` secret (the runner reads the flag with it) | ❓ not confirmed                                                                                                           |
+| Allow auto-merge; require code-owner review with 0 approvals          | ⏳ the owner turns these on once this PR merges                                                                            |
+
+### 3. Build Part 2
+
+In this order:
+
+1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014.
+2. CODEOWNERS and the tiered auto-merge, plus an ADR for the merge tiers.
+3. The `#build-inbox` reader with the user-ID check, and posting as the bot.
+4. The morning digest.
+5. The isolation-failure drill.
+
+Everything under `.github/` and `.claude/` is denied to the agent, so give the owner the exact files to add, as #36 did.
 
 ### 4. End-to-end lead test (owner-led)
 
