@@ -12,8 +12,9 @@ owner's.
 
 ## Decision
 
-- **Runner: GitHub Actions.** It's a scheduled workflow plus `workflow_dispatch`, and also runs on
-  push to `main`. The repo is public (ADR 0008), so the minutes are free. There's no VM to patch,
+- **Runner: GitHub Actions.** It's a scheduled workflow plus `workflow_dispatch`, and nothing else
+  (amended 2026-09-25, owner: no push trigger, so the loop's own merges never start a run). The spec's
+  "on merge to `main`" is covered by the next scheduled run. The repo is public (ADR 0008), so the minutes are free. There's no VM to patch,
   and each run starts in a clean, throwaway container, which is where ADR 0010 allows unattended
   permission modes.
 - **One run at a time:** a `concurrency` group with `cancel-in-progress: false`. Max runtime is set
@@ -27,11 +28,16 @@ owner's.
   - GitHub: a GitHub App, through the Actions secrets `APP_ID` and `APP_PRIVATE_KEY`. Each run mints
     a short-lived installation token, so the agent's PRs aren't authored by the owner and the owner
     can approve them.
-  - Slack: the `SLACK_BOT_TOKEN` secret, for the bot the owner added to `#build-inbox`.
+  - Slack: the `SLACK_BOT_TOKEN` secret, for the bot the owner added to `#build-inbox`. Only the
+    runner's own Slack steps get it, never the agent step: the agent reads the owner's messages
+    from a file the runner writes, and queues its posts as files the runner sends afterwards.
   - The owner's Slack user ID goes in an Actions **variable** (`OWNER_SLACK_USER_ID`), not in the
     repo. It's the only ID whose `#build-inbox` instructions and Tier C replies are honoured.
-- **Least privilege:** the workflow's default `GITHUB_TOKEN` gets `contents: read`. Writes go through
-  the App token. The App should be installed on this repo only, and must never be on a
+- **Least privilege:** the workflow's default `GITHUB_TOKEN` is read-only. Writes go through the App
+  token, which is minted with `contents` and `pull-requests` only (no `workflows`), passed to the
+  agent step alone, and revoked when the job ends. Checkout uses `persist-credentials: false`.
+  Every external action is pinned to a full commit SHA, and Claude Code to an exact version whose
+  `--max-budget-usd` caps each run at the `LOOP_MAX_BUDGET_USD` variable. The App should be installed on this repo only, and must never be on a
   branch-protection bypass list. `main` is changed only by merging PRs.
 - **The agent runs under the repo's `.claude/settings.json`** (ADR 0010). The runner doesn't pass
   extra allow rules, and it doesn't skip permission checks.
@@ -63,4 +69,3 @@ owner's.
   Anthropic organisation: trust GitHub's OIDC issuer, limited to this repo and the runner workflow on
   `main`, with short-lived credentials per run. Then delete the stored key. Do the same for any other
   provider that supports federation.
-- Pin third-party actions in the runner workflow to commit SHAs.
