@@ -214,7 +214,7 @@ The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `ma
 
 In this order:
 
-1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014. **Drafted 2026-09-25 and handed to the owner in the session** as `agent-loop.yml`, for the owner to add under `.github/workflows/`. The kill switch's flag logic was tested against mocked PostHog responses and fails closed. It needs three new Actions variables: `POSTHOG_HOST`, `POSTHOG_PROJECT_ID`, and `LOOP_MAX_BUDGET_USD` (the per-run spend cap, the owner's call; the run doesn't start while it's unset).
+1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014. **Revised after the owner's review (2026-09-25):** added Slack wiring, `persist-credentials: false` with the App token given to git only in the agent step, every action pinned to a commit SHA, and no push trigger. It went to the owner as `agent-loop.yml` plus `.github/scripts/loop/{slack,inbox,outbox,digest}.mjs` and `loop.test.mjs` (14 tests; the scripts are the inbox reader, outbox poster and digest). The Slack token never reaches the agent: it reads `.loop/inbox.md` (owner-only content) and writes `.loop/outbox/*.json`. New Actions variables: `POSTHOG_HOST`, `POSTHOG_PROJECT_ID`, `LOOP_MAX_BUDGET_USD` (the owner's call; no run starts while it's unset), and `SLACK_INBOX_CHANNEL_ID` / `SLACK_BUILD_CHANNEL_ID` / `SLACK_DECISIONS_CHANNEL_ID`. The bot needs `channels:history`, `chat:write` and `reactions:write`, and must be a member of all three channels. This covers items 3 and 4 (the inbox reader and the digest).
 2. CODEOWNERS and the tiered auto-merge, plus an ADR for the merge tiers.
 3. The `#build-inbox` reader with the user-ID check, and posting as the bot.
 4. The morning digest.
