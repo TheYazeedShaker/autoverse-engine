@@ -5,7 +5,8 @@ import {
   MAX_PAYLOAD_BYTES,
   decide,
   decideBatch,
-  hasOversizedPayload,
+  MAX_EVENT_BYTES,
+  findOversized,
   payloadBytes,
   planReplay,
   readCappedText,
@@ -107,16 +108,25 @@ describe("payload and body size", () => {
     if (over.outcome === "dead-letter") expect(over.error_message).toContain("payload");
   });
 
-  it("flags a body holding any oversized payload, single or batched", () => {
+  it("finds an oversized payload, single or batched", () => {
     const big = { ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES + 1) };
-    expect(hasOversizedPayload(big)).toBe(true);
-    expect(hasOversizedPayload([valid, big])).toBe(true);
-    expect(hasOversizedPayload([valid, { ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES) }])).toBe(
-      false,
-    );
+    expect(findOversized(big)).toEqual({ part: "payload", bytes: MAX_PAYLOAD_BYTES + 1 });
+    expect(findOversized([valid, big])?.part).toBe("payload");
+    expect(findOversized([valid, { ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES) }])).toBeNull();
     // A non-object payload is measured too: it would be dead-lettered verbatim otherwise.
-    expect(hasOversizedPayload({ ...valid, payload: "a".repeat(MAX_PAYLOAD_BYTES) })).toBe(true);
-    expect(hasOversizedPayload(null)).toBe(false);
+    expect(findOversized({ ...valid, payload: "a".repeat(MAX_PAYLOAD_BYTES) })?.part).toBe(
+      "payload",
+    );
+    expect(findOversized(null)).toBeNull();
+  });
+
+  // An invalid event is dead-lettered verbatim, so its bulk can't hide outside `payload`.
+  it("finds an event oversized as a whole, in any field or as a bare string", () => {
+    const junk = "a".repeat(MAX_EVENT_BYTES);
+    expect(findOversized({ ...valid, id: "not-a-uuid", junk })?.part).toBe("event");
+    expect(findOversized([valid, junk])?.part).toBe("event");
+    // A payload at its limit still fits inside the event limit.
+    expect(findOversized({ ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES) })).toBeNull();
   });
 
   it("gives up on replaying an oversized dead letter at once, instead of retrying it", () => {

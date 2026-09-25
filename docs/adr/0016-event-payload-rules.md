@@ -18,18 +18,39 @@ have stored the oversized body there.
   - by the CHECK `events_payload_size` (`octet_length(payload::text) <= 8192`), so it holds for
     every writer. Postgres renders `jsonb` with a space after each `:` and `,`, so near the limit
     the database is slightly stricter than Zod, and it has the final say.
-- **Oversized events are refused, never dead-lettered.** `ingest-event` answers **413**, and
-  nothing is written anywhere. That applies to a single event or a batch holding one; an oversized
-  event makes the whole request fail. `ingest_events_public` refuses such a batch before writing
-  anything, returning `refused: payload_too_large` rather than raising, so the call still spends
-  rate-limit budget (the same rule as any sender's mistake). A dead letter that is oversized is
-  given up on at once, not retried.
+- **Oversized events are refused, never dead-lettered.** Oversized means a payload over 8 KB, or
+  the event as a whole over 9 KB (the payload plus 1 KB for ids and kind). The second limit exists
+  because an event that fails validation is dead-lettered verbatim, so its bulk could otherwise
+  sit in another field. `ingest-event` answers **413**, and nothing is written anywhere. That
+  applies to a single event or a batch holding one; an oversized event makes the whole request
+  fail.
+  - The edge function refuses before calling the database, so that 413 costs only edge compute,
+    and no rate-limit budget, like a body that isn't JSON.
+  - `ingest_events_public` checks again, for callers that reach it directly and for payloads the
+    database measures as larger than Zod did. It refuses before writing anything, returning
+    `refused: payload_too_large` rather than raising, so that refusal does spend rate-limit budget.
+  - The job worker gives up at once on an oversized dead letter (it fails validation), and on a
+    replay the database refuses with the CHECK (23514), instead of retrying it five times.
 - **256 KB per request body** to `ingest-event`, counted on the stream, not trusted from
   `Content-Length`. 413 when over.
 - **Event payloads never carry PII.** Names, phones, emails and anything else that identifies a
   person belong only in `leads`, which has consent, RLS and an erasure story. An event carries ids,
   option codes, counts and timings. Enforcing this by content isn't possible with a free-form
   record; per-kind schemas (below) are how it becomes enforceable.
+
+## Observability
+
+- Every refusal logs `events_refused_too_large` at warn, with `trace_id`, `reason` (`body`,
+  `payload`, `event`, or `payload_db` when the database refused), the measured `bytes` where
+  known, and the market. Never any content.
+- **Alert:** `events_refused_too_large` above a threshold per market. Proposed: more than 20 in 15
+  minutes. That number is the agent's starting point, not the owner's; the owner confirms or
+  changes it. A page that
+  suddenly sends oversized events is a sender regression, and until it's fixed those events are
+  lost. Ops is notified, not paged: no lead is involved. It's a log-based alert on that event name,
+  set up with the other log alerts when the log drain goes live.
+- Oversized dead letters the worker gives up on log `event_dlq_gave_up` with the reason, like any
+  other give-up.
 
 ## Alternatives considered
 
@@ -46,7 +67,11 @@ have stored the oversized body there.
 
 - A client that sends an oversized payload loses that whole request and is told why (413). That is
   deliberate: it's a bug in the sender, and silent partial acceptance would hide it.
-- A malformed event (bad id, bad kind) with a payload under 8 KB is still dead-lettered verbatim,
-  as before. Its other fields are bounded only by the 256 KB body cap.
+- A malformed event (bad id, bad kind) under both limits is still dead-lettered verbatim, as
+  before.
+- `event_dlq` itself has no size CHECK. The limit holds there because `ingest_events_public` is the
+  only path that writes new rows into it from outside. Adding one would first need a hosted check
+  of existing dead letters. Dead letters written before this change aren't purged; an oversized
+  one is now given up on at once.
 - "No PII in events" is a rule reviewers enforce until per-kind schemas exist. Until then an
   event with PII can't be removed without breaking the write-once guarantee.

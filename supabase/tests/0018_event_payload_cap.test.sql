@@ -2,8 +2,9 @@
 -- MANDATORY test for migration 20260925140000_event_payload_cap.sql (BLOCK finding #9).
 -- Proves: the events table holds 8192 bytes of payload and refuses 8193, whoever writes (the
 -- owner role here bypasses RLS, as the worker's replays do); ingest_events_public refuses a batch
--- holding an oversized payload, as an accepted event or as a reject, and writes NOTHING, to events
--- or to event_dlq; the refusal still spends rate-limit budget; and an ordinary batch still lands.
+-- holding an oversized payload, as an accepted event or as a reject, or an event oversized as a
+-- whole in any field, and writes NOTHING, to events or to event_dlq; the refusal still spends
+-- rate-limit budget; an ordinary malformed event is still dead-lettered; an ordinary batch lands.
 
 begin;
 
@@ -109,6 +110,49 @@ begin
   end if;
   set local role anon;
   raise notice 'PASS: an oversized reject is refused too, never dead-lettered';
+end $$;
+
+-- ---- 3b. a reject whose bulk sits outside `payload`, or a bare string, is refused too ----
+do $$
+declare r jsonb; bad jsonb;
+begin
+  foreach bad in array array[
+    jsonb_build_object('source_payload', jsonb_build_object('id', 'not-a-uuid', 'junk', repeat('j', 20000)),
+                       'error_message', 'id: invalid'),
+    jsonb_build_object('source_payload', to_jsonb(repeat('s', 20000)), 'error_message', '(root): not an object')
+  ] loop
+    r := public.ingest_events_public('gw-test-secret', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      'https://a.example.com', 'EG', repeat('c', 32), '[]'::jsonb, jsonb_build_array(bad));
+    if r ->> 'refused' is distinct from 'payload_too_large' then
+      raise exception 'CRITICAL: an oversized reject (bulk outside payload) was not refused (%)', r;
+    end if;
+  end loop;
+  reset role;
+  if exists (select 1 from public.event_dlq) then
+    raise exception 'CRITICAL: an oversized reject was dead-lettered through a field other than payload';
+  end if;
+  set local role anon;
+  raise notice 'PASS: an event oversized as a whole is refused, whichever field holds the bulk';
+end $$;
+
+-- ---- 3c. regression: an ordinary malformed event is still dead-lettered, not refused ----
+do $$
+declare r jsonb;
+begin
+  r := public.ingest_events_public('gw-test-secret', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    'https://a.example.com', 'EG', repeat('c', 32), '[]'::jsonb,
+    jsonb_build_array(jsonb_build_object(
+      'source_payload', jsonb_build_object('id', 'not-a-uuid', 'kind', 'x', 'payload', test_helpers.payload(100)),
+      'error_message', 'id: invalid')));
+  if r ? 'refused' or (r ->> 'dead_lettered')::int <> 1 then
+    raise exception 'FAIL: a small malformed event was not dead-lettered as before (%)', r;
+  end if;
+  reset role;
+  if (select count(*) from public.event_dlq) <> 1 then
+    raise exception 'FAIL: the small malformed event is not in event_dlq';
+  end if;
+  set local role anon;
+  raise notice 'PASS: an ordinary malformed event is still dead-lettered';
 end $$;
 
 -- ---- 4. an ordinary batch, right up to the limit, still lands ----

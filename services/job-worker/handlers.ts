@@ -21,6 +21,12 @@ export type Handler = (payload: Record<string, unknown>, ctx: HandlerContext) =>
 /** How many dead letters one sweep replays. The next tick queues another sweep if more remain. */
 export const SWEEP_BATCH = 50;
 
+/**
+ * A replay the database refused on a CHECK (23514) will be refused every time: for events that's
+ * the 8 KB payload cap measured the database's way (ADR 0016). Give up at once instead of retrying.
+ */
+const REFUSED_FOR_GOOD = /failed: 23514$/;
+
 type Replay =
   | { action: "replay"; run: (store: WorkerStore) => Promise<unknown> }
   | { action: "give-up"; reason: string };
@@ -61,6 +67,15 @@ async function sweep(
       resolved += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (REFUSED_FOR_GOOD.test(message)) {
+        await store.recordDeadLetterFailure(queue, row.id, MAX_ATTEMPTS, message);
+        gaveUp += 1;
+        log(queue === "lead" ? "error" : "warn", `${queue}_dlq_gave_up`, {
+          dlq_id: row.id,
+          reason: message,
+        });
+        continue;
+      }
       await store.recordDeadLetterFailure(queue, row.id, row.attempts + 1, message);
       retrying += 1;
       log("warn", `${queue}_dlq_replay_failed`, { dlq_id: row.id, attempts: row.attempts + 1 });

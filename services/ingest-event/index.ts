@@ -22,7 +22,8 @@ import {
   MAX_BODY_BYTES,
   MAX_PAYLOAD_BYTES,
   decidePublicBatch,
-  hasOversizedPayload,
+  MAX_EVENT_BYTES,
+  findOversized,
   readCappedText,
 } from "./ingest.ts";
 
@@ -59,14 +60,19 @@ Deno.serve(async (request: Request) => {
   }
 
   // Size is refused, never dead-lettered (ADR 0016): events are write-once and can't be trimmed.
-  const tooLarge = (reason: string, error: string) => {
-    log("warn", "events_refused_too_large", { trace_id: traceId, reason, market: caller.market });
+  // events_refused_too_large is the alertable line (ADR 0016, Observability). Sizes only, no content.
+  const tooLarge = (reason: string, error: string, bytes?: number) => {
+    log("warn", "events_refused_too_large", {
+      trace_id: traceId,
+      reason,
+      bytes,
+      market: caller.market,
+    });
     return json({ error, trace_id: traceId }, 413);
   };
   const bodyTooLarge = `Request body is larger than ${MAX_BODY_BYTES / 1024} KB.`;
-  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
-    return tooLarge("body", bodyTooLarge);
-  }
+  const declared = Number(request.headers.get("content-length") ?? 0);
+  if (declared > MAX_BODY_BYTES) return tooLarge("body", bodyTooLarge, declared);
   const text = await readCappedText(request.body, MAX_BODY_BYTES);
   if (text === null) return tooLarge("body", bodyTooLarge);
 
@@ -79,7 +85,16 @@ Deno.serve(async (request: Request) => {
     return json({ error: "Body must be JSON.", trace_id: traceId }, 400);
   }
   const payloadTooLarge = `An event payload is larger than ${MAX_PAYLOAD_BYTES / 1024} KB.`;
-  if (hasOversizedPayload(body)) return tooLarge("payload", payloadTooLarge);
+  const oversized = findOversized(body);
+  if (oversized) {
+    return tooLarge(
+      oversized.part,
+      oversized.part === "payload"
+        ? payloadTooLarge
+        : `An event is larger than ${MAX_EVENT_BYTES / 1024} KB.`,
+      oversized.bytes,
+    );
+  }
 
   const decisions = decidePublicBatch(body);
   const accepted = decisions.flatMap((d) => (d.outcome === "accept" ? [d.event] : []));

@@ -6,7 +6,8 @@
 --
 --   * events_payload_size: a CHECK, so the limit holds for every writer — ingest_events_public,
 --     the job worker's dead-letter replays through PostgREST, and anything added later.
---   * ingest_events_public refuses a batch holding an oversized payload BEFORE writing anything.
+--   * ingest_events_public refuses a batch holding an oversized payload, or an event over 9216
+--     bytes as a whole (a reject's bulk can sit outside `payload`), BEFORE writing anything.
 --     Without that, the CHECK would fail inside the insert, and the function's own exception
 --     handler would dead-letter the oversized event verbatim into event_dlq, the one outcome the
 --     decision rules out. The refusal is returned, not raised, so the rate-limit hit is kept (the
@@ -46,14 +47,18 @@ begin
   select * into caller from app_auth.admit_public_call(
     p_gateway, p_key, p_origin, p_market_code, p_client, 'event', total, 300, 20000, 60, true);
 
-  -- An oversized payload is the sender's mistake: the whole batch is refused and nothing is
-  -- written, to events or to event_dlq. A reject carries the raw event as source_payload.
+  -- An oversized event is the sender's mistake: the whole batch is refused and nothing is written,
+  -- to events or to event_dlq. Over the limit means a payload over 8192 bytes, or the event as a
+  -- whole over 9216 (the payload plus 1 KB): a reject is dead-lettered verbatim, so its bulk must
+  -- not hide in another field. A reject carries the raw event as source_payload.
   if exists (
        select 1 from jsonb_array_elements(p_events) e
-        where octet_length(coalesce(e.value -> 'payload', '{}'::jsonb)::text) > 8192)
+        where octet_length(coalesce(e.value -> 'payload', '{}'::jsonb)::text) > 8192
+           or octet_length(e.value::text) > 9216)
      or exists (
        select 1 from jsonb_array_elements(p_rejected) r
-        where octet_length(coalesce(r.value -> 'source_payload' -> 'payload', 'null'::jsonb)::text) > 8192)
+        where octet_length(coalesce(r.value -> 'source_payload' -> 'payload', 'null'::jsonb)::text) > 8192
+           or octet_length(coalesce(r.value -> 'source_payload', 'null'::jsonb)::text) > 9216)
   then
     return jsonb_build_object('accepted', 0, 'dead_lettered', 0, 'refused', 'payload_too_large');
   end if;

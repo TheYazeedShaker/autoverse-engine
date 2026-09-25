@@ -16,6 +16,12 @@ import { z } from "zod";
 
 /** Per event payload, serialized (owner decision on BLOCK #9, ADR 0016). */
 export const MAX_PAYLOAD_BYTES = 8192;
+/**
+ * Per event, whole. A valid event is small apart from its payload (ids, a short kind), so this is
+ * the payload plus 1 KB of room. It stops an event that would fail validation for another reason
+ * from carrying its bulk into the dead-letter queue in some other field.
+ */
+export const MAX_EVENT_BYTES = MAX_PAYLOAD_BYTES + 1024;
 /** Per request to ingest-event. */
 export const MAX_BODY_BYTES = 256 * 1024;
 
@@ -29,16 +35,27 @@ const encoder = new TextEncoder();
 export const payloadBytes = (payload: unknown): number =>
   encoder.encode(JSON.stringify(payload ?? {})).length;
 
-/** True when any event in the body (one event or a batch) carries a payload over the limit. */
-export function hasOversizedPayload(raw: unknown): boolean {
+export interface Oversized {
+  part: "payload" | "event";
+  bytes: number;
+}
+
+/**
+ * The first event in the body (one event or a batch) that is over a limit: its payload over
+ * MAX_PAYLOAD_BYTES, or the event as a whole over MAX_EVENT_BYTES. Anything in the batch counts,
+ * a bare string included, since an invalid item is dead-lettered verbatim.
+ */
+export function findOversized(raw: unknown): Oversized | null {
   const items = Array.isArray(raw) ? raw : [raw];
-  return items.some(
-    (item) =>
-      typeof item === "object" &&
-      item !== null &&
-      "payload" in item &&
-      payloadBytes((item as { payload: unknown }).payload) > MAX_PAYLOAD_BYTES,
-  );
+  for (const item of items) {
+    if (typeof item === "object" && item !== null && "payload" in item) {
+      const bytes = payloadBytes((item as { payload: unknown }).payload);
+      if (bytes > MAX_PAYLOAD_BYTES) return { part: "payload", bytes };
+    }
+    const bytes = payloadBytes(item);
+    if (bytes > MAX_EVENT_BYTES) return { part: "event", bytes };
+  }
+  return null;
 }
 
 /**

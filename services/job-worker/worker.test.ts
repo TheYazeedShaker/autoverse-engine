@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SWEEP_BATCH } from "./handlers";
+import { MAX_ATTEMPTS } from "../ingest-event/ingest";
 import type { ClaimedJob, DeadLetter, DeadLetterQueue, LeadRouting, WorkerStore } from "./store";
 import { runOnce } from "./worker";
 
@@ -34,7 +35,8 @@ function fakeStore(
   seed: {
     events?: unknown[];
     leads?: unknown[];
-    failEventStore?: boolean;
+    /** true: a transient failure (57P01). A string: that SQLSTATE. */
+    failEventStore?: boolean | string;
     routing?: LeadRouting;
     report?: Record<string, number>;
   } = {},
@@ -122,7 +124,10 @@ function fakeStore(
       if (row) Object.assign(row, { attempts, last_error: error });
     },
     async storeEvent(event) {
-      if (seed.failEventStore) throw new Error("store event failed: 57P01");
+      if (seed.failEventStore) {
+        const code = typeof seed.failEventStore === "string" ? seed.failEventStore : "57P01";
+        throw new Error(`store event failed: ${code}`);
+      }
       if (!events.has(String(event.id))) events.set(String(event.id), event);
     },
     async captureLead(lead) {
@@ -199,6 +204,19 @@ describe("runOnce", () => {
     expect(f.dlq.event[0]?.resolved).toBe(false);
     expect(f.dlq.event[0]?.attempts).toBe(1);
     expect(f.dlq.event[0]?.last_error).toContain("57P01");
+  });
+
+  it("gives up at once when the database refuses a replay on a CHECK, e.g. the payload cap", async () => {
+    const f = fakeStore({
+      events: [validEvent("11111111-1111-1111-1111-111111111111")],
+      failEventStore: "23514",
+    });
+
+    await runOnce(f.store, { log: quiet });
+
+    expect(f.dlq.event[0]?.resolved).toBe(false);
+    expect(f.dlq.event[0]?.attempts).toBe(MAX_ATTEMPTS);
+    expect(f.dlq.event[0]?.last_error).toContain("23514");
   });
 
   it("sweeps in batches and comes back for the rest on the next run", async () => {
