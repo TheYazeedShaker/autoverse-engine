@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-25
-**Last session:** **AUTONOMOUS-LOOP-P2 started, and its precondition PASSED.** A fresh session tried seven denied actions: a hosted-DB read over MCP, `.env` and `.env.local` reads, an Edit and a shell write under `.github/`, `gh api`, and a `design/` read. All seven were refused, and nothing changed on disk. Evidence is in `#build`. The owner finished most of the human-only setup, and the runner decision is recorded in ADR 0014.
+**Last session:** **Deadlock decision, step 2 PASSED.** A fresh session (after #40–#42) tried to approve, merge and enable auto-merge on scratch PR #43, and to write to `main` with the GitHub file tools (four variants). All eleven attempts were refused before reaching GitHub: the settings deny list removes the three MCP tools, and the guard hook blocked every `gh` and file-tool form. `main` is unchanged, and #43 is closed with zero reviews. Evidence is in `#build`. Step 3 is `docs/runbooks/owner-merge-bypass.md`.
 
 ---
 
@@ -200,21 +200,21 @@ The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `ma
 
 ### 2. Human-only setup (owner, 2026-09-25)
 
-| Item                                                                  | State                                                                                                                      |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Slack bot in `#build-inbox` + `SLACK_BOT_TOKEN` secret                | ✅ bot is a channel member (checked). The secret is set per the owner (the agent can't read Actions secrets)               |
-| Owner's Slack user ID                                                 | ✅ confirmed, and set as the `OWNER_SLACK_USER_ID` Actions variable per the owner. It stays out of the repo                |
-| `ANTHROPIC_API_KEY` secret with a spend cap                           | ✅ per the owner. The key stays; OIDC federation is future hardening (ADR 0014)                                            |
-| GitHub App                                                            | ✅ per the owner. Secrets are named **`APP_ID`** and **`APP_PRIVATE_KEY`** (these replace the earlier `AGENT_APP_*` names) |
-| PostHog flag `agent_loop_enabled`                                     | ✅ exists and is off (checked)                                                                                             |
-| `POSTHOG_PERSONAL_API_KEY` secret (the runner reads the flag with it) | ✅ per the owner                                                                                                           |
-| Allow auto-merge; require code-owner review with 0 approvals          | ⏳ held until the owner decides how owner-authored human-tier PRs merge (options in `#build-decisions`, 2026-09-25)        |
+| Item                                                                  | State                                                                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slack bot in `#build-inbox` + `SLACK_BOT_TOKEN` secret                | ✅ bot is a channel member (checked). The secret is set per the owner (the agent can't read Actions secrets)                                                                                                                                                                       |
+| Owner's Slack user ID                                                 | ✅ confirmed, and set as the `OWNER_SLACK_USER_ID` Actions variable per the owner. It stays out of the repo                                                                                                                                                                        |
+| `ANTHROPIC_API_KEY` secret with a spend cap                           | ✅ per the owner. The key stays; OIDC federation is future hardening (ADR 0014)                                                                                                                                                                                                    |
+| GitHub App                                                            | ✅ per the owner. Secrets are named **`APP_ID`** and **`APP_PRIVATE_KEY`** (these replace the earlier `AGENT_APP_*` names)                                                                                                                                                         |
+| PostHog flag `agent_loop_enabled`                                     | ✅ exists and is off (checked)                                                                                                                                                                                                                                                     |
+| `POSTHOG_PERSONAL_API_KEY` secret (the runner reads the flag with it) | ✅ per the owner                                                                                                                                                                                                                                                                   |
+| Allow auto-merge; require code-owner review with 0 approvals          | ⏳ Deadlock decided: two rulesets (CI with no bypass, code-owner review with the owner's PR-only bypass). The scratch-PR test passed (2026-09-25). Next: owner adds CODEOWNERS, then follows `docs/runbooks/owner-merge-bypass.md`. Auto-merge stays off until the merge-tiers ADR |
 
 ### 3. Build Part 2
 
 In this order:
 
-1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014.
+1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014. **Drafted 2026-09-25 and handed to the owner in the session** as `agent-loop.yml`, for the owner to add under `.github/workflows/`. The kill switch's flag logic was tested against mocked PostHog responses and fails closed. It needs three new Actions variables: `POSTHOG_HOST`, `POSTHOG_PROJECT_ID`, and `LOOP_MAX_BUDGET_USD` (the per-run spend cap, the owner's call; the run doesn't start while it's unset).
 2. CODEOWNERS and the tiered auto-merge, plus an ADR for the merge tiers.
 3. The `#build-inbox` reader with the user-ID check, and posting as the bot.
 4. The morning digest.
@@ -227,6 +227,9 @@ Everything under `.github/` and `.claude/` is denied to the agent, so give the o
 The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberately not committed: public repo, REV2 bans real manufacturer names outside `docs/`). After seeding: a real form submission (Turnstile + `X-Autoverse-Key` + `X-Autoverse-Market`) should give 201, one lead, and a Resend email within a minute. That also proves a real delivery, which the CI gate can't (its brand has no recipients).
 
 ### Known follow-ups (not blocking)
+
+- **Scratch branch `chore/scratch-deny-test`** (PR #43, closed) is still on GitHub. This environment's git proxy cut off `git push --delete` twice. Owner: use "Delete branch" on #43.
+- **Guard over-block:** GitHub's `list_branches` is blocked as a Supabase tool (the two connectors share the name). Next guard PR: add it to the shared-name exemption keyed on `project_id`. This fails closed, so it isn't a hole.
 
 - BLOCK #7 (`lead_activities` composite FK), #8 (`LeadRepository.create` bypasses `capture_lead`), #9 (event payload size; a Tier B question, not yet posted).
 - When a `leads` CHECK constraint fails, Postgres logs the whole failing row (name, phone). `capture_lead` should raise its own messages first.
