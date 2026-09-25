@@ -1,0 +1,1 @@
+Throwaway file for the scratch-PR deny test (ADR 0010). This PR is closed unmerged.
