@@ -1,114 +1,79 @@
-# Runbook — the two `main` rulesets and the owner's merge bypass
+# Runbook — the two `main` rulesets (as built)
 
-Owner-only. It sets up the server-side half of the merge model in ADR 0010 (_Merging and approval_).
+Owner-only. This is the server-side half of the merge model in ADR 0010 (_Merging and approval_).
 Agents never touch it: `gh api`, `gh ruleset` and every merge, approve and auto-merge path are
-denied to them, and the scratch-PR test on 2026-09-25 (PR #43, results in `#build`) proved it.
+denied to them. The scratch-PR test on 2026-09-25 (PR #43, results in `#build`) proved that.
 
-**The problem this solves.** Code-owner review on `main` would deadlock the owner's own PRs. A PR's
-author can't approve it, and the owner is the only code owner. The fix is two rulesets:
+## What's active on `main` (owner, 2026-09-25)
 
-1. **CI checks**, with **no bypass for anyone.** Nothing reaches `main` red, the owner's PRs included.
-2. **Code-owner review**, with **the owner's admin bypass, for pull requests only.** The owner can
-   merge their own human-tier PR past the review rule, but only through a PR, so ruleset 1 still
-   applies. No app is on either bypass list.
+| Ruleset       | Rules                                                                                                                        | Bypass   |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `main-ci`     | Require status checks: `verify`, `isolation`, `phase-gate`, `secrets` (from `CI`) and `deno`. **Branch must be up to date.** | **None** |
+| `main-review` | Require a pull request, **0** approvals, **review from Code Owners** on paths listed in `.github/CODEOWNERS`                 | **None** |
 
-A path with no code owner needs no review, so docs, tests and UI PRs stay in the auto-merge tier
-(spec §4). That tier is switched on later by the merge-tiers ADR, not by this runbook.
+The classic branch-protection rule is deleted. The rulesets are the only protection.
 
-## 0. Before you start
+Owner-verified results:
 
-- **CODEOWNERS must be on `main` first.** Without it, "Require review from Code Owners" matches no
-  file and does nothing. The agent can't write under `.github/`, so you add it, as a normal PR that
-  you merge. Suggested content is at the end of this runbook.
-- Leave **Settings → General → Pull Requests → Allow auto-merge** as it is (off). It stays held
-  until the merge-tiers ADR (PROGRESS "Human-only setup").
-- The required checks must have run in the last 7 days to show up in the picker. Any recent PR
-  covers that.
+- A direct push to `main` is rejected.
+- A docs PR (no code-owned path) can merge without review.
+- Owner-authored PRs pass code-owner review without a bypass. See the caveat below: this needs
+  re-checking once CODEOWNERS is clean.
 
-## 1. Ruleset A — `main: CI checks` (no bypass)
+Neither ruleset has a bypass, so the owner has no merge path the rules don't also see. That is
+stricter than the first draft of this runbook, which gave the owner a pull-request-only bypass.
 
-**Settings → Rules → Rulesets → New ruleset → New branch ruleset.**
+**Don't require** `Smoke (post-deploy)`, Vercel or Supabase checks. They don't run on every PR, and
+a required check that never reports blocks the merge forever.
 
-| Field                 | Value                                                                                                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ruleset name          | `main: CI checks`                                                                                                                            |
-| Enforcement status    | **Active**                                                                                                                                   |
-| Bypass list           | **Leave empty.** Don't add Repository admin, and don't add any app                                                                           |
-| Target branches       | **Add target → Include default branch**                                                                                                      |
-| Restrict deletions    | ✅ on                                                                                                                                        |
-| Block force pushes    | ✅ on                                                                                                                                        |
-| Require status checks | ✅ on, then **Add checks**, source **GitHub Actions**: `verify`, `isolation`, `phase-gate`, `secrets` (all from `CI`), and `deno`            |
-| ↳ up to date          | Off. It forces a base merge after every merge to `main`, and CI already runs again on `main` after each merge (`push: { branches: [main] }`) |
-| ↳ skip on creation    | Off                                                                                                                                          |
-| Every other rule      | Off. Pull-request and review rules go in ruleset B                                                                                           |
+**Because of "up to date":** a PR must contain the tip of `main` before it can merge. An agent brings
+its branch up to date with `git merge origin/main` (allowed, ADR 0010) and pushes. It never uses
+the "Update branch" button, which is a GitHub write through the owner's identity.
 
-**Create.**
+## ⚠ Open items (2026-09-25)
 
-Don't require `Smoke (post-deploy)`: it runs on `deployment_status`, not on PRs, so a PR would never
-get it and would wait forever. Leave the Vercel and Supabase integration checks out too. Neither is
-a gate in production plan §10, and a required check that doesn't report blocks the merge.
+1. **`.github/CODEOWNERS` on `main` contains this whole runbook** (#45 pasted all 116 lines; only
+   lines 103–111 are ownership rules). GitHub skips the invalid lines, so the nine rules probably
+   still apply. But the file view shows dozens of errors, and a stray single-word line counts as an
+   ownerless rule. Last match wins, so such a line can quietly un-own paths. Replace the file with
+   the nine rules alone. The clean file was sent to the owner in the session.
+2. **"Owner-authored PRs pass code-owner review automatically" needs a real test.** When #45 merged,
+   `main` had no CODEOWNERS, and GitHub reads CODEOWNERS from the base branch, so #45 wasn't subject
+   to the rule. #44 touched only unowned paths. GitHub normally won't let a PR author satisfy their
+   own code-owner review. If the owner is the only code owner, their human-tier PRs may be blocked,
+   with no bypass to fall back on. **Test:** once CODEOWNERS is clean, open a one-line owner PR under
+   `docs/adr/` and see whether the merge button is enabled.
+   - _If it's blocked:_ add **Repository admin → For pull requests only** to `main-review`'s bypass
+     list (never to `main-ci`).
+   - _If it passes:_ keep reading.
+3. **If owner-authored PRs do pass automatically, so do PRs from claude.ai sessions.** Those sessions
+   act on GitHub as the owner (ADR 0010; #40 and #44 show the owner as author). Such a PR on a
+   human-tier path would need no review, and the only human gate left is the merge click itself.
+   Agent sessions can't make that click (the settings deny list and the guard). That holds today,
+   because auto-merge is off. **The merge-tiers ADR must therefore auto-merge only PRs authored by
+   the `autoverse-agent` App,** and only when they touch no code-owned path. A PR authored by the
+   owner is never auto-merged, whoever opened it.
 
-## 2. Ruleset B — `main: code-owner review` (owner bypass, pull requests only)
+The unattended runner (ADR 0014) authors as the `autoverse-agent` App, so its human-tier PRs always
+need the owner's code-owner review.
 
-**New ruleset → New branch ruleset** again.
+## Re-checking after any change
 
-| Field                                  | Value                                                                                                                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ruleset name                           | `main: code-owner review`                                                                                                                                                                   |
-| Enforcement status                     | **Active**                                                                                                                                                                                  |
-| Bypass list                            | **Add bypass → Repository admin**. Then open its menu and choose **For pull requests only** (not _Always allow_). Add nothing else: no Claude app, no `autoverse-agent` app, no deploy keys |
-| Target branches                        | **Include default branch**                                                                                                                                                                  |
-| Require a pull request before merging  | ✅ on                                                                                                                                                                                       |
-| ↳ Required approvals                   | **0**. The code-owner rule below is the only review requirement                                                                                                                             |
-| ↳ Dismiss stale approvals on new push  | ✅ on                                                                                                                                                                                       |
-| ↳ Require review from Code Owners      | ✅ on                                                                                                                                                                                       |
-| ↳ Require approval of most recent push | Off. You're the only code owner, so a fix-up you push to an agent PR could never be approved by anyone else. Stale-approval dismissal already covers agent pushes                           |
-| ↳ Require conversation resolution      | ✅ on                                                                                                                                                                                       |
-| ↳ Allowed merge methods                | Leave all three on (the repo merges with merge commits today)                                                                                                                               |
-| Every other rule                       | Off                                                                                                                                                                                         |
-
-**Create.**
-
-_For pull requests only_ means the bypass can't be used to push to `main` directly. It only appears
-as the "Merge without waiting for requirements to be met (bypass rules)" box on a PR's merge button.
-Ruleset A has no bypass, so even then the PR has to be green.
-
-## 3. Check it (a few minutes)
-
-1. **Ruleset A:** on any PR with a required check still pending, the merge button is blocked, and
-   there is no bypass box for the CI checks.
-2. **Ruleset B, agent PR:** an agent PR that touches a code-owned path (for example `services/`)
-   shows "Review required: code owner". Approve it from the GitHub UI and it can merge once green.
-3. **Ruleset B, your own PR:** a PR you authored that touches a code-owned path shows the bypass box
-   once CI is green. That is the deadlock resolved.
-4. **Agent docs PR:** a docs-only agent PR needs no review, only green CI.
+1. A PR with a required check still pending can't merge, and there is no bypass box.
+2. An App-authored PR touching a code-owned path (for example `services/`) shows "Review required:
+   code owner". The owner approves it in the GitHub UI, and it merges once green and up to date.
+3. A docs-only PR needs only green CI.
+4. A direct push to `main` is rejected.
 5. Post the outcome in `#build`, and have the agent record it in `PROGRESS.md`.
 
-## The remaining risk, stated plainly
+## CODEOWNERS
 
-A claude.ai session acts on GitHub **as you** (ADR 0010). To GitHub, such a session has your admin
-bypass on ruleset B. Only the agent-side layers stop it from using that bypass: the settings deny
-list and the guard hook, which the scratch-PR test proved. Ruleset A still holds either way, so the
-worst case is "merged green without review", never "merged red". The unattended runner (ADR 0014)
-uses the `autoverse-agent` App token, which is on neither bypass list, so it can't bypass anything.
+The file lives at `.github/CODEOWNERS` (human-tier itself; the agent can't edit `.github/`). The
+paths are the owner's, extending spec §4:
 
-## Suggested `.github/CODEOWNERS`
-
-Paths from spec §4 (human-tier). The last two lines are additions: the operating manual and the
-loop's own spec are guardrails, and spec §7 already forbids the agent from editing them.
-
-```
-# Human-tier paths (specs/SPEC-autonomous-loop.md §4). Any PR touching one needs the owner.
-# A PR that touches both tiers is human-tier.
-/supabase/migrations/            @TheYazeedShaker
-/services/                       @TheYazeedShaker
-/packages/types/                 @TheYazeedShaker
-/.github/                        @TheYazeedShaker
-/.claude/                        @TheYazeedShaker
-/CLAUDE.md                       @TheYazeedShaker
-/specs/SPEC-autonomous-loop.md   @TheYazeedShaker
-```
-
-All of `services/` is listed because every current function touches leads or auth: `capture-lead`,
-`ingest-event` (caller authorization), `validate-theme` (brand write auth), `job-worker` (lead
-notifications) and `shared`. RLS lives in migrations, so `/supabase/migrations/` covers it.
+- `supabase/`: migrations and RLS, plus the gate and tests.
+- `services/`: every current function touches leads or auth.
+- `packages/types/`: the configurator protocol.
+- `.github/`, `.claude/` and `CLAUDE.md`: the loop's guardrails.
+- `specs/`: the loop spec among them.
+- `docs/adr/`: decisions.
