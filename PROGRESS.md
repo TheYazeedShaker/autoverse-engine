@@ -4,8 +4,8 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-24 (night)
-**Last session:** **ENGINE-CORE-1A is done.** #32–#37 merged. The owner finished the hosted setup (secrets, Vault, required checks incl. `deno`, all four functions deployed). Verified on hosted: 16 migrations applied, pg_cron has fired the worker every minute (70 ticks, 0 failed, HTTP 200 as `cron`), the queues are empty, and the functions refuse unauthenticated calls. The phase gate reran on `main` (`9a1925f`) with the worker doing the replay: PASSED. Evidence is in `#build`.
+**Last updated:** 2026-09-25
+**Last session:** **AUTONOMOUS-LOOP-P2 started, and its precondition PASSED.** A fresh session tried seven denied actions: a hosted-DB read over MCP, `.env` and `.env.local` reads, an Edit and a shell write under `.github/`, `gh api`, and a `design/` read. All seven were refused, and nothing changed on disk. Evidence is in `#build`. The owner finished most of the human-only setup, and the runner decision is recorded in ADR 0014.
 
 ---
 
@@ -101,6 +101,7 @@
 - **Every PR targets `main`. Never stack PRs on each other's branches** (owner, 2026-09-24). Work that needs an unmerged PR waits, or opens as a draft against `main` and is rebased once its dependency lands.
 - **Escalation protocol** (ADR 0009). Tier A: the architect cites the docs, and the citation goes in the PR. Tier B: post in `#build-decisions` in the spec's format, move to independent work, and check the threads every cycle. Tier C: HUMAN ONLY, act only on the owner's reply.
 - **Leads are idempotent on a form-minted `submission_id`**, unique per brand. The consumer form (1·C) must mint one per submit and keep it across retries.
+- **Loop runner** (ADR 0014, owner 2026-09-25): GitHub Actions, one fresh session per run. It uses the `ANTHROPIC_API_KEY` secret (spend-capped), not federation. OIDC federation is recorded as future hardening. The agent's GitHub App secrets are `APP_ID` / `APP_PRIVATE_KEY`.
 - **Dead letters are resolved (`resolved_at`), never deleted.** `error_message` keeps the original cause; `last_error` holds the latest replay failure.
 
 ## Known Issues / TODOs
@@ -182,20 +183,48 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ## Next Session — Start Here
 
-`ENGINE-CORE-1A` is **done**. Per `BACKLOG.md`, the next startable task is **`AUTONOMOUS-LOOP-P2`** (runner, tiered auto-merge, morning digest; its dependency, the 1·A phase gate, is met). `AUTONOMOUS-LOOP-P1` is still in progress: its acceptance list (spec §8) isn't fully proven yet.
+`ENGINE-CORE-1A` is **done**. **`AUTONOMOUS-LOOP-P2` is in progress** (BACKLOG). `AUTONOMOUS-LOOP-P1` stays in progress until its acceptance items are proven (several are proven by P2's own acceptance run).
 
-### 1. First
+### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
-- Check `#build-decisions` for new threads (every cycle).
-- **Guard hook check:** in this session a hosted-Supabase MCP read wasn't blocked, although ADR 0010's guard should block it. Confirm in a fresh session that `.claude/settings.json` hooks load (try a denied action, e.g. an Edit under `.github/`, or `list_migrations`).
+A fresh session tried seven denied actions, and all seven were refused (evidence in `#build`):
 
-### 2. End-to-end lead test (owner-led)
+- **Guard hook:** a hosted-DB read over MCP (`list_migrations`), a shell append to `.github/workflows/ci.yml`, and a shell read inside `design/`.
+- **Permission rules:** Read `.env`, Read `.env.local`, an Edit to `.github/workflows/ci.yml`, and `gh api`.
+
+This confirms that hooks load at session start. The 1·A session that read the hosted DB started before the hook existed. **Keep the loop's runs fresh sessions**: a new process per run, never a resumed long-lived one.
+
+The guard matches command text, including text inside heredocs, so a shell command that only _mentions_ a `design/` path is blocked too. Use the Edit tool for docs that name such paths.
+
+The precondition text itself is on `TheYazeedShaker-patch-2`, which isn't on `main` yet. The agent can't edit the spec (ADR 0010), so the owner opens that PR. Run `pnpm format` on it first: the edit removed the blank lines before lists, so it may fail the format check.
+
+### 2. Human-only setup (owner, 2026-09-25)
+
+| Item                                                                  | State                                                                                                                      |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Slack bot in `#build-inbox` + `SLACK_BOT_TOKEN` secret                | ✅ bot is a channel member (checked). The secret is set per the owner (the agent can't read Actions secrets)               |
+| Owner's Slack user ID                                                 | ✅ confirmed, and set as the `OWNER_SLACK_USER_ID` Actions variable per the owner. It stays out of the repo                |
+| `ANTHROPIC_API_KEY` secret with a spend cap                           | ✅ per the owner. The key stays; OIDC federation is future hardening (ADR 0014)                                            |
+| GitHub App                                                            | ✅ per the owner. Secrets are named **`APP_ID`** and **`APP_PRIVATE_KEY`** (these replace the earlier `AGENT_APP_*` names) |
+| PostHog flag `agent_loop_enabled`                                     | ✅ exists and is off (checked)                                                                                             |
+| `POSTHOG_PERSONAL_API_KEY` secret (the runner reads the flag with it) | ✅ per the owner                                                                                                           |
+| Allow auto-merge; require code-owner review with 0 approvals          | ⏳ held until the owner decides how owner-authored human-tier PRs merge (options in `#build-decisions`, 2026-09-25)        |
+
+### 3. Build Part 2
+
+In this order:
+
+1. The runner workflow and the kill switch (`PAUSE` + flag), per ADR 0014.
+2. CODEOWNERS and the tiered auto-merge, plus an ADR for the merge tiers.
+3. The `#build-inbox` reader with the user-ID check, and posting as the bot.
+4. The morning digest.
+5. The isolation-failure drill.
+
+Everything under `.github/` and `.claude/` is denied to the agent, so give the owner the exact files to add, as #36 did.
+
+### 4. End-to-end lead test (owner-led)
 
 The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberately not committed: public repo, REV2 bans real manufacturer names outside `docs/`). After seeding: a real form submission (Turnstile + `X-Autoverse-Key` + `X-Autoverse-Market`) should give 201, one lead, and a Resend email within a minute. That also proves a real delivery, which the CI gate can't (its brand has no recipients).
-
-### 3. AUTONOMOUS-LOOP-P2
-
-Runner (GitHub Actions vs VM, ADR), kill switch (`PAUSE` + `agent_loop_enabled` flag), tiered auto-merge (CODEOWNERS + path rules), morning digest. It touches `.github/` and `.claude/`, which the permission model denies the agent, so expect to hand the owner exact YAML/config the way #36 did.
 
 ### Known follow-ups (not blocking)
 
