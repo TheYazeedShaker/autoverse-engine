@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-25
-**Last session:** **Interactive session. The loop runner is OFF.** BLOCK #7 and #8 are fixed in PRs #57 and #58, and both passed `code-reviewer` and `security-review`. The runner's workspace-trust failure is recorded in ADR 0014, together with the difference between the monthly spend limit and the per-run budget. A patch that fails any untrusted run was handed to the owner (`.github/` is theirs).
+**Last session:** **Interactive session. The loop runner is OFF.** BLOCK #7 and #8 are fixed and merged (#57, #58), after both passed `code-reviewer` and `security-review`. BLOCK #9 is posted as a Tier B decision. The runner's workspace-trust failure is recorded in ADR 0014, together with the difference between the monthly spend limit and the per-run budget. A patch that fails any untrusted run was handed to the owner (`.github/` is theirs).
 
 ---
 
@@ -127,8 +127,8 @@ Interactive session, 2026-09-25. The unattended runner is **off** (see _Decision
 > - **Merged:** #4 (#26), #5 (#27), #6 (#28), and the #1 groundwork (#30).
 > - #2 and #3: the scheduled worker plus a worker-driven gate are in **#33**.
 > - #1: enforcement on the anon key, with Turnstile and rate limits, is in **#34**.
-> - #7: **PR #57** (composite FK + test 0017), 2026-09-25.
-> - #8: **PR #58** (`LeadRepository.create` → `capture_lead`), 2026-09-25.
+> - #7: **merged, PR #57** (composite FK + test 0017), 2026-09-25.
+> - #8: **merged, PR #58** (`LeadRepository.create` → `capture_lead`), 2026-09-25.
 > - #9: Tier B posted in `#build-decisions` 2026-09-25 (payload size cap; recommendation: 8 KB, Zod + DB CHECK, refuse rather than dead-letter). Waiting on the owner's reply.
 
 The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
@@ -187,9 +187,9 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ### 0. First thing next session
 
-1. **PRs #57 (BLOCK #7) and #58 (BLOCK #8):** both approved by both reviewers, and both fully green in CI (every check passed; only `smoke` and `Supabase Preview` skipped). Once they merge, set `BLOCK-FIX-7`/`-8` to `done` in `BACKLOG.md`. #57's migration then reaches the hosted DB. It fails if any existing activity's brand doesn't match its lead's, which is the intended outcome. A one-off count on the hosted DB beforehand avoids a surprise (owner: the guard blocks the agent from hosted-DB reads).
+1. **BLOCK #7 and #8 are merged** (#57, #58, 2026-09-25; `done` in `BACKLOG.md`). Confirm that the Supabase check on `main` applied `20260925120000_lead_activities_brand_fk` to the hosted DB. It would fail only if an existing activity's brand doesn't match its lead's; that's the intended outcome, and it needs the owner, because the guard blocks the agent from hosted-DB reads.
 2. **Owner: apply the trust-check patch** to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the workspace monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD` before any trial.
-3. Nothing in `BACKLOG.md` is startable after #57/#58: BLOCK #9 waits on the owner's reply to its Tier B post in `#build-decisions` (event payload size cap), and everything else is `awaiting-spec`. Check that thread first.
+3. Nothing in `BACKLOG.md` is startable now: BLOCK #9 waits on the owner's reply to its Tier B post in `#build-decisions` (event payload size cap), and everything else is `awaiting-spec`. Check that thread first.
 
 ### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
@@ -251,7 +251,7 @@ The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberat
 - **Scratch branch `chore/scratch-deny-test`** (PR #43, closed) is still on GitHub. This environment's git proxy cut off `git push --delete` twice. Owner: use "Delete branch" on #43.
 - **Guard over-block:** GitHub's `list_branches` is blocked as a Supabase tool (the two connectors share the name). Next guard PR: add it to the shared-name exemption keyed on `project_id`. This fails closed, so it isn't a hole.
 
-- BLOCK #9 (event payload size): Tier B posted 2026-09-25, awaiting a reply. #7 and #8 are in PRs #57 and #58.
+- BLOCK #9 (event payload size): Tier B posted 2026-09-25, awaiting a reply. #7 and #8 are merged (#57, #58).
 - From the #57/#58 reviews (none introduced by those PRs):
   - A CI canary for 0017 (drop `lead_activities_lead_brand_fkey`, require a `CRITICAL`). This goes in `ci.yml`, so the owner adds it.
   - A lead with activities can't be hard-deleted: the cascade hits the append-only trigger. The erasure / right-to-delete path needs a design (ADR).
