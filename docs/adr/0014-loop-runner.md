@@ -12,8 +12,9 @@ owner's.
 
 ## Decision
 
-- **Runner: GitHub Actions.** It's a scheduled workflow plus `workflow_dispatch`, and also runs on
-  push to `main`. The repo is public (ADR 0008), so the minutes are free. There's no VM to patch,
+- **Runner: GitHub Actions.** It's a scheduled workflow plus `workflow_dispatch`, and nothing else
+  (amended 2026-09-25, owner: no push trigger, so the loop's own merges never start a run). The spec's
+  "on merge to `main`" is covered by the next scheduled run. The repo is public (ADR 0008), so the minutes are free. There's no VM to patch,
   and each run starts in a clean, throwaway container, which is where ADR 0010 allows unattended
   permission modes.
 - **One run at a time:** a `concurrency` group with `cancel-in-progress: false`. Max runtime is set
@@ -27,12 +28,32 @@ owner's.
   - GitHub: a GitHub App, through the Actions secrets `APP_ID` and `APP_PRIVATE_KEY`. Each run mints
     a short-lived installation token, so the agent's PRs aren't authored by the owner and the owner
     can approve them.
-  - Slack: the `SLACK_BOT_TOKEN` secret, for the bot the owner added to `#build-inbox`.
+  - Slack: the `SLACK_BOT_TOKEN` secret, for the bot the owner added to `#build-inbox`. Only the
+    `inbox` and `post` jobs get it, never the agent.
   - The owner's Slack user ID goes in an Actions **variable** (`OWNER_SLACK_USER_ID`), not in the
     repo. It's the only ID whose `#build-inbox` instructions and Tier C replies are honoured.
-- **Least privilege:** the workflow's default `GITHUB_TOKEN` gets `contents: read`. Writes go through
-  the App token. The App should be installed on this repo only, and must never be on a
-  branch-protection bypass list. `main` is changed only by merging PRs.
+- **The agent's job holds nothing worth stealing** (amended 2026-09-25 after security review).
+  The agent can run arbitrary code in its own job (it edits files and runs `pnpm` scripts), and any
+  secret a job references can be read from the runner. So the workflow is five jobs, and only the
+  `agent` job runs agent-influenced code. It holds `ANTHROPIC_API_KEY` and a read-only
+  `GITHUB_TOKEN`, and nothing else:
+  - `gate`: the PostHog key. It checks the kill switch.
+  - `inbox`: the Slack token. It passes the owner's messages on through job outputs.
+  - `agent`: works on local `agent/*` branches, and leaves a git bundle, PR requests, Slack messages
+    and an optional pause request in a one-day artifact.
+  - `publish`: a fresh runner on `main`, and the only job with the App key. It re-checks the kill
+    switch, mints a token with `contents` and `pull-requests` only (no `workflows`), pushes
+    `agent/*` branches fast-forward only, never deletes, and opens PRs. On a pause request it creates
+    `loop/pause` itself.
+  - `post`: a fresh runner on `main` with the Slack token. It posts the messages, marks the inbox
+    read and sends the digest.
+
+  `publish` and `post` read the artifact only as data. Checkout uses `persist-credentials: false`.
+  Every external action is pinned to a full commit SHA, and Claude Code is pinned to an exact version
+  whose `--max-budget-usd` caps each run at the `LOOP_MAX_BUDGET_USD` variable. The App should be
+  installed on this repo only, with only the contents and pull-requests permissions. It must never
+  be on a branch-protection bypass list. `main` changes only by merging PRs.
+
 - **The agent runs under the repo's `.claude/settings.json`** (ADR 0010). The runner doesn't pass
   extra allow rules, and it doesn't skip permission checks.
 
@@ -63,4 +84,3 @@ owner's.
   Anthropic organisation: trust GitHub's OIDC issuer, limited to this repo and the runner workflow on
   `main`, with short-lived credentials per run. Then delete the stored key. Do the same for any other
   provider that supports federation.
-- Pin third-party actions in the runner workflow to commit SHAs.

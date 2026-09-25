@@ -42,3 +42,6 @@ design/
 
 supabase/.branches
 supabase/.temp
+
+# Loop runner scratch (Slack inbox/outbox for one run; never committed)
+.loop/
