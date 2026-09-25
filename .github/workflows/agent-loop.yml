@@ -141,6 +141,10 @@ jobs:
           cp .github/scripts/loop/prompt.md .loop/prompt.md
           git config --global user.name "$AGENT_APP_LOGIN"
           git config --global user.email "${AGENT_APP_LOGIN}@users.noreply.github.com"
+          # Trust this checkout so .claude/settings.json and the guard hook apply.
+          # Safe: runs happen only from main, where .claude/ is code-owned (ADR 0010).
+          f="$HOME/.claude.json"; [ -s "$f" ] || echo '{}' > "$f"
+          jq --arg p "$GITHUB_WORKSPACE" '.projects[$p].hasTrustDialogAccepted = true' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 
       - name: Isolation drill
         if: inputs.drill == 'isolation'
