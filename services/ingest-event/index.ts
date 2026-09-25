@@ -18,7 +18,13 @@ import {
   readPublicCaller,
   refusalStatus,
 } from "../shared/public-caller.ts";
-import { decidePublicBatch } from "./ingest.ts";
+import {
+  MAX_BODY_BYTES,
+  MAX_PAYLOAD_BYTES,
+  decidePublicBatch,
+  hasOversizedPayload,
+  readCappedText,
+} from "./ingest.ts";
 
 const log = logger("ingest-event");
 const REQUIRED = [
@@ -52,14 +58,28 @@ Deno.serve(async (request: Request) => {
     return json({ error: "Not authorized.", trace_id: traceId }, 403);
   }
 
+  // Size is refused, never dead-lettered (ADR 0016): events are write-once and can't be trimmed.
+  const tooLarge = (reason: string, error: string) => {
+    log("warn", "events_refused_too_large", { trace_id: traceId, reason, market: caller.market });
+    return json({ error, trace_id: traceId }, 413);
+  };
+  const bodyTooLarge = `Request body is larger than ${MAX_BODY_BYTES / 1024} KB.`;
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
+    return tooLarge("body", bodyTooLarge);
+  }
+  const text = await readCappedText(request.body, MAX_BODY_BYTES);
+  if (text === null) return tooLarge("body", bodyTooLarge);
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(text);
   } catch {
     // Not even JSON: nothing to dead-letter meaningfully, and nothing to retry.
     log("warn", "events_refused_not_json", { trace_id: traceId });
     return json({ error: "Body must be JSON.", trace_id: traceId }, 400);
   }
+  const payloadTooLarge = `An event payload is larger than ${MAX_PAYLOAD_BYTES / 1024} KB.`;
+  if (hasOversizedPayload(body)) return tooLarge("payload", payloadTooLarge);
 
   const decisions = decidePublicBatch(body);
   const accepted = decisions.flatMap((d) => (d.outcome === "accept" ? [d.event] : []));
@@ -96,7 +116,9 @@ Deno.serve(async (request: Request) => {
     return json({ error: "Could not accept events.", trace_id: traceId }, 503);
   }
 
-  const result = (data ?? {}) as { accepted?: number; dead_lettered?: number };
+  const result = (data ?? {}) as { accepted?: number; dead_lettered?: number; refused?: string };
+  // The database measures payloads its own way, slightly stricter near the limit (ingest.ts).
+  if (result.refused === "payload_too_large") return tooLarge("payload_db", payloadTooLarge);
   log("info", "events_ingested", { trace_id: traceId, market: caller.market, ...result });
   return json({ ...result, trace_id: traceId }, 202);
 });

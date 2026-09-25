@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ATTEMPTS, decide, decideBatch, planReplay } from "./ingest";
+import {
+  MAX_ATTEMPTS,
+  MAX_BODY_BYTES,
+  MAX_PAYLOAD_BYTES,
+  decide,
+  decideBatch,
+  hasOversizedPayload,
+  payloadBytes,
+  planReplay,
+  readCappedText,
+} from "./ingest";
 
 const valid = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -77,5 +87,69 @@ describe("planReplay", () => {
     const plan = planReplay({ id: "dlq-1", source_payload: { nonsense: true }, attempts: 0 });
     expect(plan.action).toBe("give-up");
     if (plan.action === "give-up") expect(plan.reason).toContain("id");
+  });
+});
+
+// BLOCK #9 (ADR 0016): 8 KB per payload, 256 KB per request, and size is refused, not dead-lettered.
+describe("payload and body size", () => {
+  // {"x":"aaa…"} as JSON.stringify writes it: 8 bytes of wrapping.
+  const payloadOf = (bytes: number) => ({ x: "a".repeat(bytes - 8) });
+
+  it("measures a payload as its UTF-8 JSON", () => {
+    expect(payloadBytes(payloadOf(MAX_PAYLOAD_BYTES))).toBe(MAX_PAYLOAD_BYTES);
+    expect(payloadBytes({ x: "é" })).toBe(10); // é is two bytes
+  });
+
+  it("accepts a payload at the limit and refuses one byte over", () => {
+    expect(decide({ ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES) }).outcome).toBe("accept");
+    const over = decide({ ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES + 1) });
+    expect(over.outcome).toBe("dead-letter");
+    if (over.outcome === "dead-letter") expect(over.error_message).toContain("payload");
+  });
+
+  it("flags a body holding any oversized payload, single or batched", () => {
+    const big = { ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES + 1) };
+    expect(hasOversizedPayload(big)).toBe(true);
+    expect(hasOversizedPayload([valid, big])).toBe(true);
+    expect(hasOversizedPayload([valid, { ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES) }])).toBe(
+      false,
+    );
+    // A non-object payload is measured too: it would be dead-lettered verbatim otherwise.
+    expect(hasOversizedPayload({ ...valid, payload: "a".repeat(MAX_PAYLOAD_BYTES) })).toBe(true);
+    expect(hasOversizedPayload(null)).toBe(false);
+  });
+
+  it("gives up on replaying an oversized dead letter at once, instead of retrying it", () => {
+    const plan = planReplay({
+      id: "dlq-1",
+      source_payload: { ...valid, payload: payloadOf(MAX_PAYLOAD_BYTES + 1) },
+      attempts: 0,
+    });
+    expect(plan.action).toBe("give-up");
+  });
+
+  const stream = (...chunks: string[]) =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const c of chunks) controller.enqueue(new TextEncoder().encode(c));
+        controller.close();
+      },
+    });
+
+  it("reads a body up to the cap", async () => {
+    expect(await readCappedText(stream("ab", "cd"), 4)).toBe("abcd");
+    expect(await readCappedText(null, 4)).toBe("");
+  });
+
+  it("stops reading as soon as a body passes the cap, whatever Content-Length said", async () => {
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new Uint8Array(1024));
+      },
+    });
+    expect(await readCappedText(endless, MAX_BODY_BYTES)).toBeNull();
+    expect(pulled).toBeLessThanOrEqual(MAX_BODY_BYTES / 1024 + 2);
   });
 });
