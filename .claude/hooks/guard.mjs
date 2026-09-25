@@ -3,7 +3,8 @@
 //
 // Read/Edit deny rules only cover Claude's file tools. A shell command can still `cat design/…`,
 // `sed -i` the settings file, or `rm -rf` outside the repo. This PreToolUse hook sees every
-// Bash/PowerShell command and the hosted-Supabase MCP tools, and blocks those shapes too.
+// Bash/PowerShell command, the hosted-Supabase MCP tools, and the GitHub merge/approve and file
+// tools, and blocks those shapes too.
 //
 // It is a heuristic over command text, not a sandbox. The server-side backstop is branch
 // protection on main. It fails CLOSED: any error in here blocks the call.
@@ -27,7 +28,24 @@ const SUPABASE_ONLY =
   /__(apply_migration|execute_sql|deploy_edge_function|list_migrations|list_tables|list_extensions|list_edge_functions|get_edge_function|get_advisors|query_logs|get_logs|generate_typescript_types|get_publishable_keys|get_project_url|create_branch|delete_branch|merge_branch|reset_branch|rebase_branch|list_branches|restore_project|confirm_cost|get_cost|list_organizations|get_organization)$/;
 const SHARED = /__(pause_project|create_project|get_project|list_projects)$/;
 
+// Merging and approving pull requests are the owner's. claude.ai sessions act on GitHub as the owner,
+// so they would carry the owner's ruleset bypass and code-owner approval. Matched by tool name
+// because the GitHub connector's server id differs per machine.
+const MERGE_OR_APPROVE = /__(merge_pull_request|enable_pr_auto_merge|pull_request_review_write)$/;
+// The GitHub file tools commit straight to a branch through the API, so the `git push … main` deny
+// doesn't see them. A missing branch counts as main: the API then writes to the default branch.
+const FILE_WRITE = /__(push_files|create_or_update_file|delete_file)$/;
+
 function checkMcp(toolName, toolInput) {
+  if (MERGE_OR_APPROVE.test(toolName))
+    block(`${toolName} merges or approves a pull request; only the owner does that`);
+  if (FILE_WRITE.test(toolName)) {
+    const branch = String(toolInput?.branch ?? "")
+      .trim()
+      .replace(/^refs\/heads\//i, "");
+    if (branch === "" || branch.toLowerCase() === "main")
+      block(`${toolName} would commit straight to main; open a PR from a branch instead`);
+  }
   if (SUPABASE_ONLY.test(toolName)) block(`${toolName} reaches the hosted Supabase project`);
   if (SHARED.test(toolName)) {
     const keys = Object.keys(toolInput ?? {});
@@ -97,12 +115,40 @@ const WRITE_VERB =
 const DELETE_CMD = /^(rm|rmdir|unlink|Remove-Item|ri|del|rd|erase)$/i;
 const REDIRECT = /^\d*>>?$|^&>$/;
 
+const WRAPPERS = /^(env|command|exec|sudo|nohup|time|xargs)$/;
+const SHELLS = /^(ba|z|da)?sh$|^(pwsh|powershell)(\.exe)?$/i;
+
+/** `gh pr merge`, `gh pr review` and `gh api` (a merge is a REST/GraphQL call too), also behind env/xargs. */
+function checkGh(words) {
+  let i = 0;
+  while (
+    i < words.length &&
+    (WRAPPERS.test(words[i]) || /^\w+=/.test(words[i]) || (i > 0 && words[i].startsWith("-")))
+  )
+    i += 1;
+  if (!/(^|[/\\])gh(\.exe)?$/i.test(words[i] ?? "")) return;
+  const args = words.slice(i + 1);
+  if (args.find((a) => !a.startsWith("-")) === "api")
+    block("gh api can merge, approve or change protection; only the owner does that");
+  for (let j = 0; j < args.length - 1; j += 1) {
+    if (args[j] === "pr" && /^(merge|review)$/.test(args[j + 1]))
+      block(`gh pr ${args[j + 1]}: merging and approving pull requests are the owner's`);
+  }
+}
+
 function checkShell(command) {
   let cwd = REPO;
 
   for (const segment of segments(command)) {
     const words = tokens(segment);
     const [cmd = "", ...args] = words;
+
+    checkGh(words);
+    // `bash -c "gh pr merge 1"`: check the inner command too.
+    const c = args.findIndex((a) => /^-(c|Command)$/i.test(a));
+    if (SHELLS.test(cmd) && c >= 0 && args[c + 1]) {
+      for (const inner of segments(args[c + 1])) checkGh(tokens(inner));
+    }
 
     // Commit messages and PR text mention paths without touching them, and design/ is gitignored.
     if (/^(git|gh)$/.test(cmd)) continue;

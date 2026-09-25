@@ -28,6 +28,17 @@ const BLOCKED = [
   "rm -rf ~/x",
   "rm -rf $SOMEVAR/x",
   "Remove-Item -Recurse C:/Temp",
+  "gh pr merge 12 --squash",
+  "gh pr merge --auto --squash 12",
+  "gh pr review 12 --approve",
+  "gh pr review -a 12",
+  "gh -R o/r pr merge 3",
+  "cd apps && gh pr merge 3",
+  "env GH_TOKEN=x gh pr merge 3",
+  "echo 3 | xargs gh pr merge",
+  'bash -c "gh pr merge 3"',
+  "gh api -X PUT repos/o/r/pulls/3/merge",
+  "gh api graphql -f query=x",
 ];
 
 const ALLOWED = [
@@ -42,6 +53,11 @@ const ALLOWED = [
   'rm -rf "$TMPDIR/x"',
   `rm -rf ${path.join(os.tmpdir(), "scratch").replace(/\\/g, "/")}`,
   "cd /d/autoverase-engine && pnpm test",
+  "gh pr view 12",
+  "gh pr checks 12 && gh pr diff 12",
+  "gh pr comment 12 --body ok",
+  'gh pr create --title x --body "the agent never runs gh pr merge"',
+  'git commit -m "block gh pr merge and gh api"',
 ];
 
 for (const command of BLOCKED) {
@@ -55,6 +71,42 @@ test("blocks hosted-Supabase MCP tools", () => {
   assert.equal(run({ tool_name: "mcp__abc__execute_sql", tool_input: {} }), 2);
   assert.equal(run({ tool_name: "mcp__abc__get_project", tool_input: { project_id: "x" } }), 2);
   assert.equal(run({ tool_name: "mcp__abc__pause_project", tool_input: { projectId: "x" } }), 2);
+});
+
+test("blocks the GitHub merge, approve and auto-merge tools under any server id", () => {
+  for (const server of ["github", "claude_ai_GitHub"]) {
+    for (const tool of [
+      "merge_pull_request",
+      "enable_pr_auto_merge",
+      "pull_request_review_write",
+    ]) {
+      assert.equal(run({ tool_name: `mcp__${server}__${tool}`, tool_input: {} }), 2);
+    }
+  }
+});
+
+test("leaves the GitHub read and PR-authoring tools alone", () => {
+  for (const tool of ["pull_request_read", "create_pull_request", "add_issue_comment"]) {
+    assert.equal(run({ tool_name: `mcp__github__${tool}`, tool_input: {} }), 0);
+  }
+});
+
+test("blocks the GitHub file tools from committing to main", () => {
+  for (const server of ["github", "claude_ai_GitHub"]) {
+    for (const tool of ["push_files", "create_or_update_file", "delete_file"]) {
+      for (const branch of ["main", "refs/heads/main", " Main ", undefined, ""]) {
+        assert.equal(run({ tool_name: `mcp__${server}__${tool}`, tool_input: { branch } }), 2);
+      }
+    }
+  }
+});
+
+test("lets the GitHub file tools commit to a feature branch", () => {
+  for (const tool of ["push_files", "create_or_update_file", "delete_file"]) {
+    for (const branch of ["feat/x", "maintenance", "claude/main-fix"]) {
+      assert.equal(run({ tool_name: `mcp__github__${tool}`, tool_input: { branch } }), 0);
+    }
+  }
 });
 
 test("leaves another connector's same-named read alone", () => {
