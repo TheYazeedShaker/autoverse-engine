@@ -1,11 +1,21 @@
 // Run: node --test .claude/hooks/guard.test.mjs
 // Each case feeds the hook the JSON Claude Code sends and checks the exit code (2 = blocked).
 import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+const REPO = path.resolve(import.meta.dirname, "..", "..");
 const HOOK = path.join(import.meta.dirname, "guard.mjs");
 const run = (input) =>
   spawnSync(process.execPath, [HOOK], {
@@ -111,6 +121,128 @@ test("lets the GitHub file tools commit to a feature branch", () => {
 
 test("leaves another connector's same-named read alone", () => {
   assert.equal(run({ tool_name: "mcp__vercel__get_project", tool_input: { projectId: "x" } }), 0);
+});
+
+// ---- design-approved/ and recursive searches (ADR 0010, "Approved design copies") ------------
+
+test("the shell can't read or write the approved design copies", () => {
+  for (const command of [
+    'cat "design-approved/showroom/VehicleCard.dc.html"',
+    "grep -n Configure design-approved/showroom/TechDrawer.dc.html",
+    "head -50 design-approved/showroom/TechDrawer.dc.html | less",
+    "cd design-approved && cat showroom/x.html",
+    "cp x.html design-approved/showroom/VehicleCard.dc.html",
+    "echo x > design-approved/showroom/VehicleCard.dc.html",
+    "sed -i s/a/b/ design-approved/showroom/VehicleCard.dc.html",
+  ]) {
+    assert.equal(bash(command), 2, command);
+  }
+});
+
+test("a recursive search whose root reaches design/ is refused", () => {
+  for (const command of [
+    "grep -rn Configure",
+    "grep -rn Configure .",
+    "grep -R -A 3 Configure",
+    "grep --recursive Configure design-approved",
+    "cd packages && grep -rn x ..",
+    "rgrep Configure",
+    "rg -uu Configure",
+    "rg --no-ignore x .",
+    // Spellings from the security review.
+    "rg --unrestricted x",
+    "rg --no-ignore-vcs x",
+    "grep -d recurse x .",
+    "grep --directories=recurse x",
+    "/usr/bin/grep -r x .",
+    "grep.exe -r x .",
+    "env grep -r x .",
+    "LC_ALL=C grep -r x",
+    "echo . | xargs grep -r x",
+    "command grep -r x",
+    "busybox grep -r x .",
+    'bash -c "grep -r x ."',
+    'bash -c "cat design/brief.md"',
+    "git grep --no-index x",
+    "git grep --untracked x",
+    "git diff --no-index /dev/null design/brief.md",
+    "RIPGREP_CONFIG_PATH=cfg rg x",
+    // Abbreviated long options and combined shell flags (second review).
+    "grep --recursiv x .",
+    "grep --direc=recurse x",
+    "git grep --no-inde x",
+    "git grep --untr x",
+    'bash -lc "grep -r x ."',
+    'env bash -c "grep -r x ."',
+  ]) {
+    assert.equal(bash(command), 2, command);
+  }
+});
+
+test("a search root that is a symlink is judged by where it points", (t) => {
+  const dir = mkdtempSync(path.join(REPO, "packages", "guard-"));
+  try {
+    try {
+      symlinkSync(REPO, path.join(dir, "up"), "junction");
+    } catch {
+      return t.skip("this machine can't create links");
+    }
+    const root = path.relative(REPO, path.join(dir, "up")).replace(/\\/g, "/");
+    assert.equal(bash(`grep -r x ${root}`), 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the files that decide what rg and git ignore are human-gated", () => {
+  for (const command of [
+    "echo '!design/' > .rgignore",
+    "echo '!design/' >> packages/.ignore",
+    "echo '!design/' >> .gitignore",
+    "sed -i s/design// .gitignore",
+  ]) {
+    assert.equal(bash(command), 2, command);
+  }
+});
+
+test("design-approved/ holds copies, never links back into design/", () => {
+  const approved = path.join(REPO, "design-approved");
+  if (!existsSync(approved)) return;
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      assert.ok(!lstatSync(p).isSymbolicLink(), `${path.relative(REPO, p)} is a link`);
+      if (e.isDirectory()) walk(p);
+    }
+  };
+  walk(approved);
+});
+
+test("recursive searches elsewhere, and ordinary rg, still work", () => {
+  for (const command of [
+    "grep -rn Configure packages services",
+    "grep -n x PROGRESS.md",
+    "rg Configure",
+    "rg -n x packages",
+  ]) {
+    assert.equal(bash(command), 0, command);
+  }
+});
+
+test("settings keep design/ unreadable and the approved copies read-only", () => {
+  const settings = JSON.parse(
+    readFileSync(path.join(import.meta.dirname, "..", "settings.json"), "utf8"),
+  );
+  const { allow, deny } = settings.permissions;
+  for (const rule of ["Read(./design/**)", "Edit(./design/**)", "Write(./design/**)"]) {
+    assert.ok(deny.includes(rule), rule);
+  }
+  for (const rule of ["Edit(./design-approved/**)", "Write(./design-approved/**)"]) {
+    assert.ok(deny.includes(rule), rule);
+  }
+  // Readable through Read(./**); nothing may deny reading the copies.
+  assert.ok(allow.includes("Read(./**)"));
+  assert.ok(!deny.some((r) => r.startsWith("Read(./design-approved")));
 });
 
 test("fails closed on input it cannot parse", () => {
