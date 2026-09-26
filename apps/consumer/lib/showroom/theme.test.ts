@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { BrandThemeRow } from "@autoverse/engine-core";
 import { demoCatalog } from "./fixtures/demo-catalog";
-import { themeCss } from "./theme";
+import { themeCss, type ThemeColours } from "./theme";
 
 const theme = demoCatalog().theme!;
 
@@ -25,7 +24,7 @@ describe("themeCss", () => {
   });
 
   it("refuses an on-accent value other than black or white", () => {
-    const bad = { ...theme, on_accent: "grey" } as unknown as BrandThemeRow;
+    const bad = { ...theme, on_accent: "grey" } as unknown as ThemeColours;
     expect(themeCss(bad)).toEqual({ ok: false, field: "on_accent" });
   });
 });

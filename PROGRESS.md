@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-26
-**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (#66) and the migrations #67 (price_amount), #68 (presentation fields) and #69 (attribute vocabulary) are **merged**. All five Tier B decisions are answered. The read path is built as **PR #70** (`showroom_catalog`, ADR 0018) and **waits for the owner's merge** and its hosted pre-check. The wiring PR (slice 1b) follows, then slice 2.
+**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (#66) and the migrations #67 (price_amount), #68 (presentation fields) and #69 (attribute vocabulary) are **merged**. All five Tier B decisions are answered. The read path (#70, `showroom_catalog`, ADR 0018) is **merged** too. The wiring PR (slice 1b: the page reads `showroom_catalog`, plus the Vercel preview demo path) **waits for the owner’s merge**; slice 2 follows.
 
 ---
 
@@ -26,7 +26,7 @@
 | `AUTONOMOUS-LOOP-P2`              | ⏸ Runner OFF       | Runner on `main`. `agent_loop_enabled` inactive since 2026-09-25 and stays off until the owner decides on a measured trial. Work continues in interactive sessions.                  |
 | Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
 | Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
-| Phase 1·C — Consumer app          | 🟡 In progress     | `PAGE-CONSUMER-SHOWROOM`: slice 1 and three migrations merged (#66–#69); the read-path migration #70 is in review. Next: wiring (1b), then slice 2.                                  |
+| Phase 1·C — Consumer app          | 🟡 In progress     | `PAGE-CONSUMER-SHOWROOM`: slice 1 and four migrations merged (#66–#70); the wiring PR (1b) is in review. Next: slice 2.                                                              |
 | Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                      |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
@@ -248,15 +248,17 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 1. **Continue `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **local** session. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only, never the shell. One PR per slice against `main`; stop after each for the owner's merge. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
    - #66–#69 are merged (2026-09-26; the #69 hosted pre-check returned 0 rows, the Supabase check is green on `main`, and `page_showroom` exists in PostHog, off). All five Tier B decisions are answered.
-   - **Open: PR #70**, the read-path migration (`public.showroom_catalog`, ADR 0018, test 0022). Before merging, the owner runs the two subdomain pre-check queries in its description.
-   - **After #70 merges: the wiring PR (slice 1b).**
-     - A supabase-backed `CatalogSource` calls `showroom_catalog` with the anon key, passes the abort signal, and validates the payload with a **strict** Zod schema.
-     - Per ADR 0018, `CatalogSnapshot` is reshaped to the RPC payload. The loader's per-row brand-id, status and publish-state checks are **removed, never faked**. What stays: the subdomain match, and every trim, price and asset referencing a returned model or trim. `pickImage` uses `public_path` and drops the `kind` and `brand_id` checks.
-     - Drop the EGP-only rule (`price_amount`), and set the revalidation interval as an amendment to ADR 0017.
-     - Env: the Supabase URL and anon key for the consumer.
+   - #70 (read path, ADR 0018) is merged. The owner approved `public_path`, and ADR 0018 now records the owner's requirement that unpublish deletes the public object.
+   - **Open: the wiring PR (slice 1b, `feat/showroom-wire-catalog`).**
+     - The page reads `showroom_catalog` over GET with the anon key, and validates the payload with a strict Zod schema (`catalog-schema.ts`).
+     - The loader is reshaped to that payload (ADR 0018: the per-row brand/status/publish checks are removed, and the structural orphan checks added). Facets group by vocabulary key; prices use `price_amount` in the market currency.
+     - The catalogue is cached per subdomain, per server instance, with a **hard** 60 s expiry that never serves a stale entry (ADR 0017 amended). Next's data cache was rejected, because its stale-while-revalidate could show an embargoed model after a quiet spell. The trace id goes to PostgREST as `x-request-id`. Source errors log the HTTP status or the failing schema paths; a contract break or a 4xx is not retried.
+     - Preview demo path: `SHOWROOM_PREVIEW_SUBDOMAIN=demo` (Preview only) maps `*.vercel.app` previews to the demo brand. Runbook: `docs/runbooks/showroom-preview-demo.md` (seed values, Vercel variables, flag).
+     - engine-core types are synced with #67–#70.
+     - **Gap, recorded (code review):** no contract test runs `ShowroomCatalog.parse` against the real `showroom_catalog` output. The key sets are kept in step by hand, in test 0022 and `catalog-schema.ts`. Closing it needs PostgREST in CI (the `isolation` job only starts Postgres), so it is a `ci.yml` change for the owner. Until then, a `CatalogShapeError` pages (ADR 0017).
+     - Deferred (code review, low): on expiry each concurrent request on a warm instance reads the database; sharing one in-flight read per subdomain can come with real traffic.
+     - Tier B open: which database holds the demo brand (Preview on a non-production DB, recommended, or shared with production). The runbook covers both.
    - Then **slice 2**: VehicleCard + ModelSection + grid in `packages/ui` (story + test + a11y in both directions). The same PR also:
-     - updates `database.types.ts`: `price_amount`, the vocabulary columns plus a `VocabularyRow`, and the presentation fields;
-     - changes the loader: drop the EGP-only rule, group facets by vocabulary key, render `display_en/ar`;
      - wires asset URLs: `ASSET_BASE_URL` + a `next/image` remote pattern, plus the asset ADR with the owner's embargo condition. Tokens to add then: defaults for `--av-on-accent`, `--av-accent-hover`, `--av-accent-muted`, `--av-focus-ring` in `tokens.css`, plus the Tailwind bridge (slice 1 injects them; nothing reads them yet).
    - `<html lang dir>` is still static `en`/`ltr` in `app/layout.tsx`. Fix it with the TopBar's EN/AR toggle (slice 4 or earlier).
 2. **Owner: confirm the Supabase check on `main` applied both new migrations to the hosted DB** (`20260925120000_lead_activities_brand_fk`, `20260925140000_event_payload_cap`). The guard blocks the agent from hosted-DB reads.

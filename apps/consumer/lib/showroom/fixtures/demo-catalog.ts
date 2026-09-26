@@ -1,34 +1,40 @@
-import type { CatalogSnapshot } from "../source";
+import type { CatalogSnapshot } from "../catalog-schema";
 
-// The demo brand as a catalogue snapshot: seed-style DATA for tests and the dev-only fixture
-// source. No real manufacturer, model or price. Theme values are brand data (validated by the
-// database in real use), so this folder is exempt from the hardcoded-colour lint.
+// The demo brand as a `showroom_catalog` payload (ADR 0018): seed-style DATA for tests and the
+// local fixture source. No real manufacturer, model or price. Theme values are brand data
+// (validated by the database in real use), so this folder is exempt from the hardcoded-colour
+// lint. Ids are fixed so tests can refer to them.
 
-const BRAND = "00000000-0000-4000-8000-00000000d001";
-const M1 = "00000000-0000-4000-8000-0000000000a1";
-const M2 = "00000000-0000-4000-8000-0000000000a2";
-const M3 = "00000000-0000-4000-8000-0000000000a3";
+export const DEMO_IDS = {
+  suv: "00000000-0000-4000-8000-0000000000a1",
+  ev: "00000000-0000-4000-8000-0000000000a2",
+  suvBase: "00000000-0000-4000-8000-0000000000b1",
+  suvSport: "00000000-0000-4000-8000-0000000000b2",
+  evLongRange: "00000000-0000-4000-8000-0000000000b3",
+} as const;
 
 export const demoCatalog = (): CatalogSnapshot => ({
-  brand: { id: BRAND, slug: "demo", name: "Demo Motors", status: "live" },
+  brand: { slug: "demo", name: "Demo Motors" },
   market: {
-    brand_id: BRAND,
     market_code: "EG",
     currency: "EGP",
     locale: "ar-EG",
     rtl: false,
-    live: true,
     subdomain: "demo",
-    consent_defaults: {},
     whatsapp_number: null,
     footer_description_en: null,
     footer_description_ar: null,
+    footer_tagline_en: null,
+    footer_tagline_ar: null,
     footer_link_columns: [],
     social_links: [],
+    hotline: null,
+    contact_email: null,
+    cities_en: null,
+    cities_ar: null,
+    lead_cities: [],
   },
   theme: {
-    brand_id: BRAND,
-    market_code: "EG",
     accent_hex: "#1F4E8C",
     on_accent: "white",
     hover_hex: "#173B69",
@@ -39,12 +45,12 @@ export const demoCatalog = (): CatalogSnapshot => ({
     favicon_asset_ref: null,
   },
   models: [
-    model(M1, "demo-suv", "Demo SUV", "ديمو إس يو في", 0, {
-      body_type: "SUV",
-      fuel: "Petrol",
-      fuel_category: "Petrol",
-      drive: "AWD",
-      transmission: "8-Speed Auto",
+    model(DEMO_IDS.suv, "demo-suv", "Demo SUV", "ديمو إس يو في", 0, {
+      body_type: "suv",
+      fuel: "petrol",
+      fuel_category: "petrol",
+      drive: "awd",
+      transmission: "automatic-8-speed",
       seats: 7,
       accel_0_100_s: 6.4,
       power_hp: 420,
@@ -54,12 +60,12 @@ export const demoCatalog = (): CatalogSnapshot => ({
       efficiency_value: "11.2 L/100km",
       efficiency_icon_kind: "pump",
     }),
-    model(M2, "demo-ev", "Demo EV", "ديمو إي في", 1, {
-      body_type: "SUV",
-      fuel: "Electric",
-      fuel_category: "EV",
-      drive: "AWD",
-      transmission: "Single-speed",
+    model(DEMO_IDS.ev, "demo-ev", "Demo EV", "ديمو إي في", 1, {
+      body_type: "suv",
+      fuel: "ev",
+      fuel_category: "ev",
+      drive: "awd",
+      transmission: "single-speed",
       seats: 5,
       accel_0_100_s: 4.9,
       power_hp: 500,
@@ -69,36 +75,41 @@ export const demoCatalog = (): CatalogSnapshot => ({
       efficiency_value: "480 km",
       efficiency_icon_kind: "battery",
     }),
-    model(M3, "demo-draft", "Demo Draft", "ديمو مسودة", 2, { publish_state: "draft" }),
   ],
   trims: [
-    trim("00000000-0000-4000-8000-0000000000b1", M1, "base", "Base", "أساسي", 0),
-    trim("00000000-0000-4000-8000-0000000000b2", M1, "sport", "Sport", "سبورت", 1, {
+    trim(DEMO_IDS.suvBase, DEMO_IDS.suv, "base", "Base", "أساسي", 0),
+    trim(DEMO_IDS.suvSport, DEMO_IDS.suv, "sport", "Sport", "سبورت", 1, {
       power_hp: 460,
       accel_0_100_s: 5.9,
     }),
-    trim("00000000-0000-4000-8000-0000000000b3", M2, "long-range", "Long Range", "مدى طويل", 0, {
-      drive: "RWD",
+    trim(DEMO_IDS.evLongRange, DEMO_IDS.ev, "long-range", "Long Range", "مدى طويل", 0, {
+      drive: "rwd",
     }),
   ],
   prices: [
-    price("00000000-0000-4000-8000-0000000000b1", 3_900_000),
-    price("00000000-0000-4000-8000-0000000000b2", 4_400_000),
-    {
-      brand_id: BRAND,
-      trim_id: "00000000-0000-4000-8000-0000000000b3",
-      market_code: "EG",
-      price_egp: null,
-      on_request: true,
-    },
+    { trim_id: DEMO_IDS.suvBase, price_amount: 3_900_000, on_request: false },
+    { trim_id: DEMO_IDS.suvSport, price_amount: 4_400_000, on_request: false },
+    { trim_id: DEMO_IDS.evLongRange, price_amount: null, on_request: true },
   ],
   assets: [
-    asset("c1", M1, "00000000-0000-4000-8000-0000000000b1", "side"),
-    asset("c2", M1, "00000000-0000-4000-8000-0000000000b1", "front-34"),
-    asset("c3", M1, null, "side"),
-    asset("c4", M2, "00000000-0000-4000-8000-0000000000b3", "side"),
+    asset(DEMO_IDS.suv, DEMO_IDS.suvBase, "side"),
+    asset(DEMO_IDS.suv, DEMO_IDS.suvBase, "front-34"),
+    asset(DEMO_IDS.suv, null, "side"),
+    asset(DEMO_IDS.ev, DEMO_IDS.evLongRange, "side"),
+  ],
+  vocabulary: [
+    vocab("suv", "body_type", "SUV", "إس يو في"),
+    vocab("petrol", "fuel", "Petrol", "بنزين"),
+    vocab("ev", "fuel", "Electric", "كهربائي"),
+    vocab("awd", "drive", "AWD", "دفع كلي"),
+    vocab("rwd", "drive", "RWD", "دفع خلفي"),
+    vocab("automatic-8-speed", "transmission", "8-speed automatic", "أوتوماتيك 8 سرعات"),
+    vocab("single-speed", "transmission", "Single-speed", "سرعة واحدة"),
   ],
 });
+
+type Model = CatalogSnapshot["models"][number];
+type Trim = CatalogSnapshot["trims"][number];
 
 function model(
   id: string,
@@ -106,17 +117,16 @@ function model(
   name_en: string,
   name_ar: string,
   order_index: number,
-  over: Partial<CatalogSnapshot["models"][number]>,
-): CatalogSnapshot["models"][number] {
+  over: Partial<Model>,
+): Model {
   return {
     id,
-    brand_id: BRAND,
     slug,
     name_en,
     name_ar,
     year: 2026,
-    body_type: null,
     badge_label: null,
+    body_type: null,
     fuel: null,
     fuel_category: null,
     drive: null,
@@ -131,7 +141,6 @@ function model(
     efficiency_value: null,
     efficiency_icon_kind: null,
     order_index,
-    publish_state: "published",
     ...over,
   };
 }
@@ -143,11 +152,10 @@ function trim(
   name_en: string,
   name_ar: string,
   order_index: number,
-  over: Partial<CatalogSnapshot["trims"][number]> = {},
-): CatalogSnapshot["trims"][number] {
+  over: Partial<Trim> = {},
+): Trim {
   return {
     id,
-    brand_id: BRAND,
     model_id,
     slug,
     name_en,
@@ -159,30 +167,30 @@ function trim(
     top_speed_kph: null,
     torque_nm: null,
     order_index,
-    publish_state: "published",
     ...over,
   };
 }
 
-function price(trim_id: string, amount: number): CatalogSnapshot["prices"][number] {
-  return { brand_id: BRAND, trim_id, market_code: "EG", price_egp: amount, on_request: false };
-}
-
 function asset(
-  key: string,
   model_id: string,
   trim_id: string | null,
-  view_key: string,
+  view_key: "side" | "front-34",
 ): CatalogSnapshot["assets"][number] {
   return {
-    id: `00000000-0000-4000-8000-0000000000${key}`,
-    brand_id: BRAND,
-    kind: "render",
-    storage_path: `assets/demo/${model_id.slice(-2)}/v1/${trim_id ? trim_id.slice(-2) : "all"}-${view_key}.png`,
     model_id,
     trim_id,
     view_key,
+    public_path: `demo/${model_id.slice(-2)}/${trim_id ? trim_id.slice(-2) : "all"}-${view_key}.png`,
     width: 1920,
     height: 1080,
   };
+}
+
+function vocab(
+  id: string,
+  kind: CatalogSnapshot["vocabulary"][number]["kind"],
+  display_en: string,
+  display_ar: string,
+): CatalogSnapshot["vocabulary"][number] {
+  return { id, kind, display_en, display_ar };
 }

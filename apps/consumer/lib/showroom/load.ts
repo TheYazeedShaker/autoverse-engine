@@ -1,7 +1,7 @@
 import type { Logger } from "../log";
-import { subdomainFromHost } from "./host";
+import { isVercelPreviewHost, subdomainFromHost } from "./host";
 import { buildShowroom, type Showroom } from "./loader";
-import type { CatalogSource } from "./source";
+import { isLoggableError, type CatalogSource } from "./source";
 import { themeCss } from "./theme";
 
 // One showroom request, start to finish: host → subdomain → flag → catalogue → view.
@@ -15,7 +15,7 @@ import { themeCss } from "./theme";
 export const SOURCE_TIMEOUT_MS = 2000;
 
 export type NotFoundReason =
-  "host_unresolved" | "flag_off" | "source_unconfigured" | "unknown_subdomain" | "not_live";
+  "host_unresolved" | "flag_off" | "source_unconfigured" | "unknown_subdomain";
 
 export type LoadOutcome =
   | { kind: "ok"; showroom: Showroom; themeCss: string | null }
@@ -25,10 +25,17 @@ export type LoadOutcome =
 export interface LoadDeps {
   host: string | null;
   rootDomain: string | undefined;
+  /**
+   * Vercel preview deployments only: the brand-market a `*.vercel.app` preview address shows (see
+   * previewSubdomain in host.ts). Undefined everywhere else.
+   */
+  previewSubdomain?: string | null;
   /** Server-side flag check, keyed by the brand-market's subdomain. Fails closed. */
   isEnabled: (subdomain: string) => Promise<boolean>;
   source: CatalogSource | null;
   log: Logger;
+  /** Sent to the database gateway with each catalogue read. */
+  traceId?: string;
   timeoutMs?: number;
   now?: () => number;
 }
@@ -42,9 +49,13 @@ export async function loadShowroomPage(deps: LoadDeps): Promise<LoadOutcome> {
     return { kind: "not_found", reason };
   };
 
-  const subdomain = subdomainFromHost(deps.host, deps.rootDomain);
+  let subdomain = subdomainFromHost(deps.host, deps.rootDomain);
+  if (!subdomain && deps.previewSubdomain && isVercelPreviewHost(deps.host)) {
+    subdomain = deps.previewSubdomain;
+    log("info", "showroom_preview_mapping", { subdomain });
+  }
   if (!subdomain) {
-    if (!deps.rootDomain)
+    if (!deps.rootDomain && !deps.previewSubdomain)
       log("error", "showroom_misconfigured", { missing: "CONSUMER_ROOT_DOMAIN" });
     return notFound("host_unresolved");
   }
@@ -57,31 +68,27 @@ export async function loadShowroomPage(deps: LoadDeps): Promise<LoadOutcome> {
     subdomain,
     deps.timeoutMs ?? SOURCE_TIMEOUT_MS,
     log,
+    deps.traceId,
   );
   if (snapshot === "failed") {
     log("error", "showroom_load_failed", { subdomain, duration_ms: now() - started });
     return { kind: "unavailable" };
   }
+  // Unknown, dormant and not-live brand-markets all come back as null (ADR 0018).
   if (!snapshot) return notFound("unknown_subdomain", { subdomain });
   // Second layer: the snapshot must be the brand-market this host named. A source bug (a wrong
-  // join, a stale cache key) must never render one brand's catalogue under another's host.
+  // cache key, a wrong argument) must never render one brand's catalogue under another's host.
+  // The payload is one document for one brand-market, so this is the check that matters; the theme
+  // comes inside it and can't belong to anyone else.
   if (snapshot.market.subdomain !== subdomain) {
     log("error", "showroom_source_mismatch", { subdomain });
     return { kind: "unavailable" };
   }
 
   const showroom = buildShowroom(snapshot, log);
-  if (!showroom) return notFound("not_live", { subdomain });
 
   let css: string | null = null;
-  if (
-    snapshot.theme &&
-    (snapshot.theme.brand_id !== snapshot.brand.id ||
-      snapshot.theme.market_code !== snapshot.market.market_code)
-  ) {
-    // Another brand-market's theme: never apply it. Neutral accent instead.
-    log("error", "showroom_theme_mismatch", { brand: showroom.brand.slug });
-  } else if (snapshot.theme) {
+  if (snapshot.theme) {
     const theme = themeCss(snapshot.theme);
     // A bad theme row can't happen past the database's CHECKs; if it does, the page still
     // renders in the neutral system accent rather than failing.
@@ -113,6 +120,7 @@ async function readWithRetry(
   subdomain: string,
   timeoutMs: number,
   log: Logger,
+  traceId: string | undefined,
 ): Promise<Awaited<ReturnType<CatalogSource["load"]>> | "failed"> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     const controller = new AbortController();
@@ -126,13 +134,20 @@ async function readWithRetry(
       }, timeoutMs);
     });
     try {
-      return await Promise.race([source.load(subdomain, controller.signal), timeout]);
+      return await Promise.race([source.load(subdomain, controller.signal, traceId), timeout]);
     } catch (err) {
+      const retryable = isLoggableError(err) ? err.retryable : true;
       log("warn", "showroom_source_error", {
         subdomain,
         attempt,
         error: err instanceof Error ? err.name : "unknown",
+        retryable,
+        // Status for HTTP errors; schema paths and codes for a contract break. Never values.
+        ...(isLoggableError(err) ? err.logFields() : {}),
       });
+      // A contract break or a 4xx fails the same way twice: don't double the latency and the noise.
+      // Timeouts, network errors, 5xx and 429 get the second attempt.
+      if (!retryable) break;
     } finally {
       clearTimeout(timer);
     }

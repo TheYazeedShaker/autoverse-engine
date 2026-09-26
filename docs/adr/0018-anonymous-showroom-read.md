@@ -78,7 +78,7 @@ a secret.
   - every trim's and asset's `model_id` is a returned model;
   - every price's and asset's `trim_id` is a returned trim.
 
-  The revalidation interval ADR 0017 left open is set with that source.
+  The source caches reads per subdomain for at most 60 s, never stale (ADR 0017, amended).
 
 - Card and hero images are `render`/`image` kinds only. Per-colour renders are left out: without
   their colour key the page couldn't choose one, and colour belongs to the configurator.
@@ -89,7 +89,6 @@ a secret.
   test 0022's key sets.
 - The publish pipeline (1·B) owns `public_path`:
   - at publish, copy the render to the public bucket;
-  - at unpublish, delete the object as well as clearing the column;
   - use unguessable object keys (for example a content hash) under a brand prefix, because the
     embargo depends on an unpublished object not being in the public bucket at all. The function's
     publish-state filter is the database-side backstop; test 0022 covers a draft model that
@@ -97,3 +96,20 @@ a secret.
     and the page shows its placeholder for any image without one.
 - A hosted pre-check is needed once, before this migration: every existing
   `brand_markets.subdomain` must already be a lower-case DNS label (the query is in the PR).
+
+## Requirement on the publish step (owner, `#build-decisions` 2026-09-26)
+
+**Unpublish must delete the object from the public bucket, not only clear `public_path`.**
+Clearing the column hides the image from the page. But anyone who already has the URL (a CDN
+cache, a shared link, a scraper) could still fetch the file, and a take-down has to actually take
+it down. The 1·B publish step's acceptance therefore includes:
+
+- the unpublish of a model or trim deletes every public object it had copied, and then clears
+  `public_path`. Both happen, and a failure of either is retried and alerted, never silently
+  dropped;
+- the CDN copy is purged too, where the CDN caches objects (the paths are immutable and long-cached,
+  so without a purge the edge would keep serving it);
+- a test proves that after unpublish, the object's public URL returns 404.
+
+The owner approved `public_path` itself as the way to enforce "public bucket only" in the same
+thread.

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { FLAGS, isFlagEnabled } from "../lib/flags";
 import { logger, traceIdFrom } from "../lib/log";
 import { COPY, type Lang } from "../lib/showroom/copy";
+import { previewSubdomain } from "../lib/showroom/host";
 import { loadShowroomPage } from "../lib/showroom/load";
 import { formatPrice } from "../lib/showroom/loader";
 import { configuredCatalogSource } from "../lib/showroom/source";
@@ -11,9 +12,9 @@ import { configuredCatalogSource } from "../lib/showroom/source";
 // The consumer app's entry: the Virtual Showroom for the brand-market this host names (spec §2).
 // Slice 1 renders a skeleton only. The page's components land in slices 2–8.
 //
-// Rendered per request: the brand comes from the Host header. Catalogue caching belongs in the
-// database-backed source, which waits on the read-path decision (ADR 0017).
-export const dynamic = "force-dynamic";
+// Rendered per request: reading the Host header makes the route dynamic. The catalogue is cached
+// per subdomain in the data source with a hard 60 s expiry (CATALOG_TTL_SECONDS; ADR 0017), and
+// the flag is evaluated per request before it, so a kill never waits for the cache.
 
 export default async function Page() {
   const h = await headers();
@@ -24,10 +25,12 @@ export default async function Page() {
   const outcome = await loadShowroomPage({
     host: h.get("host"),
     rootDomain: process.env.CONSUMER_ROOT_DOMAIN,
+    previewSubdomain: previewSubdomain(process.env),
     isEnabled: (subdomain) =>
       isFlagEnabled(FLAGS.pageShowroom, subdomain, undefined, undefined, traceId),
     source: await configuredCatalogSource(),
     log,
+    traceId,
   });
 
   if (outcome.kind === "not_found") notFound();

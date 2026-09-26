@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { subdomainFromHost } from "./host";
+import { isVercelPreviewHost, previewSubdomain, subdomainFromHost } from "./host";
 
 describe("subdomainFromHost", () => {
   it("takes the one label in front of the configured root", () => {
@@ -34,5 +34,33 @@ describe("subdomainFromHost", () => {
     expect(subdomainFromHost(null, "example.test")).toBeNull();
     expect(subdomainFromHost("demo.example.test", undefined)).toBeNull();
     expect(subdomainFromHost("demo.example.test", " ")).toBeNull();
+  });
+});
+
+describe("the Vercel preview demo path", () => {
+  it("applies only on a Vercel preview, with a valid label", () => {
+    expect(previewSubdomain({ VERCEL_ENV: "preview", SHOWROOM_PREVIEW_SUBDOMAIN: "demo" })).toBe(
+      "demo",
+    );
+    expect(
+      previewSubdomain({ VERCEL_ENV: "production", SHOWROOM_PREVIEW_SUBDOMAIN: "demo" }),
+    ).toBeNull();
+    expect(
+      previewSubdomain({ VERCEL_ENV: "development", SHOWROOM_PREVIEW_SUBDOMAIN: "demo" }),
+    ).toBeNull();
+    expect(previewSubdomain({ SHOWROOM_PREVIEW_SUBDOMAIN: "demo" })).toBeNull();
+    expect(previewSubdomain({ VERCEL_ENV: "preview" })).toBeNull();
+    expect(
+      previewSubdomain({ VERCEL_ENV: "preview", SHOWROOM_PREVIEW_SUBDOMAIN: "Demo.x" }),
+    ).toBeNull();
+  });
+
+  it("recognises only single-label *.vercel.app hosts", () => {
+    expect(isVercelPreviewHost("consumer-git-feat-x-team.vercel.app")).toBe(true);
+    expect(isVercelPreviewHost("Consumer-abc123-team.VERCEL.app:443")).toBe(true);
+    expect(isVercelPreviewHost("demo.example.test")).toBe(false);
+    expect(isVercelPreviewHost("a.b.vercel.app")).toBe(false);
+    expect(isVercelPreviewHost("vercel.app.evil.test")).toBe(false);
+    expect(isVercelPreviewHost(null)).toBe(false);
   });
 });

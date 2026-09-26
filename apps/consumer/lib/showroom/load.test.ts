@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Logger } from "../log";
 import { demoCatalog } from "./fixtures/demo-catalog";
 import { loadShowroomPage, type LoadDeps } from "./load";
-import type { CatalogSource } from "./source";
+import { CatalogHttpError, CatalogShapeError, type CatalogSource } from "./source";
 import { themeCss } from "./theme";
 
 const log = () => vi.fn() as unknown as Logger & { mock: { calls: unknown[][] } };
@@ -58,25 +58,17 @@ describe("loadShowroomPage", () => {
     expect(load).not.toHaveBeenCalled();
   });
 
-  it("is a 404 with no source configured (the open read-path decision)", async () => {
+  it("is a 404 with no source configured", async () => {
     expect(await loadShowroomPage(deps({ source: null }))).toEqual({
       kind: "not_found",
       reason: "source_unconfigured",
     });
   });
 
-  it("is the same 404 for an unknown subdomain and for a brand-market that isn't live", async () => {
+  it("is a 404 when the source has no such brand-market (unknown, dormant or not live alike)", async () => {
     expect(await loadShowroomPage(deps({ host: "nobody.example.test" }))).toEqual({
       kind: "not_found",
       reason: "unknown_subdomain",
-    });
-    const dormant = source(async () => ({
-      ...demoCatalog(),
-      market: { ...demoCatalog().market, live: false },
-    }));
-    expect(await loadShowroomPage(deps({ source: dormant }))).toEqual({
-      kind: "not_found",
-      reason: "not_live",
     });
   });
 
@@ -98,6 +90,52 @@ describe("loadShowroomPage", () => {
     const names = l.mock.calls.map((c) => c[1]);
     expect(names.filter((n) => n === "showroom_source_error")).toHaveLength(2);
     expect(names).toContain("showroom_load_failed");
+  });
+
+  it("does not retry a contract break, and logs which schema paths failed (never values)", async () => {
+    const l = log();
+    const load = vi.fn<CatalogSource["load"]>().mockRejectedValue(
+      new CatalogShapeError([
+        { path: ["market", "hotline"], code: "invalid_type" },
+        { path: ["models", 0, "secret_col"], code: "unrecognized_keys" },
+      ]),
+    );
+    expect(await loadShowroomPage(deps({ source: source(load), log: l }))).toEqual({
+      kind: "unavailable",
+    });
+    expect(load).toHaveBeenCalledTimes(1);
+    const line = l.mock.calls.find((c) => c[1] === "showroom_source_error")![2];
+    expect(line).toMatchObject({
+      error: "CatalogShapeError",
+      retryable: false,
+      issue_count: 2,
+      issues: [
+        { path: "market.hotline", code: "invalid_type" },
+        { path: "models.0.secret_col", code: "unrecognized_keys" },
+      ],
+    });
+  });
+
+  it("logs the HTTP status; retries a 5xx or 429 but not another 4xx", async () => {
+    const l = log();
+    const unauthorized = vi
+      .fn<CatalogSource["load"]>()
+      .mockRejectedValue(new CatalogHttpError(401));
+    await loadShowroomPage(deps({ source: source(unauthorized), log: l }));
+    expect(unauthorized).toHaveBeenCalledTimes(1);
+    expect(l.mock.calls.find((c) => c[1] === "showroom_source_error")![2]).toMatchObject({
+      status: 401,
+      retryable: false,
+    });
+
+    for (const status of [503, 429]) {
+      const flaky = vi
+        .fn<CatalogSource["load"]>()
+        .mockRejectedValueOnce(new CatalogHttpError(status))
+        .mockResolvedValueOnce(demoCatalog());
+      expect((await loadShowroomPage(deps({ source: source(flaky) }))).kind).toBe("ok");
+      expect(flaky).toHaveBeenCalledTimes(2);
+    }
   });
 
   it("aborts a timed-out attempt so it doesn't run beside the retry", async () => {
@@ -123,22 +161,38 @@ describe("loadShowroomPage", () => {
     expect(l.mock.calls.map((c) => c[1])).toContain("showroom_source_mismatch");
   });
 
-  it("never applies another brand-market's theme", async () => {
+  it("on a Vercel preview host, shows the configured preview brand-market", async () => {
     const l = log();
-    const foreignTheme = source(async () => ({
-      ...demoCatalog(),
-      theme: { ...demoCatalog().theme!, brand_id: "other-brand" },
-    }));
-    const out = await loadShowroomPage(deps({ source: foreignTheme, log: l }));
-    expect(out.kind === "ok" && out.themeCss).toBeNull();
-    expect(l.mock.calls.map((c) => c[1])).toContain("showroom_theme_mismatch");
+    const load = vi.fn(fixture.load);
+    const out = await loadShowroomPage(
+      deps({
+        host: "consumer-git-feat-x-team.vercel.app",
+        previewSubdomain: "demo",
+        source: source(load),
+        log: l,
+      }),
+    );
+    expect(out.kind).toBe("ok");
+    expect(load).toHaveBeenCalledWith("demo", expect.anything(), undefined);
+    expect(l.mock.calls.map((c) => c[1])).toContain("showroom_preview_mapping");
+  });
 
-    const otherMarket = source(async () => ({
-      ...demoCatalog(),
-      theme: { ...demoCatalog().theme!, market_code: "SA" },
-    }));
-    const out2 = await loadShowroomPage(deps({ source: otherMarket }));
-    expect(out2.kind === "ok" && out2.themeCss).toBeNull();
+  it("never applies the preview mapping to a non-vercel.app host, or when it isn't configured", async () => {
+    expect(await loadShowroomPage(deps({ host: "evil.test", previewSubdomain: "demo" }))).toEqual({
+      kind: "not_found",
+      reason: "host_unresolved",
+    });
+    expect(
+      await loadShowroomPage(
+        deps({ host: "consumer-abc-team.vercel.app", previewSubdomain: null }),
+      ),
+    ).toEqual({ kind: "not_found", reason: "host_unresolved" });
+  });
+
+  it("a real brand host still wins over the preview mapping", async () => {
+    const load = vi.fn(fixture.load);
+    await loadShowroomPage(deps({ previewSubdomain: "other", source: source(load) }));
+    expect(load).toHaveBeenCalledWith("demo", expect.anything(), undefined);
   });
 
   it("renders in the neutral accent when the theme row is missing or invalid", async () => {
