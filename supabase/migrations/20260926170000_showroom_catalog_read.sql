@@ -39,7 +39,8 @@ alter table public.assets
   -- A relative object key: no scheme, no leading slash, no '..' segment, no whitespace.
   add constraint assets_public_path_format check (
     public_path is null
-    or (public_path ~ '^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$'
+    or (length(public_path) <= 512
+        and public_path ~ '^[A-Za-z0-9][A-Za-z0-9._/-]*$'
         and public_path !~ '(^|/)\.\.(/|$)'
         and public_path !~ '//')
   );
