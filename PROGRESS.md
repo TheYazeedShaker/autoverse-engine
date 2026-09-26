@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-26
-**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (route, host resolution, theme injection, `page_showroom` flag, loaders; skeleton UI) is built as **PR #66** against `main`. It **waits for the owner's merge**. Four of the five Tier B decisions are answered and applied. Three became migration PRs, each waiting for the owner's merge: **#67** (price_amount), **#68** (brand_markets presentation fields) and **#69** (attribute vocabulary). The asset-URL decision needs no schema change and lands with slice 2. **Still open:** the anonymous catalogue read path, which blocks the page's database wiring.
+**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (#66) and the migrations #67 (price_amount), #68 (presentation fields) and #69 (attribute vocabulary) are **merged**. All five Tier B decisions are answered. The read path is built as **PR #70** (`showroom_catalog`, ADR 0018) and **waits for the owner's merge** and its hosted pre-check. The wiring PR (slice 1b) follows, then slice 2.
 
 ---
 
@@ -26,7 +26,7 @@
 | `AUTONOMOUS-LOOP-P2`              | ⏸ Runner OFF       | Runner on `main`. `agent_loop_enabled` inactive since 2026-09-25 and stays off until the owner decides on a measured trial. Work continues in interactive sessions.                  |
 | Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
 | Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
-| Phase 1·C — Consumer app          | 🟡 In progress     | `PAGE-CONSUMER-SHOWROOM`: slice 1 in review (#66), migration PRs #67–#69 in review. DB wiring waits on the read-path decision.                                                       |
+| Phase 1·C — Consumer app          | 🟡 In progress     | `PAGE-CONSUMER-SHOWROOM`: slice 1 and three migrations merged (#66–#69); the read-path migration #70 is in review. Next: wiring (1b), then slice 2.                                  |
 | Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                      |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
@@ -77,7 +77,7 @@ Interactive local session, 2026-09-26. Runner **off**. Task: `PAGE-CONSUMER-SHOW
 
 **Tier B posted to `#build-decisions` (2026-09-26). Owner replies were read the same day:**
 
-1. **Anonymous catalogue read path.** Recommended: A, a narrow `SECURITY DEFINER` read RPC for anon in the ADR 0013 style, with a paired cross-tenant test and an ADR. **Blocks:** the DB-backed `CatalogSource` (and the revalidation interval, which belongs with it; ADR 0017). **Still open, no reply.**
+1. **Anonymous catalogue read path.** **Decided: A with four conditions**: page-rendered columns only and nothing from `brand_market_private`; asset paths only from the public published bucket; a paired cross-tenant test; its own ADR. → **PR #70**: `public.showroom_catalog(subdomain)`, anon-only EXECUTE, RLS unchanged. It adds `assets.public_path`, my reading of the public-bucket condition, flagged in the PR, plus a canonical-subdomain CHECK, ADR 0018 and test 0022. Security review approved; CI is green.
 2. **Asset storage path → URL.** **Decided: A.** A public-read bucket behind the CDN, built as `ASSET_BASE_URL` + `storage_path`, with `next/image` and one remote pattern, and long immutable cache headers. **Condition:** the public bucket holds _published_ renders only. Drafts and pre-launch renders live in a private bucket and are copied over at publish, because brands launch under embargo. This goes in an ADR in the slice 2 PR; the copy-at-publish step belongs to 1·B.
 3. **Presentation fields.** **Decided: revised A** → **PR #68**: `footer_tagline_en/ar`, `hotline`, `contact_email`, `cities_en/ar`, and `lead_cities jsonb` (validated in the DB; Zod in slice 7). **The hero backdrop is brand-invariant** (an Autoverse asset, no column).
 4. **`price_egp` vs per-market currency.** **Decided: A** → **PR #67** renames it to `price_amount`. Its currency is always the market's. Slice 2 drops the loader's interim EGP-only rule.
@@ -247,13 +247,17 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 ### 0. First thing next session
 
 1. **Continue `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **local** session. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only, never the shell. One PR per slice against `main`; stop after each for the owner's merge. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
-   - Check the read-path thread in `#build-decisions` for a reply. The other four are answered and applied.
-   - Open PRs waiting for the owner: #66 (slice 1), then the migrations #67, #68 and #69. #69 needs the hosted pre-check first.
-   - Once #66–#69 are merged, build **slice 2**: VehicleCard + ModelSection + grid in `packages/ui` (story + test + a11y in both directions). The same PR also:
+   - #66–#69 are merged (2026-09-26; the #69 hosted pre-check returned 0 rows, the Supabase check is green on `main`, and `page_showroom` exists in PostHog, off). All five Tier B decisions are answered.
+   - **Open: PR #70**, the read-path migration (`public.showroom_catalog`, ADR 0018, test 0022). Before merging, the owner runs the two subdomain pre-check queries in its description.
+   - **After #70 merges: the wiring PR (slice 1b).**
+     - A supabase-backed `CatalogSource` calls `showroom_catalog` with the anon key, passes the abort signal, and validates the payload with a **strict** Zod schema.
+     - Per ADR 0018, `CatalogSnapshot` is reshaped to the RPC payload. The loader's per-row brand-id, status and publish-state checks are **removed, never faked**. What stays: the subdomain match, and every trim, price and asset referencing a returned model or trim. `pickImage` uses `public_path` and drops the `kind` and `brand_id` checks.
+     - Drop the EGP-only rule (`price_amount`), and set the revalidation interval as an amendment to ADR 0017.
+     - Env: the Supabase URL and anon key for the consumer.
+   - Then **slice 2**: VehicleCard + ModelSection + grid in `packages/ui` (story + test + a11y in both directions). The same PR also:
      - updates `database.types.ts`: `price_amount`, the vocabulary columns plus a `VocabularyRow`, and the presentation fields;
      - changes the loader: drop the EGP-only rule, group facets by vocabulary key, render `display_en/ar`;
      - wires asset URLs: `ASSET_BASE_URL` + a `next/image` remote pattern, plus the asset ADR with the owner's embargo condition. Tokens to add then: defaults for `--av-on-accent`, `--av-accent-hover`, `--av-accent-muted`, `--av-focus-ring` in `tokens.css`, plus the Tailwind bridge (slice 1 injects them; nothing reads them yet).
-   - If the read path is answered with A: a separate slice-1b PR adds the RPC migration + isolation test + ADR, the supabase-backed `CatalogSource` (passing the abort signal to its fetch, and a Zod schema on the snapshot), and the revalidation interval as an amendment to ADR 0017 (spec §3). The security review's seven requirements for that RPC are in the slice 1 PR description.
    - `<html lang dir>` is still static `en`/`ltr` in `app/layout.tsx`. Fix it with the TopBar's EN/AR toggle (slice 4 or earlier).
 2. **Owner: confirm the Supabase check on `main` applied both new migrations to the hosted DB** (`20260925120000_lead_activities_brand_fk`, `20260925140000_event_payload_cap`). The guard blocks the agent from hosted-DB reads.
 3. **Owner, before any loop trial:** apply the trust-check patch to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD`.
