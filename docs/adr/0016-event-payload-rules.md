@@ -43,9 +43,9 @@ have stored the oversized body there.
 - Every refusal logs `events_refused_too_large` at warn, with `trace_id`, `reason` (`body`,
   `payload`, `event`, or `payload_db` when the database refused), the measured `bytes` where
   known, and the market. Never any content.
-- **Alert:** `events_refused_too_large` above a threshold per market. Proposed: more than 20 in 15
-  minutes. That number is the agent's starting point, not the owner's; the owner confirms or
-  changes it. A page that
+- **Alert:** more than 20 `events_refused_too_large` in 15 minutes for one market (confirmed by
+  the owner, 2026-09-26). The number was set without real traffic; revisit it once the showroom
+  carries real visitors. A page that
   suddenly sends oversized events is a sender regression, and until it's fixed those events are
   lost. Ops is notified, not paged: no lead is involved. It's a log-based alert on that event name,
   set up with the other log alerts when the log drain goes live.
