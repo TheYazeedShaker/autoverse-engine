@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-26
-**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (route, host resolution, theme injection, `page_showroom` flag, loaders; skeleton UI) is built and opened as a PR against `main`. It **waits for the owner's merge**. Five Tier B decisions are open in `#build-decisions` (below). The first, the anonymous catalogue read path, blocks the page's database wiring.
+**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (route, host resolution, theme injection, `page_showroom` flag, loaders; skeleton UI) is built as **PR #66** against `main`. It **waits for the owner's merge**. Five Tier B decisions are open in `#build-decisions` (below). The first, the anonymous catalogue read path, blocks the page's database wiring.
 
 ---
 
@@ -59,7 +59,7 @@ Interactive local session, 2026-09-26. Runner **off**. Task: `PAGE-CONSUMER-SHOW
 
 **Access check (before any code):** the three approved copies and their `assets/` and `uploads/` images are readable with the file tools, and `design/` is refused. The approved copies contain real manufacturer names, file names and images. None of it is copied into the repo: the demo brand is "Demo Motors" in fixtures only.
 
-**Slice 1: route, resolution, theme, flag, loaders** (`feat/showroom-slice-1-route`, PR against `main`, waiting for the owner's merge):
+**Slice 1: route, resolution, theme, flag, loaders** (`feat/showroom-slice-1-route`, **PR #66** against `main`, waiting for the owner's merge):
 
 - `apps/consumer/app/page.tsx`: the showroom entry, rendered per request. Host → subdomain (`lib/showroom/host.ts`, root domain from `CONSUMER_ROOT_DOMAIN`, exactly one label) → `page_showroom` flag keyed by subdomain (checked **before** any catalogue read, so the kill path needs no database) → `CatalogSource` → `buildShowroom`. Every "no" is the same brand-free 404 (`app/not-found.tsx`). An unreadable catalogue is a 5xx, not a 404. The skeleton UI lists models, trims and prices only.
 - `lib/showroom/source.ts`: **the seam.** No database-backed source exists until the read-path Tier B is answered, so with no source the page 404s. Local work uses `SHOWROOM_SOURCE=fixture` (never in a production build, previews included) and the launch config `consumer-fixture` (open `http://demo.localhost:3000`).
@@ -240,7 +240,7 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 1. **Continue `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **local** session. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only, never the shell. One PR per slice against `main`; stop after each for the owner's merge. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
    - First, read the five Tier B threads in `#build-decisions` (2026-09-26, listed under _What Was Built Last Session_) for owner replies.
-   - Slice 1 PR merged? Then **slice 2**: VehicleCard + ModelSection + grid in `packages/ui` (story + test + a11y both directions). Tokens to add then: defaults for `--av-on-accent`, `--av-accent-hover`, `--av-accent-muted`, `--av-focus-ring` in `tokens.css`, plus the Tailwind bridge (slice 1 injects them; nothing reads them yet).
+   - Slice 1 (PR #66) merged? Then **slice 2**: VehicleCard + ModelSection + grid in `packages/ui` (story + test + a11y both directions). Tokens to add then: defaults for `--av-on-accent`, `--av-accent-hover`, `--av-accent-muted`, `--av-focus-ring` in `tokens.css`, plus the Tailwind bridge (slice 1 injects them; nothing reads them yet).
    - If the read path is answered with A: a separate slice-1b PR adds the RPC migration + isolation test + ADR, the supabase-backed `CatalogSource` (passing the abort signal to its fetch, and a Zod schema on the snapshot), and the revalidation interval as an amendment to ADR 0017 (spec §3). The security review's seven requirements for that RPC are in the slice 1 PR description.
    - `<html lang dir>` is still static `en`/`ltr` in `app/layout.tsx`. Fix it with the TopBar's EN/AR toggle (slice 4 or earlier).
 2. **Owner: confirm the Supabase check on `main` applied both new migrations to the hosted DB** (`20260925120000_lead_activities_brand_fk`, `20260925140000_event_payload_cap`). The guard blocks the agent from hosted-DB reads.
