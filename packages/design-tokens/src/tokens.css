@@ -63,6 +63,13 @@
   /* accent is context-aware: slate on light, platinum on dark */
   --av-accent: var(--av-slate);
   --av-accent-on-dark: var(--av-platinum);
+  /* The accent family. These are the NEUTRAL defaults; a brand's theme (brand_themes, injected
+     server-side into :root, theming REV) replaces all five with AA-validated values. Routed to
+     primary buttons, links, focus, active markers and small accents only. */
+  --av-on-accent: var(--av-mist);
+  --av-accent-hover: var(--av-ink-soft);
+  --av-accent-muted: var(--av-card);
+  --av-focus-ring: var(--av-onyx);
 
   /* --- status sub-palette (muted, feedback-only — §R1.2) --- */
   --av-status-error: #a1383d;
@@ -117,6 +124,7 @@
   --av-radius: 10px; /* default = md */
   --av-radius-lg: 14px;
   --av-radius-xl: 18px;
+  --av-radius-2xl: 28px; /* the vehicle card (showroom) */
   --av-radius-pill: 999px;
 
   /* --- border width --- */

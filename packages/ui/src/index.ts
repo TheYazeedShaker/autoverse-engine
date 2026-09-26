@@ -29,6 +29,17 @@ export type { StatBlockProps, StatBlockSize } from "./components/StatBlock";
 export { Card } from "./components/Card";
 export type { CardProps, CardTone, CardPadding } from "./components/Card";
 
+// Showroom (PAGE-CONSUMER-SHOWROOM)
+export { VehicleCard } from "./components/VehicleCard";
+export type {
+  VehicleCardProps,
+  VehicleAttributeIcon,
+  VehicleStatIcon,
+  VehicleDetailIcon,
+} from "./components/VehicleCard";
+export { ModelSection } from "./components/ModelSection";
+export type { ModelSectionProps } from "./components/ModelSection";
+
 // Primitives
 export { Icon } from "./components/Icon";
 export type { IconProps, IconSize } from "./components/Icon";

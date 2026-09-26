@@ -1,7 +1,43 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Showroom images (ADR 0020): next/image may fetch from exactly one remote base, the public
+// published bucket in ASSET_BASE_URL (read at BUILD time; declared in apps/consumer/turbo.json).
+// Unset, no remote image is allowed and the page shows its placeholders.
+function assetRemotePatterns() {
+  const raw = process.env.ASSET_BASE_URL;
+  if (!raw) return [];
+  const base = new URL(raw.endsWith("/") ? raw : `${raw}/`);
+  // The pattern must be exactly one bucket's public prefix. A bare host ("/**") would turn the image
+  // optimiser into a proxy for everything on it (other buckets, render endpoints, APIs). Fail the
+  // build rather than ship that. Same rules as assetBase() in lib/showroom/images.ts.
+  if (base.protocol !== "https:" || base.search || base.hash || base.pathname === "/") {
+    throw new Error(
+      "ASSET_BASE_URL must be an https URL of one bucket's public prefix (no query, not the host root)",
+    );
+  }
+  return [
+    {
+      protocol: base.protocol.replace(":", ""),
+      hostname: base.hostname,
+      port: base.port,
+      pathname: `${base.pathname}**`,
+    },
+  ];
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    remotePatterns: assetRemotePatterns(),
+    // Card and hero widths (spec §5.3 srcset: 960/1440/1920), plus the smaller card widths.
+    deviceSizes: [640, 960, 1440, 1920],
+    imageSizes: [320, 480],
+    formats: ["image/avif", "image/webp"],
+    // One day. Keys aren't content-hashed yet (the 1·B publish step will make them so; ADR 0018), and
+    // the optimiser's copy is one more cache a take-down has to clear (ADR 0020). Raise it once keys
+    // are immutable.
+    minimumCacheTTL: 60 * 60 * 24,
+  },
   reactStrictMode: true,
   transpilePackages: [
     "@autoverse/ui",

@@ -20,11 +20,18 @@
   --color-on-surface: var(--av-on-surface);
   --color-on-surface-soft: var(--av-on-surface-soft);
   --color-on-surface-muted: var(--av-on-surface-muted);
+  --color-on-panel: var(--av-on-panel);
+  --color-on-panel-muted: var(--av-on-panel-muted);
   --color-on-dark: var(--av-on-dark);
   --color-on-dark-soft: var(--av-on-dark-soft);
   --color-on-dark-muted: var(--av-on-dark-muted);
   --color-border: var(--av-border);
   --color-accent: var(--av-accent);
+  /* the accent family (neutral defaults in tokens.css; a brand theme overrides them on :root) */
+  --color-on-accent: var(--av-on-accent);
+  --color-accent-hover: var(--av-accent-hover);
+  --color-accent-muted: var(--av-accent-muted);
+  --color-focus-ring: var(--av-focus-ring);
 
   /* status (feedback-only, muted) */
   --color-error: var(--av-status-error);
@@ -41,6 +48,7 @@
   --radius-md: var(--av-radius-md);
   --radius-lg: var(--av-radius-lg);
   --radius-xl: var(--av-radius-xl);
+  --radius-2xl: var(--av-radius-2xl);
 
   /* type */
   --font-sans: var(--av-font-en);

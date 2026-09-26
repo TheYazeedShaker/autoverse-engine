@@ -37,10 +37,19 @@ const surfacePairs: Record<string, string[]> = {
   // enforced, not just true-by-aliasing. The dark re-publish (Surface tone="dark" / SB theme) maps these to
   // the on-dark / surface-dark tokens, whose AA is already asserted by the --av-surface-dark row below.
   "--av-bg": ["--av-fg", "--av-fg-muted"],
-  "--av-surface": ["--av-on-surface", "--av-on-surface-soft", "--av-on-surface-muted"],
+  // --av-accent too: the accent is drawn on Mist (VehicleCard), which brand themes are validated against.
+  "--av-surface": [
+    "--av-on-surface",
+    "--av-on-surface-soft",
+    "--av-on-surface-muted",
+    "--av-accent",
+  ],
   "--av-surface-panel": ["--av-on-panel", "--av-on-panel-muted"],
   "--av-surface-card": ["--av-on-card", "--av-on-card-muted"],
   "--av-surface-dark": ["--av-on-dark", "--av-on-dark-soft", "--av-on-dark-muted"],
+  // The accent family's neutral defaults (a brand theme replaces them with validated values).
+  "--av-accent": ["--av-on-accent"],
+  "--av-accent-hover": ["--av-on-accent"],
 
   "--av-surface-admin-sidebar": ["--av-on-admin", "--av-on-admin-muted"],
   "--av-surface-admin-base": ["--av-on-admin", "--av-on-admin-muted"],
