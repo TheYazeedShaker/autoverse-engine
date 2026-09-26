@@ -9,6 +9,85 @@ import { z } from "zod";
 //     we cannot store goes to the dead-letter queue and the caller gets 202.
 //   * The event id is the idempotency key. At-least-once delivery means the same event WILL arrive
 //     twice; the second arrival must be absorbed, not duplicated.
+//
+// One exception to "dead-letter, don't refuse": size (ADR 0016). Events are write-once and can't be
+// trimmed, so an oversized payload is refused with a 413 and stored nowhere, dead-letter queue
+// included.
+
+/** Per event payload, serialized (owner decision on BLOCK #9, ADR 0016). */
+export const MAX_PAYLOAD_BYTES = 8192;
+/**
+ * Per event, whole. A valid event is small apart from its payload (ids, a short kind), so this is
+ * the payload plus 1 KB of room. It stops an event that would fail validation for another reason
+ * from carrying its bulk into the dead-letter queue in some other field.
+ */
+export const MAX_EVENT_BYTES = MAX_PAYLOAD_BYTES + 1024;
+/** Per request to ingest-event. */
+export const MAX_BODY_BYTES = 256 * 1024;
+
+const encoder = new TextEncoder();
+
+/**
+ * A payload's size as JSON. Postgres measures its own rendering (`payload::text` puts a space
+ * after each `:` and `,`), so near the limit the database's CHECK is stricter and has the final
+ * say. Both answers are a refusal, never a dead letter.
+ */
+export const payloadBytes = (payload: unknown): number =>
+  encoder.encode(JSON.stringify(payload ?? {})).length;
+
+export interface Oversized {
+  part: "payload" | "event";
+  bytes: number;
+}
+
+/**
+ * The first event in the body (one event or a batch) that is over a limit: its payload over
+ * MAX_PAYLOAD_BYTES, or the event as a whole over MAX_EVENT_BYTES. Anything in the batch counts,
+ * a bare string included, since an invalid item is dead-lettered verbatim.
+ */
+export function findOversized(raw: unknown): Oversized | null {
+  const items = Array.isArray(raw) ? raw : [raw];
+  for (const item of items) {
+    if (typeof item === "object" && item !== null && "payload" in item) {
+      const bytes = payloadBytes((item as { payload: unknown }).payload);
+      if (bytes > MAX_PAYLOAD_BYTES) return { part: "payload", bytes };
+    }
+    const bytes = payloadBytes(item);
+    if (bytes > MAX_EVENT_BYTES) return { part: "event", bytes };
+  }
+  return null;
+}
+
+/**
+ * Read a request body up to `max` bytes. Returns null as soon as it's over, without buffering the
+ * rest: Content-Length can be missing or wrong, so the stream itself is counted.
+ */
+export async function readCappedText(
+  body: ReadableStream<Uint8Array> | null,
+  max: number,
+): Promise<string | null> {
+  if (!body) return "";
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
 
 /** A validated event, ready to upsert. */
 // z.guid() rather than z.uuid(): Zod 4's uuid() enforces RFC version and variant bits, while
@@ -30,7 +109,13 @@ export const eventSchema = z.object({
     .nullish(),
   model_id: z.guid().nullish(),
   trim_id: z.guid().nullish(),
-  payload: z.record(z.string(), z.unknown()).default({}),
+  // No PII in a payload, ever (ADR 0016): names, phones and emails belong only in leads.
+  payload: z
+    .record(z.string(), z.unknown())
+    .refine((p) => payloadBytes(p) <= MAX_PAYLOAD_BYTES, {
+      message: `payload is larger than ${MAX_PAYLOAD_BYTES} bytes`,
+    })
+    .default({}),
 });
 
 export type IngestEvent = z.infer<typeof eventSchema>;
