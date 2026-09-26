@@ -10,7 +10,7 @@
 // protection on main. It fails CLOSED: any error in here blocks the call.
 //
 // Exit 2 = block (Claude Code shows stderr to the agent). Exit 0 = allow.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -68,8 +68,94 @@ const inside = (root, p) => {
   const rel = path.relative(root, p);
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 };
-const PROTECTED_DIRS = [".claude", ".github", "design"].map((d) => path.join(REPO, d));
+const PROTECTED_DIRS = [".claude", ".github", "design", "design-approved"].map((d) =>
+  path.join(REPO, d),
+);
 const isProtectedDir = (p) => PROTECTED_DIRS.some((d) => inside(d, p));
+
+// design/ is the owner's and never read. design-approved/ holds the owner's copies of the files a
+// page spec is built from: the file tools may read them (settings.json), the shell may not touch
+// them at all (ADR 0010, "Approved design copies").
+const OWNER_DIRS = ["design", "design-approved"].map((d) => path.join(REPO, d));
+const ownerDir = (p) => OWNER_DIRS.find((d) => inside(d, p));
+
+/** git's `--no-index` / `--untracked`, abbreviations included (git accepts unambiguous prefixes). */
+const READS_OUTSIDE_INDEX = /^--(no-in|unt)/;
+
+/** `/usr/bin/grep`, `grep.exe` → `grep`. */
+const baseCmd = (w) =>
+  path
+    .basename(w ?? "")
+    .replace(/\.exe$/i, "")
+    .toLowerCase();
+
+/** The command a segment really runs, past env/xargs/sudo/busybox… and VAR=value. */
+function unwrap(words) {
+  let i = 0;
+  while (
+    i < words.length &&
+    (WRAPPERS.test(baseCmd(words[i])) ||
+      baseCmd(words[i]) === "busybox" ||
+      /^\w+=/.test(words[i]) ||
+      (i > 0 && words[i].startsWith("-")))
+  )
+    i += 1;
+  return words.slice(i);
+}
+
+/**
+ * A recursive content search reads design/ without naming it. `grep -r` ignores .gitignore; `rg`
+ * honours it unless told not to; `git grep --no-index`/`--untracked` reads untracked files. Blocked
+ * when its root is design/, design-approved/ or a folder above either. With no existing path
+ * named, the root is where the shell is. Roots are resolved through symlinks, since grep and rg
+ * follow a symlink named on the command line. A heuristic, like the rest of this file.
+ */
+function checkRecursiveSearch(words, cwd) {
+  const [first, ...rest] = unwrap(words);
+  const cmd = baseCmd(first);
+  let args = rest;
+  const has = (re) => args.some((a) => re.test(a));
+  let recursive = false;
+  if (cmd === "rgrep") recursive = true;
+  else if (/^[ef]?grep$/.test(cmd)) {
+    recursive =
+      // GNU getopt takes any unambiguous prefix of a long option (`--recursiv`, `--direc=recurse`).
+      has(/^-[a-zA-Z]*[rR]/) ||
+      has(/^--(rec|der)/) ||
+      has(/^(--dir[a-z]*=|-d)recurse$/) ||
+      args.some((a, i) => /^(-d|--dir[a-z]*)$/.test(a) && args[i + 1] === "recurse");
+  } else if (cmd === "rg") {
+    recursive = has(/^-[a-zA-Z]*u/) || has(/^--(no-ignore|unrestricted)/);
+  } else if (cmd === "git" && args.includes("grep")) {
+    recursive = has(READS_OUTSIDE_INDEX);
+    args = args.slice(args.indexOf("grep") + 1);
+  }
+  if (!recursive) return;
+  const roots = args
+    .filter((a) => !a.startsWith("-"))
+    .map((a) => resolveArg(a, cwd))
+    .filter((p) => p && existsSync(p))
+    .flatMap((p) => {
+      try {
+        return [p, realpathSync.native(p)];
+      } catch {
+        return [p];
+      }
+    });
+  for (const root of roots.length ? roots : [cwd]) {
+    if (OWNER_DIRS.some((d) => inside(root, d) || inside(d, root)))
+      block(
+        `${cmd} searches ${path.relative(REPO, root) || "the repo root"} recursively, which reaches design/; search a subfolder instead`,
+      );
+  }
+}
+
+/**
+ * Files that decide what rg (and git) ignore. A line like `!design/` in one of them would make a
+ * plain `rg` read design/ again, so only the owner changes them.
+ */
+const IGNORE_FILE = (p) =>
+  /^\.(rgignore|ignore)$/.test(path.basename(p)) || p === path.join(REPO, ".gitignore");
 
 /** Split on ; && || | and newlines, ignoring separators inside quotes. */
 function segments(command) {
@@ -144,14 +230,19 @@ function checkShell(command) {
     const [cmd = "", ...args] = words;
 
     checkGh(words);
-    // `bash -c "gh pr merge 1"`: check the inner command too.
-    const c = args.findIndex((a) => /^-(c|Command)$/i.test(a));
-    if (SHELLS.test(cmd) && c >= 0 && args[c + 1]) {
-      for (const inner of segments(args[c + 1])) checkGh(tokens(inner));
-    }
+    // `bash -c "gh pr merge 1"`, `env bash -lc "grep -r x ."`: the inner command gets every check.
+    const [shell = "", ...shellArgs] = unwrap(words);
+    const c = shellArgs.findIndex((a) => /^-[a-z]*c$|^-Command$/i.test(a));
+    if (SHELLS.test(baseCmd(shell)) && c >= 0 && shellArgs[c + 1]) checkShell(shellArgs[c + 1]);
+
+    // A search can be made to read ignored files without any flag.
+    if (/RIPGREP_CONFIG_PATH/.test(segment))
+      block("RIPGREP_CONFIG_PATH can turn off rg's ignore rules; only the owner sets it");
+    checkRecursiveSearch(words, cwd);
 
     // Commit messages and PR text mention paths without touching them, and design/ is gitignored.
-    if (/^(git|gh)$/.test(cmd)) continue;
+    // Except a git command that reads outside the index: those get the path checks below.
+    if (/^(git|gh)$/.test(cmd) && !args.some((a) => READS_OUTSIDE_INDEX.test(a))) continue;
 
     if (/^(cd|pushd|Set-Location|sl|chdir)$/i.test(cmd)) {
       const target = args.find((a) => !a.startsWith("-"));
@@ -181,9 +272,11 @@ function checkShell(command) {
         .filter((a) => !a.startsWith("-") && a !== "/dev/null")
         .map((a) => [a, resolveArg(a, cwd)]);
 
-    // 1. design/ is the owner's. Never read, modified or committed.
+    // 1. design/ is the owner's. Never read, modified or committed. design-approved/ is for the
+    //    file tools only.
     for (const [raw, p] of resolved([...plainArgs, ...redirectTargets])) {
-      if (p && inside(path.join(REPO, "design"), p)) block(`design/ is off limits (${raw})`);
+      const dir = p && ownerDir(p);
+      if (dir) block(`${path.basename(dir)}/ is off limits to the shell (${raw})`);
     }
 
     // 2. The loop never modifies its own guardrails: permissions, hooks, CI.
@@ -191,7 +284,8 @@ function checkShell(command) {
       p &&
       (inside(path.join(REPO, ".github"), p) ||
         inside(path.join(REPO, ".claude", "hooks"), p) ||
-        /^settings(\.local)?\.json$/.test(path.relative(path.join(REPO, ".claude"), p)));
+        /^settings(\.local)?\.json$/.test(path.relative(path.join(REPO, ".claude"), p)) ||
+        IGNORE_FILE(p));
     for (const [raw, p] of resolved(redirectTargets)) {
       if (guarded(p)) block(`writing ${raw} is human-gated`);
     }
