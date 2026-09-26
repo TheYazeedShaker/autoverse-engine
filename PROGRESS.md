@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-25
-**Last session:** **Interactive session, runner OFF.** Confirmed #57/#58/#59 merged on `main`. BLOCK #9 decided by the owner (option A). Housekeeping PR: `specs/SPEC-page-consumer-showroom.md` committed (prettier only), `BACKLOG.md` re-queued (BLOCK-FIX-9 first, then PAGE-CONSUMER-SHOWROOM). Work order from the owner: housekeeping → BLOCK-FIX-9 → PAGE-CONSUMER-SHOWROOM slice by slice, one PR each, stopping after each for the owner's merge.
+**Last session:** **Interactive session. The loop runner is OFF.** BLOCK #7 and #8 are fixed in PRs #57 and #58, and both passed `code-reviewer` and `security-review`. The runner's workspace-trust failure is recorded in ADR 0014, together with the difference between the monthly spend limit and the per-run budget. A patch that fails any untrusted run was handed to the owner (`.github/` is theirs).
 
 ---
 
@@ -127,9 +127,9 @@ Interactive session, 2026-09-25. The unattended runner is **off** (see _Decision
 > - **Merged:** #4 (#26), #5 (#27), #6 (#28), and the #1 groundwork (#30).
 > - #2 and #3: the scheduled worker plus a worker-driven gate are in **#33**.
 > - #1: enforcement on the anon key, with Turnstile and rate limits, is in **#34**.
-> - #7: **merged, PR #57** (composite FK + test 0017), 2026-09-25.
-> - #8: **merged, PR #58** (`LeadRepository.create` → `capture_lead`), 2026-09-25.
-> - #9: **decided 2026-09-25** in `#build-decisions` (owner): option A. 8 KB per serialized payload, enforced in Zod and by a CHECK on `events`; oversized events refused with a 4xx, never dead-lettered; 256 KB request-body cap on ingest-event. Plus an ADR: event payloads never carry PII. Option C (per-kind payload schemas) queued as a follow-up for when page event capture lands. Hosted pre-check run by the owner: 0 rows over 8192 bytes, so the CHECK is safe. Queued as `BLOCK-FIX-9`.
+> - #7: **PR #57** (composite FK + test 0017), 2026-09-25.
+> - #8: **PR #58** (`LeadRepository.create` → `capture_lead`), 2026-09-25.
+> - #9: open (a Tier B question, not yet posted).
 
 The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
 Both are true, and the second is the more important one: **the gate passes on a system that, deployed
@@ -187,9 +187,9 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ### 0. First thing next session
 
-1. **BLOCK #7 and #8 are merged** (#57, #58, 2026-09-25; `done` in `BACKLOG.md`). Confirm that the Supabase check on `main` applied `20260925120000_lead_activities_brand_fk` to the hosted DB. It would fail only if an existing activity's brand doesn't match its lead's; that's the intended outcome, and it needs the owner, because the guard blocks the agent from hosted-DB reads.
+1. **PRs #57 (BLOCK #7) and #58 (BLOCK #8):** both approved by both reviewers, and both fully green in CI (every check passed; only `smoke` and `Supabase Preview` skipped). Once they merge, set `BLOCK-FIX-7`/`-8` to `done` in `BACKLOG.md`. #57's migration then reaches the hosted DB. It fails if any existing activity's brand doesn't match its lead's, which is the intended outcome. A one-off count on the hosted DB beforehand avoids a surprise (owner: the guard blocks the agent from hosted-DB reads).
 2. **Owner: apply the trust-check patch** to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the workspace monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD` before any trial.
-3. **Work order (owner, 2026-09-25), one PR each against `main`, stop after each for the owner's merge:** (1) housekeeping docs PR (showroom spec + BACKLOG edits); (2) `BLOCK-FIX-9` as decided above; (3) `PAGE-CONSUMER-SHOWROOM`, slice by slice. Read the whole spec first. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
+3. Nothing in `BACKLOG.md` is startable after #57/#58: BLOCK #9 is a Tier B question (event payload size cap) that hasn't been posted yet, and everything else is `awaiting-spec`.
 
 ### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
@@ -251,7 +251,7 @@ The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberat
 - **Scratch branch `chore/scratch-deny-test`** (PR #43, closed) is still on GitHub. This environment's git proxy cut off `git push --delete` twice. Owner: use "Delete branch" on #43.
 - **Guard over-block:** GitHub's `list_branches` is blocked as a Supabase tool (the two connectors share the name). Next guard PR: add it to the shared-name exemption keyed on `project_id`. This fails closed, so it isn't a hole.
 
-- BLOCK #9 (event payload size): Tier B posted 2026-09-25, awaiting a reply. #7 and #8 are merged (#57, #58).
+- BLOCK #9 (event payload size; a Tier B question, not yet posted). #7 and #8 are in PRs #57 and #58.
 - From the #57/#58 reviews (none introduced by those PRs):
   - A CI canary for 0017 (drop `lead_activities_lead_brand_fkey`, require a `CRITICAL`). This goes in `ci.yml`, so the owner adds it.
   - A lead with activities can't be hard-deleted: the cascade hits the append-only trigger. The erasure / right-to-delete path needs a design (ADR).
