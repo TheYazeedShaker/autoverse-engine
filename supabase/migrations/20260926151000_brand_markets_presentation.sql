@@ -28,13 +28,15 @@ returns boolean language sql immutable set search_path = '' as $fn$
     when cities is null or jsonb_typeof(cities) <> 'array' then false
     when jsonb_array_length(cities) > 100 then false
     else (
-      select coalesce(bool_and(
+      -- The inner coalesce matters: a missing key makes the predicate NULL, and bool_and skips
+      -- NULLs, so without it an entry with no `ar` would pass.
+      select coalesce(bool_and(coalesce(
                jsonb_typeof(c) = 'object'
            and jsonb_typeof(c -> 'id') = 'string'
            and (c ->> 'id') ~ '^[a-z0-9][a-z0-9-]{0,62}$'
            and jsonb_typeof(c -> 'en') = 'string' and length(btrim(c ->> 'en')) between 1 and 80
-           and jsonb_typeof(c -> 'ar') = 'string' and length(btrim(c ->> 'ar')) between 1 and 80
-         ), true)
+           and jsonb_typeof(c -> 'ar') = 'string' and length(btrim(c ->> 'ar')) between 1 and 80,
+           false)), true)
          and count(distinct c ->> 'id') = count(*)
       from jsonb_array_elements(cities) as c
     )

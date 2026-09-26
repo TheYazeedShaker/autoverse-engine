@@ -58,6 +58,9 @@ declare
     array['lead_cities = ''[{"id":"Cairo","en":"C","ar":"ق"}]''',            'brand_markets_lead_cities_valid'],
     array['lead_cities = ''[{"id":"cairo","en":"","ar":"ق"}]''',             'brand_markets_lead_cities_valid'],
     array['lead_cities = ''[{"id":"cairo","en":"Cairo"}]''',                 'brand_markets_lead_cities_valid'],
+    array['lead_cities = ''[{"en":"Cairo","ar":"القاهرة"}]''',               'brand_markets_lead_cities_valid'],
+    array['lead_cities = ''[{"id":"cairo","en":"Cairo","ar":null}]''',       'brand_markets_lead_cities_valid'],
+    array['lead_cities = ''["cairo"]''',                                     'brand_markets_lead_cities_valid'],
     array['lead_cities = ''[{"id":"cairo","en":"C","ar":"ق"},{"id":"cairo","en":"C2","ar":"ق2"}]''', 'brand_markets_lead_cities_valid'],
     array['lead_cities = (select jsonb_agg(jsonb_build_object(''id'', ''c'' || g, ''en'', ''C'', ''ar'', ''ق'')) from generate_series(1, 101) g)', 'brand_markets_lead_cities_valid']
   ];
