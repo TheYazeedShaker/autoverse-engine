@@ -2,16 +2,16 @@
 
 **Task ID:** `PAGE-CONSUMER-SHOWROOM`
 **Depends on:** ENGINE-CORE-1A (done). Replaces the dependency on `STORYBOOK-TIER2`: each page spec now carries its own component inventory, and every new component ships in `packages/ui` with story + tests as part of this task.
-**Visual source of truth (lifts the `design/` read rule for these files only, read-only):**
-`design/showroom/Cadillac Virtual Showroom.dc.html`, `design/showroom/VehicleCard.dc.html`, `design/showroom/TechDrawer.dc.html`.
+**Visual source of truth (the owner's approved copies, read-only; ADR 0010, _Approved design copies_. `design/` itself stays closed):**
+`design-approved/showroom/showroom.dc.html`, `design-approved/showroom/vehicle-card.dc.html`, `design-approved/showroom/spec-drawer.dc.html`, plus their `assets/` and `uploads/` folders. Read them with the file tools only; the shell can't reach them.
 The exports are prototypes, not code to copy: rebuild them in the system (tokens, Tier-1 primitives, `motion/react`, Radix). Match layout, proportions, states and motion. Never copy inline hex, px or hardcoded data out of them.
-**Session requirement:** `design/` is gitignored, so this task runs in a **local** session on the owner's machine. A cloud session can't see the design files.
+**Session requirement:** `design-approved/` is gitignored, so this task runs in a **local** session on the owner's machine. A cloud session can't see the design files.
 
 ---
 
 ## 1. Goal
 
-The public entry page of a brand-market: a buyer browses the range, focuses a model, picks a trim, opens specs, compares, and leaves a lead. Everything shown comes from engine data. Nothing is brand-specific in code. The demo brand is Cadillac, but a second brand must render correctly by data alone.
+The public entry page of a brand-market: a buyer browses the range, focuses a model, picks a trim, opens specs, compares, and leaves a lead. Everything shown comes from engine data. Nothing is brand-specific in code. The page is built against the demo brand, but a second brand must render correctly by data alone.
 
 ## 2. Route, tenancy, theming
 
@@ -53,8 +53,8 @@ Intro curtain → top bar → hero (drag carousel) → floating model dock → c
 4. **ModelDock**: glassy pills, sliding active pill; two-way sync with the carousel; scroll-spy on sections (anchor line 30% from top, bottom of page = last, spy suspended during programmatic scroll until `scrollend`); hidden when fewer than 2 models are visible.
 5. **FilterSidebar**: sticky glassy panel, search on top, collapsible groups **body · fuel · drive · seats** with counts derived from data, sort (**featured · name · power · 0–100**); mobile = bottom sheet. Filtering hides whole model sections and the dock reflects visible models only.
 6. **ModelSection**: per model even with one trim (header band: name, descriptor, from-price, anchor id); trim cards in the 3-per-row grid, start-aligned, never stretched.
-7. **VehicleCard**: the approved v3 card (`VehicleCard.dc.html`) rebuilt in the system: warm greige card + diagonal wedge (brand-invariant), car bleeding per design, inset spec panel, **Configure primary**, Explore in detail, Compare checkbox, "Technical data ›" opens SpecDrawer.
-8. **SpecDrawer**: per `TechDrawer.dc.html`: side panel (full-height sheet on mobile), focus trap, Escape/scrim close, tabs → collapsible groups → rows from the **spec ledger** resolved for the selected trim (`resolveLedgerRow`), group notes, Configure CTA at the bottom.
+7. **VehicleCard**: the approved v3 card (`vehicle-card.dc.html`) rebuilt in the system: warm greige card + diagonal wedge (brand-invariant), car bleeding per design, inset spec panel, **Configure primary**, Explore in detail, Compare checkbox, "Technical data ›" opens SpecDrawer.
+8. **SpecDrawer**: per `spec-drawer.dc.html`: side panel (full-height sheet on mobile), focus trap, Escape/scrim close, tabs → collapsible groups → rows from the **spec ledger** resolved for the selected trim (`resolveLedgerRow`), group notes, Configure CTA at the bottom.
 9. **CompareTray**: max 3, floating glassy tray with thumbnails, per-item remove, "Compare N" → compare route (placeholder behind its own flag until PAGE-CONSUMER-COMPARE ships).
 10. **LeadModal**: see §6. **Design gap:** the final export contains no form. Build to this spec using system form primitives (TextField, Select, Checkbox, Button) and the modal's existing visual language.
 11. **Footer**: brand description EN/AR, link columns, social icons, from `brand_markets` config.
