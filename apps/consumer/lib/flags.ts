@@ -58,7 +58,11 @@ export async function isFlagEnabled(
   timeoutMs: number = FLAG_TIMEOUT_MS,
   traceId?: string,
 ): Promise<boolean> {
-  if (!client) return false;
+  if (!client) {
+    // Otherwise indistinguishable from a flag that is simply off: every gated page 404s.
+    logFlagFailure(flag, "no_posthog_key", traceId);
+    return false;
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<"timeout">((resolve) => {
     timer = setTimeout(() => resolve("timeout"), timeoutMs);

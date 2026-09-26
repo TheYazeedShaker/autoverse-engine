@@ -31,8 +31,11 @@ describe("isFlagEnabled — fails closed", () => {
     ).toBe(false);
   });
 
-  it("is off when no PostHog key is configured (no client)", async () => {
-    expect(await isFlagEnabled("f", "id", null)).toBe(false);
+  it("is off when no PostHog key is configured (no client), and says so in the log", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await isFlagEnabled("f", "id", null, 1500, "trace-9")).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"reason":"no_posthog_key"'));
+    warn.mockRestore();
   });
 
   it("is off when PostHog throws — the kill path survives an outage", async () => {

@@ -66,6 +66,28 @@ Preview.
 The two Supabase variables are read server-side only (no `NEXT_PUBLIC_` prefix). After adding
 them, redeploy the preview (env changes apply to new deployments only).
 
+**Every variable the consumer reads is also declared in `apps/consumer/turbo.json`** (finding,
+2026-09-26). The build runs through Turborepo in strict env mode, which filters out of the
+**build process** any variable its task doesn't declare. For those variables Vercel only warns:
+"set on your Vercel project, but missing from turbo.json … WILL NOT be available to your
+application".
+
+- **The filter covers the build.** The page's server code reads its variables at **runtime**, and
+  Vercel functions get those from the project settings. So a missing declaration isn't necessarily
+  why a page 404s. The log line in _Per preview_ below names the actual reason.
+- `env`: read at **build** time, so part of the cache key.
+  - `NEXT_PUBLIC_*` are inlined into the bundle. Turbo's Next.js inference would pass them anyway;
+    they're declared explicitly so they stay in the cache key on purpose.
+  - `ASSET_BASE_URL` is read in next.config from slice 2.
+- `passThroughEnv`: read at **runtime** only. That means `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+  `SHOWROOM_PREVIEW_SUBDOMAIN`, `CONSUMER_ROOT_DOMAIN`, `SENTRY_DSN`, and the Vercel system
+  variables.
+- `SHOWROOM_SOURCE` is deliberately **not** declared: a second layer behind `source.ts`, which
+  refuses the local fixture on any deployment.
+- `apps/consumer/turbo-env.test.ts` fails CI if the consumer, or a workspace package it bundles,
+  reads a variable that isn't declared. Add a new variable to `turbo.json` in the same PR that first
+  reads it.
+
 ### 3. The flag
 
 Set `page_showroom` **on for distinct id `demo`**: active, with a release condition on the
@@ -77,17 +99,24 @@ effect on the next request.
 
 ## Per preview
 
-1. Open the PR's Vercel preview link. With Vercel deployment protection on, sign in to Vercel
-   first.
+1. Open the PR's Vercel preview link **at its root path `/`**, for example
+   `https://<project>-git-<branch>-<team>.vercel.app/`. The showroom is the app's home page. There
+   is no market or language segment in the path: the market comes from the host (here, the preview
+   mapping), and the EN/AR switch is part of the page. With Vercel deployment protection on, sign in
+   to Vercel first.
 2. You should see that slice's showroom for the demo brand.
-3. A plain "Page not found" means one of the steps above is missing. The runtime log line
-   `showroom_not_found` names the reason:
-   - `flag_off`: the flag isn't on for `demo`.
-   - `source_unconfigured`: the Supabase variables are missing in Preview.
-   - `unknown_subdomain`: no live brand in a live market with `subdomain = 'demo'` (check the seed:
-     brand status, market `live`, spelling).
-   - `host_unresolved`: `SHOWROOM_PREVIEW_SUBDOMAIN` is missing in Preview, or the deployment
-     isn't a preview.
+3. A plain "Page not found" means one of the steps above is missing. In Vercel, open the preview
+   deployment → **Logs**, and search for `showroom_not_found`. Its `reason` says which step:
+
+   | `reason`              | Meaning and fix                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+   | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `host_unresolved`     | `SHOWROOM_PREVIEW_SUBDOMAIN` isn't set for Preview in Vercel (or wasn't when this deployment was built: redeploy after changing a variable), or the deployment isn't a preview. A `showroom_preview_mapping` line appears when the mapping works.                                                                                                                                                                                                                                                                                                                                |
+   | `flag_off`            | The flag answered off for `demo`. Look for the `flag_eval_failed` line with the same `trace_id`: `reason: no_posthog_key` means `NEXT_PUBLIC_POSTHOG_KEY` wasn't there when this deployment was built (it's inlined at build, so redeploy); `timeout` or an error name means PostHog didn't answer. With no such line, PostHog itself said off. The page creates **no PostHog person** for `demo` (ADR 0017), so a condition on a stored _person property_ can never match. Use a condition on the distinct id, or, while only the demo brand exists, roll the flag out to 100%. |
+   | `source_unconfigured` | `SUPABASE_URL` / `SUPABASE_ANON_KEY` aren't set for Preview in Vercel (or weren't when this deployment was built).                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+   | `unknown_subdomain`   | The database has no live brand in a live market with `subdomain = 'demo'`. Check the seed: brand status, market `live`, spelling.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+
+   A **5xx** instead of a 404 means the catalogue read failed. Look for `showroom_source_error`: its
+   `status` or `issues` field says why.
 
 Catalogue reads are cached per server instance for at most 60 s, a "not found" answer included.
 So a seed change, or a fix for `unknown_subdomain`, shows within a minute (ADR 0017).

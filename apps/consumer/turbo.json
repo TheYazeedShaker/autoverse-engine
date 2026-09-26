@@ -1,0 +1,25 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": [
+        "NEXT_PUBLIC_POSTHOG_KEY",
+        "NEXT_PUBLIC_POSTHOG_HOST",
+        "NEXT_PUBLIC_SENTRY_DSN",
+        "ASSET_BASE_URL"
+      ],
+      "passThroughEnv": [
+        "SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+        "SHOWROOM_PREVIEW_SUBDOMAIN",
+        "CONSUMER_ROOT_DOMAIN",
+        "SENTRY_DSN",
+        "CI",
+        "VERCEL",
+        "VERCEL_ENV",
+        "VERCEL_GIT_COMMIT_SHA"
+      ]
+    }
+  }
+}
