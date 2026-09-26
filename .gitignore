@@ -36,6 +36,9 @@ gcp-*.json
 # Design source of truth: briefs and exports live here, owned by Yazeed.
 # Never read, modify or commit anything inside it.
 design/
+# Copies of the design files a page spec is built from, placed here by the owner (ADR 0010).
+# Readable by the agent's file tools; never modified, never committed.
+design-approved/
 
 # Local, machine-specific Claude Code settings (permission grants etc.) — never shared.
 .claude/settings.local.json
