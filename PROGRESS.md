@@ -4,8 +4,8 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-25
-**Last session:** **Interactive session, runner OFF.** Confirmed #57/#58/#59 merged on `main`. BLOCK #9 decided by the owner (option A). Housekeeping PR: `specs/SPEC-page-consumer-showroom.md` committed (prettier only), `BACKLOG.md` re-queued (BLOCK-FIX-9 first, then PAGE-CONSUMER-SHOWROOM). Work order from the owner: housekeeping → BLOCK-FIX-9 → PAGE-CONSUMER-SHOWROOM slice by slice, one PR each, stopping after each for the owner's merge.
+**Last updated:** 2026-09-26
+**Last session:** **Interactive session, runner OFF.** All of BLOCK #7–#9 is merged (#57, #58, #61), so the 1·A BLOCK review is closed. The showroom spec is on `main` (#60, fixed by #64): it points at the owner's approved copies in `design-approved/showroom/` and names no real manufacturer. The owner merged the guard change for approved design copies (#62, ADR 0010). **Next: `PAGE-CONSUMER-SHOWROOM`, in a fresh local session** so the new guard hook loads.
 
 ---
 
@@ -26,7 +26,7 @@
 | `AUTONOMOUS-LOOP-P2`              | ⏸ Runner OFF       | Runner on `main`. `agent_loop_enabled` inactive since 2026-09-25 and stays off until the owner decides on a measured trial. Work continues in interactive sessions.                  |
 | Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
 | Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
-| Phase 1·C — Consumer app          | ⏳ Held            | Design-first.                                                                                                                                                                        |
+| Phase 1·C — Consumer app          | 🟡 Next            | `PAGE-CONSUMER-SHOWROOM` is queued with its spec on `main`; it starts in a fresh local session.                                                                                      |
 | Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                      |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
@@ -55,7 +55,27 @@
 
 ## What Was Built Last Session
 
-Interactive session, 2026-09-25. The unattended runner is **off** (see _Decisions_).
+Interactive session, 2026-09-25 → 26. The unattended runner is **off** (see _Decisions_).
+
+**BLOCK #9, PR #61** (owner decision, option A; ADR 0016):
+
+- An event's payload is capped at 8 KB and the event as a whole at 9 KB. The caps are enforced in Zod, by the `events_payload_size` CHECK, and by a pre-check in `ingest_events_public`.
+- An oversized event is refused with 413 and stored nowhere, dead-letter queue included. The RPC's refusal is returned rather than raised, so the rate-limit hit is kept.
+- The body is capped at 256 KB, counted on the stream.
+- The worker gives up at once on a replay the database refuses with a CHECK (23514). This applies to lead replays too.
+- Alert: more than 20 `events_refused_too_large` in 15 minutes per market (owner-confirmed; revisit with real traffic).
+- Tests: SQL test 0018 and the unit tests. Both reviews approved.
+- Rule recorded: **event payloads never carry PII.**
+
+**Housekeeping, #60 + #64:** the showroom spec is committed and points at `design-approved/showroom/` (`showroom.dc.html`, `vehicle-card.dc.html`, `spec-drawer.dc.html`). BACKLOG is re-queued. #60 went in as a regular merge, so its first commit (with two real manufacturer names, since removed) stays in `main`'s history. The owner's call; see _Known Issues_. The revert PR #63 was closed unmerged.
+
+**Approved design copies, #62 (owner-applied patch; ADR 0010):**
+
+- `design/` is unchanged and closed. The owner copies a page's files into gitignored `design-approved/<page>/`, which the file tools can read. Edit and Write are denied there, and the shell can't touch it.
+- The guard now also refuses recursive searches that would reach either folder. That covers `grep -r` and variants, `rg -u`/`--no-ignore`, `git grep --no-index`, symlinked roots, wrapped or abbreviated forms, and `bash -c` payloads.
+- The root `.gitignore`, `.rgignore` and `.ignore` files are owner-only, and `RIPGREP_CONFIG_PATH` is blocked.
+- Security review: approved after three rounds. The recursive-search rule is best-effort; its residual risks are listed in the ADR.
+- **Slip, disclosed to the owner:** before this fix, a repo-wide `grep -r` by the agent matched lines in two `design/` briefs. That content was not used.
 
 **BLOCK #7, PR #57** (`fix/block-7-lead-activities-brand-fk`):
 
@@ -101,6 +121,9 @@ Interactive session, 2026-09-25. The unattended runner is **off** (see _Decision
 - **The loop's workspace must be trusted, and an untrusted run must fail** (ADR 0014 amendment). An untrusted `claude -p` ignores every project allow rule. The only sign is a stderr warning; the exit code stays 0.
 - **Two spend limits** (ADR 0014): the workspace's monthly limit is the backstop for a leaked key; `LOOP_MAX_BUDGET_USD` caps each run. The monthly limit must be at least runs per month × the per-run budget.
 - **Lead writes go through `capture_lead` only.** No code path inserts into `leads` directly (BLOCK #8).
+- **Event payloads: 8 KB, 9 KB per event, 256 KB per request; oversized refused (413), never dead-lettered; never PII** (ADR 0016, owner 2026-09-25). Per-kind payload schemas are queued (`EVENT-PAYLOAD-SCHEMAS`) for when page event capture lands.
+- **Design files reach the agent only as the owner's copies** in `design-approved/<page>/` (ADR 0010, owner 2026-09-26). `design/` stays closed. Each page spec names its copies, and a spec's text grants nothing by itself. Page work runs in a local session.
+- **No real manufacturer names anywhere in the repo outside `docs/`**, specs included. The demo brand is "the demo brand".
 
 ## Known Issues / TODOs
 
@@ -129,7 +152,7 @@ Interactive session, 2026-09-25. The unattended runner is **off** (see _Decision
 > - #1: enforcement on the anon key, with Turnstile and rate limits, is in **#34**.
 > - #7: **merged, PR #57** (composite FK + test 0017), 2026-09-25.
 > - #8: **merged, PR #58** (`LeadRepository.create` → `capture_lead`), 2026-09-25.
-> - #9: **decided 2026-09-25** in `#build-decisions` (owner): option A. 8 KB per serialized payload, enforced in Zod and by a CHECK on `events`; oversized events refused with a 4xx, never dead-lettered; 256 KB request-body cap on ingest-event. Plus an ADR: event payloads never carry PII. Option C (per-kind payload schemas) queued as a follow-up for when page event capture lands. Hosted pre-check run by the owner: 0 rows over 8192 bytes, so the CHECK is safe. Queued as `BLOCK-FIX-9`.
+> - #9: **merged, PR #61**, 2026-09-26. Decided 2026-09-25 in `#build-decisions` (owner): option A. 8 KB per serialized payload, enforced in Zod and by a CHECK on `events`; oversized events refused with a 4xx, never dead-lettered; 256 KB request-body cap on ingest-event. Plus an ADR: event payloads never carry PII. Option C (per-kind payload schemas) queued as a follow-up for when page event capture lands. Hosted pre-check run by the owner: 0 rows over 8192 bytes, so the CHECK is safe. Queued as `BLOCK-FIX-9`.
 
 The phase gate passed, and a consolidated `security-review` over slices 3–9 then returned **BLOCK**.
 Both are true, and the second is the more important one: **the gate passes on a system that, deployed
@@ -187,9 +210,10 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ### 0. First thing next session
 
-1. **BLOCK #7 and #8 are merged** (#57, #58, 2026-09-25; `done` in `BACKLOG.md`). Confirm that the Supabase check on `main` applied `20260925120000_lead_activities_brand_fk` to the hosted DB. It would fail only if an existing activity's brand doesn't match its lead's; that's the intended outcome, and it needs the owner, because the guard blocks the agent from hosted-DB reads.
-2. **Owner: apply the trust-check patch** to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the workspace monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD` before any trial.
-3. **Work order (owner, 2026-09-25), one PR each against `main`, stop after each for the owner's merge:** (1) housekeeping docs PR (showroom spec + BACKLOG edits); (2) `BLOCK-FIX-9` as decided above; (3) `PAGE-CONSUMER-SHOWROOM`, slice by slice. Read the whole spec first. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
+1. **Start `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **fresh local session** so the #62 guard loads. Read the whole spec first. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only, never the shell. Work slice by slice (spec §9), one PR each against `main`, and stop after each for the owner's merge. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
+2. **Owner: confirm the Supabase check on `main` applied both new migrations to the hosted DB** (`20260925120000_lead_activities_brand_fk`, `20260925140000_event_payload_cap`). The guard blocks the agent from hosted-DB reads.
+3. **Owner, before any loop trial:** apply the trust-check patch to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD`.
+4. Commit messages or heredocs that mention `design/` or `design-approved/` are blocked by the guard (it parses every line as a command). Write the message to a scratch file and use `git commit -F`.
 
 ### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
@@ -251,7 +275,9 @@ The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberat
 - **Scratch branch `chore/scratch-deny-test`** (PR #43, closed) is still on GitHub. This environment's git proxy cut off `git push --delete` twice. Owner: use "Delete branch" on #43.
 - **Guard over-block:** GitHub's `list_branches` is blocked as a Supabase tool (the two connectors share the name). Next guard PR: add it to the shared-name exemption keyed on `project_id`. This fails closed, so it isn't a hole.
 
-- BLOCK #9 (event payload size): Tier B posted 2026-09-25, awaiting a reply. #7 and #8 are merged (#57, #58).
+- BLOCK #7–#9 are all merged (#57, #58, #61).
+- **Real manufacturer names in `main`'s history** (#60's first commit, `ad72fc4`). Removing them means rewriting `main` with the rulesets off and a force-push; the agent's advice is to leave it. Owner's call. Squash-merge PRs from now on, so a fix-up folds into one commit.
+- `event_dlq` has no size CHECK (ADR 0016). Adding one first needs a hosted count of existing oversized dead letters.
 - From the #57/#58 reviews (none introduced by those PRs):
   - A CI canary for 0017 (drop `lead_activities_lead_brand_fkey`, require a `CRITICAL`). This goes in `ci.yml`, so the owner adds it.
   - A lead with activities can't be hard-deleted: the cascade hits the append-only trigger. The erasure / right-to-delete path needs a design (ADR).
