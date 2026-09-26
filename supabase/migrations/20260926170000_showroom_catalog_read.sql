@@ -137,6 +137,8 @@ as $fn$
         join t on p.trim_id = t.id and p.brand_id = t.brand_id
         join bm on p.brand_id = bm.brand_id and p.market_code = bm.market_code), '[]'::jsonb),
     -- Card (side) and hero (front-34) images of published models and trims, public copies only.
+    -- Per-colour renders are left out: without their colour key the page couldn't choose one, and
+    -- colour belongs to the configurator.
     'assets', coalesce((
       select jsonb_agg(jsonb_build_object(
         'model_id', a.model_id, 'trim_id', a.trim_id, 'view_key', a.view_key,
@@ -145,7 +147,7 @@ as $fn$
         from public.assets a
         join m on a.model_id = m.id and a.brand_id = m.brand_id
        where a.public_path is not null
-         and a.kind in ('render', 'image', 'per_color_render')
+         and a.kind in ('render', 'image')
          and a.view_key in ('side', 'front-34')
          and (a.trim_id is null or exists (select 1 from t where t.id = a.trim_id))), '[]'::jsonb),
     -- Display names for the attribute keys this catalogue uses (vocabulary decision, #69).

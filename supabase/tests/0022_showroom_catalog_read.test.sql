@@ -239,6 +239,19 @@ begin
 end $$;
 reset role;
 
+-- ---- 6b. a live brand that gets paused disappears at once ----
+update public.brands set status = 'paused' where id = '00000000-0000-0000-0000-0000000022bb';
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+do $$
+begin
+  if public.showroom_catalog('b-eg') is not null then
+    raise exception 'CRITICAL: a paused brand returned a showroom';
+  end if;
+  raise notice 'PASS: a paused brand returns nothing';
+end $$;
+reset role;
+
 -- ---- 7. canonical subdomains and safe public paths ----
 do $$
 declare msg text;

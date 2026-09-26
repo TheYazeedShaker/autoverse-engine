@@ -68,14 +68,32 @@ a secret.
 
 ## Consequences
 
-- The consumer's database-backed `CatalogSource` calls this function and Zod-validates the result.
-  The page's second-layer checks stay: the subdomain must match the host's, and the theme must
-  belong to the brand-market. The revalidation interval ADR 0017 left open is set with that
-  source.
+- The consumer's database-backed `CatalogSource` calls this function and validates the result with
+  a **strict** Zod schema (unknown keys refused). The payload omits brand ids, status and publish
+  state by design (condition 1). So the loader's old per-row brand-id, status and publish-state
+  checks are **removed, never satisfied with placeholder values**, which would look like isolation
+  checks while checking nothing. Cross-brand mixing is impossible by construction: one call
+  returns one document for one brand-market. What stays, as real second-layer checks:
+  - the returned `market.subdomain` must equal the host's subdomain;
+  - every trim's and asset's `model_id` is a returned model;
+  - every price's and asset's `trim_id` is a returned trim.
+
+  The revalidation interval ADR 0017 left open is set with that source.
+
+- Card and hero images are `render`/`image` kinds only. Per-colour renders are left out: without
+  their colour key the page couldn't choose one, and colour belongs to the configurator.
+- **The `page_showroom` flag gates the page, not the data.** Anyone holding the public anon key can
+  call this function directly and get what a live page would show. Hiding catalogue data means
+  unpublishing it, or taking the brand or market off live. The flag is not an embargo control.
 - Adding a column to the page means changing this function: deliberate, reviewed, and visible in
   test 0022's key sets.
-- The publish pipeline (1·B) owns `public_path`: copy to the public bucket at publish, clear it
-  (and delete the copy) at unpublish. Until 1·B exists, `public_path` is set by hand or by seed,
-  and the page shows its placeholder for any image without one.
+- The publish pipeline (1·B) owns `public_path`:
+  - at publish, copy the render to the public bucket;
+  - at unpublish, delete the object as well as clearing the column;
+  - use unguessable object keys (for example a content hash) under a brand prefix, because the
+    embargo depends on an unpublished object not being in the public bucket at all. The function's
+    publish-state filter is the database-side backstop; test 0022 covers a draft model that
+    wrongly keeps a public copy. Until 1·B exists, `public_path` is set by hand or by seed,
+    and the page shows its placeholder for any image without one.
 - A hosted pre-check is needed once, before this migration: every existing
   `brand_markets.subdomain` must already be a lower-case DNS label (the query is in the PR).
