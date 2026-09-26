@@ -124,18 +124,26 @@ export class TrimRepository extends BrandScopedRepository {
    * A trim's effective stats. Null on a trim means "inherit", so resolution happens at read time
    * and a model edit still reaches every trim instead of going stale in copied rows.
    */
-  resolveStats(
-    model: ModelRow,
-    trim: TrimRow,
-  ): Pick<ModelRow, "seats" | "accel_0_100_s" | "power_hp" | "top_speed_kph" | "torque_nm"> {
-    return {
-      seats: trim.seats ?? model.seats,
-      accel_0_100_s: trim.accel_0_100_s ?? model.accel_0_100_s,
-      power_hp: trim.power_hp ?? model.power_hp,
-      top_speed_kph: trim.top_speed_kph ?? model.top_speed_kph,
-      torque_nm: trim.torque_nm ?? model.torque_nm,
-    };
+  resolveStats(model: ModelRow, trim: TrimRow): ResolvedTrimStats {
+    return resolveTrimStats(model, trim);
   }
+}
+
+export type ResolvedTrimStats = Pick<
+  ModelRow,
+  "drive" | "seats" | "accel_0_100_s" | "power_hp" | "top_speed_kph" | "torque_nm"
+>;
+
+/** A trim's effective stats: its own value where set, else its model's. Pure; no query. */
+export function resolveTrimStats(model: ModelRow, trim: TrimRow): ResolvedTrimStats {
+  return {
+    drive: trim.drive ?? model.drive,
+    seats: trim.seats ?? model.seats,
+    accel_0_100_s: trim.accel_0_100_s ?? model.accel_0_100_s,
+    power_hp: trim.power_hp ?? model.power_hp,
+    top_speed_kph: trim.top_speed_kph ?? model.top_speed_kph,
+    torque_nm: trim.torque_nm ?? model.torque_nm,
+  };
 }
 
 export class ThemeRepository {

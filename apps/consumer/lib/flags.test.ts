@@ -45,6 +45,25 @@ describe("isFlagEnabled — fails closed", () => {
     warn.mockRestore();
   });
 
+  it("evaluates without recording flag-called events or geo data (visitor-influenced ids)", async () => {
+    const impl = vi.fn(async () => true);
+    await isFlagEnabled("f", "any-host-label", client(impl));
+    expect(impl).toHaveBeenCalledWith("f", "any-host-label", {
+      sendFeatureFlagEvents: false,
+      disableGeoip: true,
+    });
+  });
+
+  it("carries the request's trace id into its failure log", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failing = client(async () => {
+      throw new Error("down");
+    });
+    await isFlagEnabled("f", "id", failing, 1500, "trace-1");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"trace_id":"trace-1"'));
+    warn.mockRestore();
+  });
+
   it("is off when PostHog is slower than the timeout", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const slow = client(() => new Promise((resolve) => setTimeout(() => resolve(true), 200)));

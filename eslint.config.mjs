@@ -26,8 +26,8 @@ export default tseslint.config(
     rules: {
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }]
-    }
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
   },
   // No hardcoded design values (CLAUDE.md, "Design system"): colours and pixel sizes come from
   // @autoverse/tokens. design-tokens itself is the source of those values, so it is exempt.
@@ -43,10 +43,20 @@ export default tseslint.config(
   {
     files: ["packages/ui/src/components/Swatch/*.{stories,test}.tsx"],
     rules: { "no-restricted-syntax": "off" },
-  }
+  },
+  // A brand's theme colours are brand DATA from `brand_themes`, validated by the database. The
+  // showroom's seed-style fixtures and the theme-injection test spell them out. Hex colours and
+  // registry image dimensions are allowed there; colour functions and px strings stay banned.
+  {
+    files: [
+      "apps/consumer/lib/showroom/fixtures/**/*.ts",
+      "apps/consumer/lib/showroom/theme.test.ts",
+    ],
+    rules: { "no-restricted-syntax": ["error", ...hardcodedTokenRules({ brandData: true })] },
+  },
 );
 
-function hardcodedTokenRules() {
+function hardcodedTokenRules({ brandData = false } = {}) {
   const HEX = "#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b";
   const FN = "\\b(?:rgba?|hsla?|oklch|oklab)\\(";
   // A pixel length: `12px`, and Tailwind arbitrary values like `w-[13px]`.
@@ -55,7 +65,7 @@ function hardcodedTokenRules() {
     `Hardcoded ${what} — use a token from @autoverse/tokens (CSS var or token utility class).`;
   const rules = [];
   for (const [pattern, what] of [
-    [HEX, "hex colour"],
+    ...(brandData ? [] : [[HEX, "hex colour"]]),
     [FN, "colour function"],
     [PX, "pixel value"],
   ]) {
@@ -71,9 +81,12 @@ function hardcodedTokenRules() {
     "(?:padding|margin|inset)(?:Top|Right|Bottom|Left|Block|Inline|BlockStart|BlockEnd|InlineStart|InlineEnd)?|" +
     "top|right|bottom|left|fontSize|letterSpacing|borderRadius|border(?:Top|Right|Bottom|Left)?Width|" +
     "outlineWidth|outlineOffset|flexBasis)$";
-  rules.push({
-    selector: `Property[key.name=/${LENGTH_PROPS}/] > Literal[value>0]`,
-    message: message("pixel value (a bare number on a length property is px)"),
-  });
+  // Brand data (e.g. an asset registry row) has width/height that are image dimensions, not styles.
+  if (!brandData) {
+    rules.push({
+      selector: `Property[key.name=/${LENGTH_PROPS}/] > Literal[value>0]`,
+      message: message("pixel value (a bare number on a length property is px)"),
+    });
+  }
   return rules;
 }

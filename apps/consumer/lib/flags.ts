@@ -6,13 +6,24 @@ import { PostHog } from "posthog-node";
 
 /** The subset of the PostHog client this module needs (lets tests pass a fake). */
 export interface FlagClient {
-  isFeatureEnabled(key: string, distinctId: string): Promise<boolean | undefined>;
+  isFeatureEnabled(
+    key: string,
+    distinctId: string,
+    options?: { sendFeatureFlagEvents?: boolean; disableGeoip?: boolean },
+  ): Promise<boolean | undefined>;
 }
+
+// Some gates are keyed by ids a visitor can influence (the showroom keys on the host's subdomain).
+// So evaluation never records a $feature_flag_called event or geo data: an arbitrary host must
+// not be able to create PostHog persons or events at our cost.
+export const EVAL_OPTIONS = { sendFeatureFlagEvents: false, disableGeoip: true } as const;
 
 /** Every flag key the app reads — one place to see what is gated. */
 export const FLAGS = {
   /** Build details on /api/health. Used to exercise create → off → on → kill (REV2 0-H.6). */
   healthBuildInfo: "health_build_info",
+  /** The whole showroom page (PAGE-CONSUMER-SHOWROOM). Distinct id = the brand-market subdomain. */
+  pageShowroom: "page_showroom",
 } as const;
 
 export const FLAG_TIMEOUT_MS = 1500;
@@ -32,9 +43,11 @@ function defaultClient(): FlagClient | null {
   return cached;
 }
 
-function logFlagFailure(flag: string, reason: string): void {
-  // Structured, no PII: the flag key and why it resolved to off.
-  console.warn(JSON.stringify({ level: "warn", event: "flag_eval_failed", flag, reason }));
+function logFlagFailure(flag: string, reason: string, traceId?: string): void {
+  // Structured, no PII: the flag key and why it resolved to off, joined to the request's trace.
+  console.warn(
+    JSON.stringify({ level: "warn", event: "flag_eval_failed", flag, reason, trace_id: traceId }),
+  );
 }
 
 /** True only when PostHog explicitly says the flag is on for this caller. */
@@ -43,6 +56,7 @@ export async function isFlagEnabled(
   distinctId: string,
   client: FlagClient | null = defaultClient(),
   timeoutMs: number = FLAG_TIMEOUT_MS,
+  traceId?: string,
 ): Promise<boolean> {
   if (!client) return false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -50,14 +64,17 @@ export async function isFlagEnabled(
     timer = setTimeout(() => resolve("timeout"), timeoutMs);
   });
   try {
-    const result = await Promise.race([client.isFeatureEnabled(flag, distinctId), timeout]);
+    const result = await Promise.race([
+      client.isFeatureEnabled(flag, distinctId, EVAL_OPTIONS),
+      timeout,
+    ]);
     if (result === "timeout") {
-      logFlagFailure(flag, "timeout");
+      logFlagFailure(flag, "timeout", traceId);
       return false;
     }
     return result === true;
   } catch (err) {
-    logFlagFailure(flag, err instanceof Error ? err.name : "unknown");
+    logFlagFailure(flag, err instanceof Error ? err.name : "unknown", traceId);
     return false;
   } finally {
     clearTimeout(timer);

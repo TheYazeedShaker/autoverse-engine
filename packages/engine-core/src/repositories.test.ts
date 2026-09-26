@@ -203,6 +203,7 @@ describe("a lead is captured through capture_lead, never inserted", () => {
 
 describe("trim stats resolve against the model", () => {
   const model = {
+    drive: "FWD",
     seats: 5,
     accel_0_100_s: 8.1,
     power_hp: 190,
@@ -212,6 +213,7 @@ describe("trim stats resolve against the model", () => {
 
   it("inherits what the trim does not override", () => {
     const trim = {
+      drive: "AWD",
       seats: null,
       accel_0_100_s: null,
       power_hp: 240,
@@ -220,6 +222,7 @@ describe("trim stats resolve against the model", () => {
     } as TrimRow;
     const { db } = fakeDb([]);
     expect(new TrimRepository(db, BRAND).resolveStats(model, trim)).toEqual({
+      drive: "AWD",
       seats: 5,
       accel_0_100_s: 8.1,
       power_hp: 240,

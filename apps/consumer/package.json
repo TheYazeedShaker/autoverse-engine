@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@autoverse/engine-core": "workspace:*",
     "@autoverse/tokens": "workspace:*",
     "@autoverse/types": "workspace:*",
     "@autoverse/ui": "workspace:*",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
+    "@types/react-dom": "^19",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

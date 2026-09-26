@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-26
-**Last session:** **Interactive session, runner OFF.** All of BLOCK #7–#9 is merged (#57, #58, #61), so the 1·A BLOCK review is closed. The showroom spec is on `main` (#60, fixed by #64): it points at the owner's approved copies in `design-approved/showroom/` and names no real manufacturer. The owner merged the guard change for approved design copies (#62, ADR 0010). **Next: `PAGE-CONSUMER-SHOWROOM`, in a fresh local session** so the new guard hook loads.
+**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (route, host resolution, theme injection, `page_showroom` flag, loaders; skeleton UI) is built as **PR #66** against `main`. It **waits for the owner's merge**. Four of the five Tier B decisions are answered and applied. Three became migration PRs, each waiting for the owner's merge: **#67** (price_amount), **#68** (brand_markets presentation fields) and **#69** (attribute vocabulary). The asset-URL decision needs no schema change and lands with slice 2. **Still open:** the anonymous catalogue read path, which blocks the page's database wiring.
 
 ---
 
@@ -26,7 +26,7 @@
 | `AUTONOMOUS-LOOP-P2`              | ⏸ Runner OFF       | Runner on `main`. `agent_loop_enabled` inactive since 2026-09-25 and stays off until the owner decides on a measured trial. Work continues in interactive sessions.                  |
 | Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
 | Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
-| Phase 1·C — Consumer app          | 🟡 Next            | `PAGE-CONSUMER-SHOWROOM` is queued with its spec on `main`; it starts in a fresh local session.                                                                                      |
+| Phase 1·C — Consumer app          | 🟡 In progress     | `PAGE-CONSUMER-SHOWROOM`: slice 1 in review (#66), migration PRs #67–#69 in review. DB wiring waits on the read-path decision.                                                       |
 | Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                      |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
@@ -55,7 +55,43 @@
 
 ## What Was Built Last Session
 
-Interactive session, 2026-09-25 → 26. The unattended runner is **off** (see _Decisions_).
+Interactive local session, 2026-09-26. Runner **off**. Task: `PAGE-CONSUMER-SHOWROOM`.
+
+**Access check (before any code):** the three approved copies and their `assets/` and `uploads/` images are readable with the file tools, and `design/` is refused. The approved copies contain real manufacturer names, file names and images. None of it is copied into the repo: the demo brand is "Demo Motors" in fixtures only.
+
+**Slice 1: route, resolution, theme, flag, loaders** (`feat/showroom-slice-1-route`, **PR #66** against `main`, waiting for the owner's merge):
+
+- `apps/consumer/app/page.tsx`: the showroom entry, rendered per request. Host → subdomain (`lib/showroom/host.ts`, root domain from `CONSUMER_ROOT_DOMAIN`, exactly one label) → `page_showroom` flag keyed by subdomain (checked **before** any catalogue read, so the kill path needs no database) → `CatalogSource` → `buildShowroom`. Every "no" is the same brand-free 404 (`app/not-found.tsx`). An unreadable catalogue is a 5xx, not a 404. The skeleton UI lists models, trims and prices only.
+- `lib/showroom/source.ts`: **the seam.** No database-backed source exists until the read-path Tier B is answered, so with no source the page 404s. Local work uses `SHOWROOM_SOURCE=fixture` (never in a production build, previews included) and the launch config `consumer-fixture` (open `http://demo.localhost:3000`).
+- `lib/showroom/loader.ts`: rows → view. It re-checks published/live state and brand ids as a second layer. Trim stats resolve over the model's (`resolveTrimStats`, now pure in engine-core, drive included). A missing price is "on request", never 0. Prices print only in EGP markets while the column is `price_egp`. A missing image is null plus `showroom_asset_missing`. Filter facets derive from data, counting each model once.
+- `lib/showroom/theme.ts`: `brand_themes` → `:root{--av-accent…;--av-accent-hover;--av-accent-muted;--av-focus-ring;--av-on-accent}`, re-validated as six-digit hex before it goes into `<style>` (hoisted to `<head>`). A missing or invalid theme renders the neutral accent and logs.
+- `lib/log.ts`: the structured JSON logger with one trace id (`x-vercel-id`, else a well-formed `x-request-id`, else a fresh UUID). The same id goes to the flag's failure log and the Sentry scope. Boundary logs: `showroom_load_start/done/failed`, `showroom_not_found` with its reason, `showroom_source_error`. No PII: only slugs, codes and counts. The source read has a 2 s timeout per attempt, the timed-out attempt is aborted, and there is one retry (idempotent).
+- Second-layer tenancy checks in `load.ts`: a snapshot for a different subdomain than the host named is refused (`showroom_source_mismatch`, a 5xx, paged), and a theme row for another brand-market is never applied (`showroom_theme_mismatch`).
+- Flags (`lib/flags.ts`) are now evaluated with `sendFeatureFlagEvents: false` and `disableGeoip: true`, because `page_showroom` is keyed by a subdomain a visitor can choose. The fixture source is also refused on any Vercel deployment.
+- **ADR 0017**: the showroom's metrics and log-based alerts (wired with the log drain, as in ADR 0016), and **caching deferred** to the DB-backed source (the revalidation interval is still owed). `docs/runbooks/flag-kill-path.md` covers `page_showroom`.
+- `packages/engine-core/src/database.types.ts` **corrected against the migrations**: `ModelRow` gains fuel/fuel_category/drive/transmission/efficiency_*, `TrimRow.drive`, and `BrandMarketRow` gains subdomain, consent_defaults and the footer columns. New `TrimPriceRow` and `AssetRow`.
+- ESLint: for `apps/consumer/lib/showroom/fixtures/**` and `theme.test.ts` only, hex colours and registry image dimensions are allowed (brand data). Colour functions and px strings stay banned.
+- Reviews: `security-review` APPROVE (M1/L1/L2/L4 applied). `code-reviewer` CHANGES REQUESTED, all addressed: alerts (ADR 0017), trace id end to end, flag events off, runbook, abortable timeout, a page test, a narrower lint exemption, and a comment fix.
+- Checked: consumer typecheck, lint, `pnpm format:check`, `next build`; vitest consumer 58/58, engine-core 20/20. In the browser: `demo.localhost` → flag off → 404 with `reason: flag_off`. With the flag forced on locally (reverted), the skeleton rendered, the theme was hoisted into `<head>`, the draft model was hidden and on-request showed as text.
+- Noted, not changed: the content migration's comment gives `'front-3q'` as an example view key, while the spec and the loader use `front-34`. The spec governs the page. Confirm the spelling with the studio vocabulary before the upload-watcher writes rows. `consent_defaults` has no `jsonb_typeof` CHECK, so parse it with Zod in slice 9.
+
+**Tier B posted to `#build-decisions` (2026-09-26). Owner replies were read the same day:**
+
+1. **Anonymous catalogue read path.** Recommended: A, a narrow `SECURITY DEFINER` read RPC for anon in the ADR 0013 style, with a paired cross-tenant test and an ADR. **Blocks:** the DB-backed `CatalogSource` (and the revalidation interval, which belongs with it; ADR 0017). **Still open, no reply.**
+2. **Asset storage path → URL.** **Decided: A.** A public-read bucket behind the CDN, built as `ASSET_BASE_URL` + `storage_path`, with `next/image` and one remote pattern, and long immutable cache headers. **Condition:** the public bucket holds _published_ renders only. Drafts and pre-launch renders live in a private bucket and are copied over at publish, because brands launch under embargo. This goes in an ADR in the slice 2 PR; the copy-at-publish step belongs to 1·B.
+3. **Presentation fields.** **Decided: revised A** → **PR #68**: `footer_tagline_en/ar`, `hotline`, `contact_email`, `cities_en/ar`, and `lead_cities jsonb` (validated in the DB; Zod in slice 7). **The hero backdrop is brand-invariant** (an Autoverse asset, no column).
+4. **`price_egp` vs per-market currency.** **Decided: A** → **PR #67** renames it to `price_amount`. Its currency is always the market's. Slice 2 drops the loader's interim EGP-only rule.
+5. **Arabic for body/fuel/drive/transmission values.** **Decided: B** → **PR #69**:
+   - `vocabulary_registry` gets the kinds `body_type`/`fuel`/`drive`/`transmission`, seeded with generic EN/AR keys.
+   - The models/trims columns get kind-checked FKs (`fuel_category` uses kind `fuel`).
+   - **Owner, before merging #69:** run the pre-check query in its description on the hosted DB. It must return 0 rows, or the migration aborts on deploy.
+   - Slice 2 groups facets by key and renders `display_en/ar`.
+6. Follow-ups the migration security review noted outside its PRs:
+   - `app_auth.all_emails_valid` has the same NULL-skip bug #68 fixed: a NULL array element passes.
+   - The catalog tables don't revoke `truncate` from anon/authenticated.
+   - Each is a one-line migration.
+
+### Previous session (2026-09-25 → 26)
 
 **BLOCK #9, PR #61** (owner decision, option A; ADR 0016):
 
@@ -210,7 +246,15 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ### 0. First thing next session
 
-1. **Start `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **fresh local session** so the #62 guard loads. Read the whole spec first. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only, never the shell. Work slice by slice (spec §9), one PR each against `main`, and stop after each for the owner's merge. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
+1. **Continue `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **local** session. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only, never the shell. One PR per slice against `main`; stop after each for the owner's merge. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
+   - Check the read-path thread in `#build-decisions` for a reply. The other four are answered and applied.
+   - Open PRs waiting for the owner: #66 (slice 1), then the migrations #67, #68 and #69. #69 needs the hosted pre-check first.
+   - Once #66–#69 are merged, build **slice 2**: VehicleCard + ModelSection + grid in `packages/ui` (story + test + a11y in both directions). The same PR also:
+     - updates `database.types.ts`: `price_amount`, the vocabulary columns plus a `VocabularyRow`, and the presentation fields;
+     - changes the loader: drop the EGP-only rule, group facets by vocabulary key, render `display_en/ar`;
+     - wires asset URLs: `ASSET_BASE_URL` + a `next/image` remote pattern, plus the asset ADR with the owner's embargo condition. Tokens to add then: defaults for `--av-on-accent`, `--av-accent-hover`, `--av-accent-muted`, `--av-focus-ring` in `tokens.css`, plus the Tailwind bridge (slice 1 injects them; nothing reads them yet).
+   - If the read path is answered with A: a separate slice-1b PR adds the RPC migration + isolation test + ADR, the supabase-backed `CatalogSource` (passing the abort signal to its fetch, and a Zod schema on the snapshot), and the revalidation interval as an amendment to ADR 0017 (spec §3). The security review's seven requirements for that RPC are in the slice 1 PR description.
+   - `<html lang dir>` is still static `en`/`ltr` in `app/layout.tsx`. Fix it with the TopBar's EN/AR toggle (slice 4 or earlier).
 2. **Owner: confirm the Supabase check on `main` applied both new migrations to the hosted DB** (`20260925120000_lead_activities_brand_fk`, `20260925140000_event_payload_cap`). The guard blocks the agent from hosted-DB reads.
 3. **Owner, before any loop trial:** apply the trust-check patch to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD`.
 4. Commit messages or heredocs that mention `design/` or `design-approved/` are blocked by the guard (it parses every line as a command). Write the message to a scratch file and use `git commit -F`.
@@ -288,12 +332,14 @@ The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberat
 - `EventRepository.record` still upserts with `onConflict: "id"` and without `ignoreDuplicates`. BLOCK #4 fixed the ingest path, not this repository method. Check whether it has any caller before the next events change.
 - When a `leads` CHECK constraint fails, Postgres logs the whole failing row (name, phone). `capture_lead` should raise its own messages first.
 - The CI gate runs the worker via `run-once.ts`. The hosted schedule is now proven separately (the pg_cron ticks above).
-- Regenerate `packages/engine-core/src/database.types.ts` from the live schema; run `docs/runbooks/flag-kill-path.md`.
+- Regenerate `packages/engine-core/src/database.types.ts` from the live schema; run `docs/runbooks/flag-kill-path.md`. (Showroom slice 1 hand-corrected the catalog, brand_markets and asset rows against the migrations; they had drifted. The rest is still hand-written.)
+- When the log drain goes live, wire **ADR 0017's showroom alerts** along with ADR 0016's (the mismatch alerts page). Check on a preview that the Sentry `trace_id` tag reaches events. Next time `flags.ts` changes, turn `isFlagEnabled`'s positional arguments into an options object.
+- Owner: create the `page_showroom` flag in PostHog (off). The code already reads it and fails closed without it.
 - `docs/ADMIN-DESIGN-BRIEF.md` stays in git history (commit `a9539ea`); whether to rewrite history is the owner's call.
 
 ### Open questions carried from 2026-09-23 (each a one-line change)
 
 - **Published-catalogue reads.** Took the stricter reading: a brand user sees only its own brand; `anon` sees nothing.
-- **`price_egp`** hardcodes a currency while `brand_markets.currency` is per market.
+- ~~**`price_egp`** hardcodes a currency~~: decided 2026-09-26, renamed to `price_amount` (PR #67).
 - **Asset base kinds**: `source_model | render | image | document` is an assumption.
 - **`vocabulary_registry` is readable by every signed-in user**, recorded as an accepted risk.
