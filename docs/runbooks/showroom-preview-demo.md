@@ -39,18 +39,15 @@ have:
 
 A live market must not list `http://localhost` in `allowed_origins` (a database CHECK).
 
-**Where the seed goes: an owner decision (`#build-decisions`, 2026-09-26).** The seed makes a
-**live** brand-market, and the database it goes into is whichever one Preview's
-`SUPABASE_URL` points at:
+**Where the seed goes: decided (ADR 0019, time-limited).** For now Preview and Production share
+**one database**, and the demo brand lives in production as a tenant, under these conditions:
 
-- **Recommended: a non-production database for Preview** (a Supabase branch or a staging
-  project). The demo brand is seeded there only, and Production's variables point at production.
-  The production database then never holds a synthetic live tenant in its admin views, cross-brand
-  analytics or lead routing.
-- **Otherwise, one database for both.** The demo brand then lives in production as a live tenant,
-  and it shows up in admin views and analytics. Record that as a decision, not as a default. Before
-  `CONSUMER_ROOT_DOMAIN` is ever set in Production, confirm that no demo brand-market resolves
-  there, or turn its market off live.
+- It is obviously synthetic: slug `demo`, name "Demo brand", and leads routed to the owner's inbox
+  only.
+- Its EG market goes **off live before `CONSUMER_ROOT_DOMAIN` is set in Production**.
+- **Before the first real client brand goes live**, Preview moves to a separate non-production
+  database (BACKLOG `PREVIEW-DB-SEPARATION`), and the demo tenant leaves production.
+- Admin views and cross-brand analytics exclude or clearly label it when they are built.
 
 Either way, **never point `SHOWROOM_PREVIEW_SUBDOMAIN` at a real brand**. Previews would mirror
 that brand's catalogue on a `*.vercel.app` address. Keep Vercel deployment protection on for
@@ -58,13 +55,13 @@ Preview.
 
 ### 2. Vercel variables (the consumer project)
 
-| Variable                     | Environments                         | Value                                                                                  |
-| ---------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------- |
-| `SUPABASE_URL`               | Preview (and Production, separately) | Preview: the demo database's API URL (see above). Production: the production project's |
-| `SUPABASE_ANON_KEY`          | Preview (and Production, separately) | the matching project's **anon** (public) key. Never the service-role key               |
-| `SHOWROOM_PREVIEW_SUBDOMAIN` | **Preview only**                     | `demo`                                                                                 |
-| `NEXT_PUBLIC_POSTHOG_KEY`    | Preview, Production                  | already set for flags. It must also be in **Preview**, or every flag is off there      |
-| `CONSUMER_ROOT_DOMAIN`       | Production (later)                   | the consumer root domain, once one exists. Not needed for previews                     |
+| Variable                     | Environments        | Value                                                                             |
+| ---------------------------- | ------------------- | --------------------------------------------------------------------------------- |
+| `SUPABASE_URL`               | Preview, Production | the project's API URL (one project for both, per ADR 0019)                        |
+| `SUPABASE_ANON_KEY`          | Preview, Production | the project's **anon** (public) key. Never the service-role key                   |
+| `SHOWROOM_PREVIEW_SUBDOMAIN` | **Preview only**    | `demo`                                                                            |
+| `NEXT_PUBLIC_POSTHOG_KEY`    | Preview, Production | already set for flags. It must also be in **Preview**, or every flag is off there |
+| `CONSUMER_ROOT_DOMAIN`       | Production (later)  | the consumer root domain, once one exists. Not needed for previews                |
 
 The two Supabase variables are read server-side only (no `NEXT_PUBLIC_` prefix). After adding
 them, redeploy the preview (env changes apply to new deployments only).
