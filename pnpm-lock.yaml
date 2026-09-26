@@ -63,6 +63,9 @@ importers:
 
   apps/consumer:
     dependencies:
+      '@autoverse/engine-core':
+        specifier: workspace:*
+        version: link:../../packages/engine-core
       '@autoverse/tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
@@ -97,6 +100,9 @@ importers:
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.4(@types/react@19.2.18)
       typescript:
         specifier: ^5.6.0
         version: 5.9.3

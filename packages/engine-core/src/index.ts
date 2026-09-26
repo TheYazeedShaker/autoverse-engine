@@ -10,7 +10,11 @@ export { EngineDbError, unwrap } from "./client";
 
 export type {
   ActivityKind,
+  AssetKind,
+  AssetRow,
   BrandMarketRow,
+  EfficiencyIconKind,
+  TrimPriceRow,
   BrandRow,
   BrandThemeRow,
   EventRow,
@@ -32,6 +36,7 @@ export {
   ThemeRepository,
   TrimRepository,
   resolveLedgerRow,
+  resolveTrimStats,
   rowDiffers,
 } from "./repositories";
-export type { EventInput, LeadInput, LedgerValue } from "./repositories";
+export type { EventInput, LeadInput, LedgerValue, ResolvedTrimStats } from "./repositories";

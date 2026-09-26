@@ -12,6 +12,15 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@autoverse/consumer", "dev"],
       "port": 3000
+    },
+    {
+      "name": "consumer-fixture",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "require(\"child_process\").spawn(\"pnpm\",[\"--filter\",\"@autoverse/consumer\",\"dev\"],{stdio:\"inherit\",shell:true,env:{...process.env,CONSUMER_ROOT_DOMAIN:\"localhost\",SHOWROOM_SOURCE:\"fixture\"}}).on(\"exit\",c=>process.exit(c??0))"
+      ],
+      "port": 3000
     }
   ]
 }

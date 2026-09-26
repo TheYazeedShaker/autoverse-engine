@@ -20,3 +20,24 @@ Use 100% rollout + the active toggle as the on/off switch. A 0% rollout on an ac
 "on" in the UI but evaluates off, which is easy to misread during an incident.
 
 Record the date and outcome of each run in `PROGRESS.md`.
+
+## `page_showroom` — the consumer showroom (PAGE-CONSUMER-SHOWROOM)
+
+Gates the whole showroom page. **Distinct id = the brand-market's subdomain** (e.g. `demo` for
+`demo.<CONSUMER_ROOT_DOMAIN>`), so the flag can be enabled per brand-market with a PostHog release
+condition on the distinct id, and progressively. It is evaluated without recording
+`$feature_flag_called` events (ADR 0017), so PostHog shows no flag-call counts for it; verify with
+the page itself.
+
+| Step      | Action in PostHog                                      | Expected on `https://<subdomain>.<root>/`          |
+| --------- | ------------------------------------------------------ | -------------------------------------------------- |
+| 1. create | Flag `page_showroom` exists, boolean, **inactive**     | generic 404; log `showroom_not_found` `flag_off`   |
+| 2. on     | Active, release condition: distinct id = the subdomain | the showroom renders (needs a catalogue source)    |
+| 3. kill   | Toggle **inactive**                                    | generic 404 again on the next request; no redeploy |
+
+The flag is checked before any catalogue read, so the kill works even with the database down.
+Until the database-backed catalogue source exists (Tier B, read path), step 2 still returns 404
+with reason `source_unconfigured`. Steps 1 and 3 can be verified now.
+
+Verified locally 2026-09-26 (no PostHog key → off): `demo.localhost:3000` answered the generic
+404 with `reason: flag_off`.
