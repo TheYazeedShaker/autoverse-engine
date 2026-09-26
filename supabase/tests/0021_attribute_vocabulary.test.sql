@@ -100,6 +100,13 @@ begin
   if not (select ever_used from public.vocabulary_registry where id = 'test-21-body') then
     raise exception 'FAIL: a key used by a model was not marked ever_used';
   end if;
+  -- The trim trigger: a key a trim uses (and no model does) is marked too.
+  insert into public.vocabulary_registry (id, kind, display_en, display_ar)
+    values ('test-21-drive', 'drive', 'Test drive', 'دفع تجريبي');
+  update public.trims set drive = 'test-21-drive' where id = '00000000-0000-0000-0000-0000000212a1';
+  if not (select ever_used from public.vocabulary_registry where id = 'test-21-drive') then
+    raise exception 'FAIL: a key used by a trim was not marked ever_used';
+  end if;
   msg := test_helpers.try($q$update public.vocabulary_registry set id = 'test-21-renamed' where id = 'test-21-body'$q$);
   if msg not like '%cannot be renamed%' then
     raise exception 'FAIL: a used attribute key was renamed (%)', msg;

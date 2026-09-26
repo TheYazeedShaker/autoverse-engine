@@ -73,16 +73,23 @@ returns text language sql stable as $fn$
     p_value)
 $fn$;
 
+-- Only rows whose value actually changes, so already-keyed rows keep their updated_at.
 update public.models set
   body_type     = pg_temp.vocab_key(body_type, 'body_type'),
   fuel          = pg_temp.vocab_key(fuel, 'fuel'),
   fuel_category = pg_temp.vocab_key(fuel_category, 'fuel'),
   drive         = pg_temp.vocab_key(drive, 'drive'),
   transmission  = pg_temp.vocab_key(transmission, 'transmission')
-where body_type is not null or fuel is not null or fuel_category is not null
-   or drive is not null or transmission is not null;
+where body_type     is distinct from pg_temp.vocab_key(body_type, 'body_type')
+   or fuel          is distinct from pg_temp.vocab_key(fuel, 'fuel')
+   or fuel_category is distinct from pg_temp.vocab_key(fuel_category, 'fuel')
+   or drive         is distinct from pg_temp.vocab_key(drive, 'drive')
+   or transmission  is distinct from pg_temp.vocab_key(transmission, 'transmission');
 
-update public.trims set drive = pg_temp.vocab_key(drive, 'drive') where drive is not null;
+update public.trims set drive = pg_temp.vocab_key(drive, 'drive')
+where drive is distinct from pg_temp.vocab_key(drive, 'drive');
+
+drop function pg_temp.vocab_key(text, public.option_kind);
 
 do $$
 declare unmapped text;
