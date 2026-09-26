@@ -12,7 +12,13 @@ const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
 export type ThemeResult = { ok: true; css: string } | { ok: false; field: string };
 
-export function themeCss(theme: BrandThemeRow): ThemeResult {
+/** Only the colour fields: a `brand_themes` row or the showroom read's theme object. */
+export type ThemeColours = Pick<
+  BrandThemeRow,
+  "accent_hex" | "on_accent" | "hover_hex" | "muted_hex" | "focus_hex"
+>;
+
+export function themeCss(theme: ThemeColours): ThemeResult {
   const colours: [string, string, string][] = [
     ["--av-accent", "accent_hex", theme.accent_hex],
     ["--av-accent-hover", "hover_hex", theme.hover_hex],

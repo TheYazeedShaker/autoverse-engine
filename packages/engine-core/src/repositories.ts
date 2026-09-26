@@ -134,8 +134,14 @@ export type ResolvedTrimStats = Pick<
   "drive" | "seats" | "accel_0_100_s" | "power_hp" | "top_speed_kph" | "torque_nm"
 >;
 
-/** A trim's effective stats: its own value where set, else its model's. Pure; no query. */
-export function resolveTrimStats(model: ModelRow, trim: TrimRow): ResolvedTrimStats {
+/**
+ * A trim's effective stats: its own value where set, else its model's. Pure; no query. Takes any
+ * object carrying the stat columns: a model or trim row, or the showroom read's payload.
+ */
+export function resolveTrimStats(
+  model: ResolvedTrimStats,
+  trim: ResolvedTrimStats,
+): ResolvedTrimStats {
   return {
     drive: trim.drive ?? model.drive,
     seats: trim.seats ?? model.seats,

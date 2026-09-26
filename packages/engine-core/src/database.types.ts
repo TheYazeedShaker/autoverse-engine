@@ -49,6 +49,14 @@ export interface BrandMarketRow {
   footer_description_ar: string | null;
   footer_link_columns: unknown[];
   social_links: unknown[];
+  footer_tagline_en: string | null;
+  footer_tagline_ar: string | null;
+  hotline: string | null;
+  contact_email: string | null;
+  cities_en: string | null;
+  cities_ar: string | null;
+  /** [{ id, en, ar }], validated by the database. */
+  lead_cities: { id: string; en: string; ar: string }[];
 }
 
 export interface ModelRow {
@@ -58,6 +66,7 @@ export interface ModelRow {
   name_en: string;
   name_ar: string;
   year: number | null;
+  /** vocabulary_registry keys (kinds body_type, fuel, drive, transmission). */
   body_type: string | null;
   badge_label: string | null;
   fuel: string | null;
@@ -99,8 +108,8 @@ export interface TrimPriceRow {
   brand_id: string;
   trim_id: string;
   market_code: string;
-  /** Null exactly when `on_request`. Named for EGP; the per-market currency question is open. */
-  price_egp: number | null;
+  /** In the market's currency (brand_markets.currency). Null exactly when `on_request`. */
+  price_amount: number | null;
   on_request: boolean;
 }
 
@@ -115,6 +124,27 @@ export interface AssetRow {
   view_key: string | null;
   width: number | null;
   height: number | null;
+  /** Object key of the public published copy (ADR 0018); null = not public. */
+  public_path: string | null;
+}
+
+export type OptionKind =
+  | "exterior_color"
+  | "interior_color"
+  | "wheel"
+  | "interior_theme"
+  | "body_type"
+  | "fuel"
+  | "drive"
+  | "transmission";
+
+export interface VocabularyRow {
+  id: string;
+  kind: OptionKind;
+  display_en: string;
+  display_ar: string;
+  deprecated: boolean;
+  ever_used: boolean;
 }
 
 export interface SpecRowRow {

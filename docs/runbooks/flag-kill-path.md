@@ -36,8 +36,8 @@ the page itself.
 | 3. kill   | Toggle **inactive**                                    | generic 404 again on the next request; no redeploy |
 
 The flag is checked before any catalogue read, so the kill works even with the database down.
-Until the database-backed catalogue source exists (Tier B, read path), step 2 still returns 404
-with reason `source_unconfigured`. Steps 1 and 3 can be verified now.
+Step 2 needs the demo brand seeded and the Supabase variables set: see
+`docs/runbooks/showroom-preview-demo.md`, which also covers checking it on a Vercel preview.
 
 Verified locally 2026-09-26 (no PostHog key → off): `demo.localhost:3000` answered the generic
 404 with `reason: flag_off`.

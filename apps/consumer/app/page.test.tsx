@@ -32,7 +32,10 @@ vi.mock("../lib/flags", () => ({
   FLAGS: { pageShowroom: "page_showroom" },
   isFlagEnabled: (...args: unknown[]) => state.flag(...args),
 }));
-vi.mock("../lib/showroom/source", () => ({ configuredCatalogSource: async () => state.source }));
+vi.mock("../lib/showroom/source", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/showroom/source")>()),
+  configuredCatalogSource: async () => state.source,
+}));
 
 const { default: Page } = await import("./page");
 
