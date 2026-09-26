@@ -287,8 +287,9 @@ begin
   select count(*) into n from public.spec_rows;
   if n <> 3 then raise exception 'FAIL: an end user should see all 3 published spec rows (got %)', n; end if;
 
-  -- The registry is shared reference data: readable, and that is deliberate.
-  select count(*) into n from public.vocabulary_registry;
+  -- The registry is shared reference data: readable, and that is deliberate. Counted over this
+  -- test's own fixtures, because migrations also seed generic keys (attribute vocabulary).
+  select count(*) into n from public.vocabulary_registry where id in ('graphite', 'pearl', 'alloy-19');
   if n <> 3 then raise exception 'FAIL: the shared vocabulary should be readable (got %)', n; end if;
 
   raise notice 'PASS: an end user sees options and specs of published models only';
