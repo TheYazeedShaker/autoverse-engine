@@ -57,7 +57,7 @@ insert into public.trims (id, brand_id, model_id, slug, name_en, name_ar, publis
   ('00000000-0000-0000-0000-0000000a2003', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1002', 'preview', 'Preview', 'معاينة', 'published'),
   ('00000000-0000-0000-0000-0000000b2001', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'base', 'Base', 'أساسي', 'published');
 
-insert into public.trim_prices (brand_id, trim_id, market_code, price_egp, on_request) values
+insert into public.trim_prices (brand_id, trim_id, market_code, price_amount, on_request) values
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a2001', 'EG', 1500000.00, false),
   -- Same trim, in Brand A's DORMANT market: must stay invisible to end users.
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a2001', 'AE', 95000.00, false),
@@ -73,21 +73,21 @@ begin
     raise exception 'CRITICAL: a trim was attached to another brand''s model (%)', msg;
   end if;
 
-  msg := test_helpers.try($q$insert into public.trim_prices (brand_id, trim_id, market_code, price_egp)
+  msg := test_helpers.try($q$insert into public.trim_prices (brand_id, trim_id, market_code, price_amount)
     values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000a2002', 'EG', 1)$q$);
   if msg not like '%violates foreign key constraint%' then
     raise exception 'CRITICAL: a price was attached to another brand''s trim (%)', msg;
   end if;
 
   -- A price in a market the brand does not operate in.
-  msg := test_helpers.try($q$insert into public.trim_prices (brand_id, trim_id, market_code, price_egp)
+  msg := test_helpers.try($q$insert into public.trim_prices (brand_id, trim_id, market_code, price_amount)
     values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b2001', 'SA', 1)$q$);
   if msg not like '%violates foreign key constraint%' then
     raise exception 'FAIL: a price was set in a market the brand has no presence in (%)', msg;
   end if;
 
   -- "On request" and a number are mutually exclusive.
-  msg := test_helpers.try($q$insert into public.trim_prices (brand_id, trim_id, market_code, price_egp, on_request)
+  msg := test_helpers.try($q$insert into public.trim_prices (brand_id, trim_id, market_code, price_amount, on_request)
     values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b2001', 'EG', 1, true)$q$);
   if msg not like '%trim_prices_price_or_request%' then
     raise exception 'FAIL: a price row was both a number and "on request" (%)', msg;
@@ -135,7 +135,7 @@ declare msg text;
   denials text[] := array[
     $q$update public.models set name_en = 'hacked' where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
     $q$update public.models set publish_state = 'published' where id = '00000000-0000-0000-0000-0000000a1002'$q$,
-    $q$update public.trim_prices set price_egp = 1 where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
+    $q$update public.trim_prices set price_amount = 1 where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
     $q$delete from public.trims where brand_id = '00000000-0000-0000-0000-00000000000a'$q$,
     $q$insert into public.models (brand_id, slug, name_en, name_ar) values ('00000000-0000-0000-0000-00000000000a', 'sneaky', 'S', 'S')$q$,
     $q$insert into public.brand_markets (brand_id, market_code, currency, locale) values ('00000000-0000-0000-0000-00000000000a', 'SA', 'SAR', 'ar-SA')$q$
