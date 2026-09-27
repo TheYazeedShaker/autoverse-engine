@@ -265,8 +265,29 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - `apps/consumer/turbo-env.test.ts` fails CI (via `pnpm test`) when the consumer reads an undeclared variable; checked by removing `SUPABASE_URL`, which made it fail.
      - The showroom lives at `/` of the preview address.
      - **Probably not the cause of the 404** (code review): Turbo filters the build process, while Vercel functions read runtime variables from the project settings; the `NEXT_PUBLIC_*` values reached the build anyway through Turbo's Next.js inference. The actual reason was not readable here (the Vercel connector can't see the project). The page now also logs `flag_eval_failed` with `reason: no_posthog_key` when the PostHog key is missing, which was the one silent path to a 404. The runbook's table maps the logged `showroom_not_found` reason to its fix.
-   - Then **slice 2**: VehicleCard + ModelSection + grid in `packages/ui` (story + test + a11y in both directions). The same PR also:
-     - wires asset URLs: `ASSET_BASE_URL` + a `next/image` remote pattern, plus the asset ADR with the owner's embargo condition. Tokens to add then: defaults for `--av-on-accent`, `--av-accent-hover`, `--av-accent-muted`, `--av-focus-ring` in `tokens.css`, plus the Tailwind bridge (slice 1 injects them; nothing reads them yet).
+   - #73 is merged. **The preview works end to end** (owner, 2026-09-26): at `/` it shows the demo brand, 5 models, 7 trims and the correct EGP prices, read live.
+   - **Open: slice 2** (`feat/showroom-slice-2-cards`).
+     - `packages/ui`: **VehicleCard** and **ModelSection**, each with stories, tests, and axe checks in LTR/EN and RTL/AR. ModelSection uses Radix Collapsible (the APG accordion pattern); the grid is 1/2/3 columns, and a card is never stretched.
+     - Button gains an `accent` variant (the brand accent; Configure). The tokens gain neutral defaults for the accent family (AA-paired in the token test), the Tailwind bridge, and a `2xl` radius (28px, the card).
+     - The consumer loads the design system (Tailwind v4 via PostCSS, tokens, self-hosted fonts). The page renders a section per model and a card per trim. Images come through `next/image` from `ASSET_BASE_URL` + `public_path` (**ADR 0020**; one remote pattern, a 1-day optimiser TTL until keys are content-hashed).
+     - `?lang=ar` renders Arabic/RTL until the TopBar toggle (slice 4).
+     - Configure and Explore are **disabled** until their pages exist; Technical data (slice 5) and Compare (slice 6) are hidden.
+     - **Card decided (owner, 2026-09-27, 1B + 2A; ADR 0021):** a white card with no wedge, as the approved file. White is a paired surface token (`--av-surface-white`, in both contrast tests, with the accent). The year, icons and dividers are brand-accent "small accents", and Configure is the accent. Spec §2/§5.7 and the theming REV are amended; the `muted_hex` → wedge routing is removed. ADR 0021 confirms the accent is validated against white (CHECK `brand_themes_aa_accent_on_white`). BACKLOG #14 `FOCUS-COLOUR-CONTRAST-CHECK` (trigger: before the first real brand goes live).
+     - **Asset standard (owner, 2026-09-27; ADR 0022), added to #74:**
+       - Finding: no code flipped any model; the wrong-way Lyriq was a stale copy under a reused name (storage `max-age=3600` + the optimiser).
+       - One master per trim per view: partial unique indexes on `assets` (migration `20260927100000`, test 0023; hosted pre-check in the runbook).
+       - Side masters face RIGHT; `car-direction.test.ts` fails on any mirror other than the RTL rule.
+       - Content-hashed names `{brand}/{model}/{trim}-{view}.{hash8}.{ext}`.
+       - `CarImageFrame`: a fixed 2:1 side box / 16:9 hero box, bottom-aligned, the placeholder in the same box.
+       - `packages/asset-tools`: `download.mjs` and `normalize.mjs`, placed in a workspace package rather than `scripts/assets` so their tests and typecheck run in CI.
+         - They require a transparent background, trim to the car (alpha > 16), scale to 1920, and write hashed files + a re-runnable `register.sql`.
+         - Direction check: a strong left is an error (`--confirm-right` after an eye check); a weak left or too close to call is a warning.
+         - `--out` must be empty.
+       - Code review (CHANGES REQUESTED) applied: the card padding moved to an inner wrapper, so the frame bleeds by exactly the padding; a wider flip detector; the download has a timeout, a size cap, and no redirects.
+       - Runbook `docs/runbooks/showroom-assets.md`: steps + the registry-vs-bucket check queries.
+       - The earlier hand-made `3-demo-assets.sql` (unhashed names) is superseded by `register.sql`.
+     - Review fixes also applied: titles wrap to 2 lines (never truncated); no letter-spacing in Arabic (`rtl:tracking-normal`); the chevron uses the motion tokens; VehicleCard is a **server** component, with Technical data and Compare as slots the app fills with client triggers; correct Arabic plurals; the missing-base warning is logged once per process; `ASSET_BASE_URL` must be an https bucket prefix or the build fails (security review).
+     - Deliberately deferred parity items vs the approved card: the car entry animation and the stat count-up (slice 8, motion), the slider glyph on Configure, and the approved compact car height under 24rem (ours: h-44 / h-48 / h-64 by container size).
    - `<html lang dir>` is still static `en`/`ltr` in `app/layout.tsx`. Fix it with the TopBar's EN/AR toggle (slice 4 or earlier).
 2. **Owner: confirm the Supabase check on `main` applied both new migrations to the hosted DB** (`20260925120000_lead_activities_brand_fk`, `20260925140000_event_payload_cap`). The guard blocks the agent from hosted-DB reads.
 3. **Owner, before any loop trial:** apply the trust-check patch to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD`.
@@ -347,6 +368,7 @@ The owner has a seed SQL for the demo brand + EG market (sent in chat; deliberat
 - The CI gate runs the worker via `run-once.ts`. The hosted schedule is now proven separately (the pg_cron ticks above).
 - Regenerate `packages/engine-core/src/database.types.ts` from the live schema; run `docs/runbooks/flag-kill-path.md`. (Showroom slice 1 hand-corrected the catalog, brand_markets and asset rows against the migrations; they had drifted. The rest is still hand-written.)
 - When the log drain goes live, wire **ADR 0017's showroom alerts** along with ADR 0016's (the mismatch alerts page). Check on a preview that the Sentry `trace_id` tag reaches events. Next time `flags.ts` changes, turn `isFlagEnabled`'s positional arguments into an options object.
+- `brand_themes.focus_hex` has only a format CHECK (BACKLOG #14, trigger: before the first real brand goes live).
 - Owner: create the `page_showroom` flag in PostHog (off). The code already reads it and fails closed without it.
 - `docs/ADMIN-DESIGN-BRIEF.md` stays in git history (commit `a9539ea`); whether to rewrite history is the owner's call.
 

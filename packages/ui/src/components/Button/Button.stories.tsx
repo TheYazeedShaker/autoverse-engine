@@ -26,6 +26,7 @@ export const Variants: Story = {
       <Button variant="primary">Primary</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="ghost">Ghost</Button>
+      <Button variant="accent">Accent (brand)</Button>
     </div>
   ),
 };

@@ -19,6 +19,10 @@ export const buttonVariants = cva(
         primary: "bg-fg text-bg hover:bg-fg/90 active:bg-fg/80",
         secondary: "border border-fg/30 text-fg hover:bg-fg/10 active:bg-fg/15",
         ghost: "text-fg hover:bg-fg/10 active:bg-fg/15",
+        // The brand accent (theming REV: primary buttons). Its label colour is the validated on-accent
+        // pair, and its focus ring is the brand focus colour, so it stays AA for any brand.
+        accent:
+          "bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-hover focus-visible:ring-focus-ring",
       },
       size: {
         sm: "h-8 gap-1.5 px-3 text-sm",

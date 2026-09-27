@@ -15,6 +15,16 @@ describe("Button", () => {
     expect(btn).toHaveClass("bg-fg", "text-bg", "h-10");
   });
 
+  it("routes the accent variant to the brand accent pair and focus ring", () => {
+    const { container } = render(<Button variant="accent">Configure</Button>);
+    expect(container.querySelector("button")).toHaveClass(
+      "bg-accent",
+      "text-on-accent",
+      "hover:bg-accent-hover",
+      "focus-visible:ring-focus-ring",
+    );
+  });
+
   it("maps variant and size props to utilities", () => {
     const { container } = render(
       <Button variant="secondary" size="lg">
@@ -107,6 +117,7 @@ describe("Button", () => {
     const { container } = render(
       <div>
         <Button variant="primary">Configure</Button>
+        <Button variant="accent">Book a test drive</Button>
         <Button variant="secondary" leadingIcon={Star}>
           Explore
         </Button>

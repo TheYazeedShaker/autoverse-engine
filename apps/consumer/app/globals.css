@@ -1,0 +1,18 @@
+/* The consumer app's styles: the design system, exactly as Storybook previews it. Self-hosted fonts
+   (OFL), the --av-* tokens, then Tailwind with the token bridge from @autoverse/ui. A brand's theme
+   overrides only the accent family, server-side on :root (lib/showroom/theme.ts). */
+@import "@autoverse/tokens/fonts.css";
+@import "@autoverse/tokens/css";
+@import "@autoverse/ui/styles.css";
+
+/* Tailwind scans this app automatically; the component library lives in another package. */
+@source "../../../packages/ui/src";
+
+html {
+  background: var(--av-surface);
+  color: var(--av-on-surface);
+  font-family: var(--av-font-en);
+}
+[lang="ar"] {
+  font-family: var(--av-font-ar);
+}

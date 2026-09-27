@@ -1,0 +1,21 @@
+{
+  "name": "@autoverse/asset-tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Showroom asset tooling the owner runs locally (ADR 0022): normalise masters, content-hash names, emit registration SQL.",
+  "scripts": {
+    "normalize": "node src/normalize.mjs",
+    "download": "node src/download.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

@@ -16,7 +16,7 @@ The public entry page of a brand-market: a buyer browses the range, focuses a mo
 ## 2. Route, tenancy, theming
 
 - `apps/consumer`: the brand-market is resolved **server-side** from the host (`brand_markets.subdomain`) plus market. Unknown host or non-live market → 404 page (no brand leakage).
-- Theme: `ThemeRepository.getForBrand()` → CSS custom properties injected in `<head>` server-side. Accent routing exactly as the theming REV (primary buttons, links, focus, active markers, small accents). Card, wedge and surfaces are brand-invariant.
+- Theme: `ThemeRepository.getForBrand()` → CSS custom properties injected in `<head>` server-side. Accent routing exactly as the theming REV (primary buttons, links, focus, active markers, small accents). The card and surfaces are brand-invariant.
 - The whole page sits behind flag `page_showroom` (server-side, default **off**).
 
 ## 3. Data contract (engine → page)
@@ -53,7 +53,7 @@ Intro curtain → top bar → hero (drag carousel) → floating model dock → c
 4. **ModelDock**: glassy pills, sliding active pill; two-way sync with the carousel; scroll-spy on sections (anchor line 30% from top, bottom of page = last, spy suspended during programmatic scroll until `scrollend`); hidden when fewer than 2 models are visible.
 5. **FilterSidebar**: sticky glassy panel, search on top, collapsible groups **body · fuel · drive · seats** with counts derived from data, sort (**featured · name · power · 0–100**); mobile = bottom sheet. Filtering hides whole model sections and the dock reflects visible models only.
 6. **ModelSection**: per model even with one trim (header band: name, descriptor, from-price, anchor id); trim cards in the 3-per-row grid, start-aligned, never stretched.
-7. **VehicleCard**: the approved v3 card (`vehicle-card.dc.html`) rebuilt in the system: warm greige card + diagonal wedge (brand-invariant), car bleeding per design, inset spec panel, **Configure primary**, Explore in detail, Compare checkbox, "Technical data ›" opens SpecDrawer.
+7. **VehicleCard**: the approved v3 card (`vehicle-card.dc.html`) rebuilt in the system: white card with no wedge (brand-invariant, token `--av-surface-white`), car bleeding per design, inset spec panel, **Configure primary** (brand accent), year, icons and dividers as small accents (brand accent), Explore in detail, Compare checkbox, "Technical data ›" opens SpecDrawer. _(Amended 2026-09-27, owner decision in `#build-decisions`, ADR 0021: was "warm greige card + diagonal wedge".)_
 8. **SpecDrawer**: per `spec-drawer.dc.html`: side panel (full-height sheet on mobile), focus trap, Escape/scrim close, tabs → collapsible groups → rows from the **spec ledger** resolved for the selected trim (`resolveLedgerRow`), group notes, Configure CTA at the bottom.
 9. **CompareTray**: max 3, floating glassy tray with thumbnails, per-item remove, "Compare N" → compare route (placeholder behind its own flag until PAGE-CONSUMER-COMPARE ships).
 10. **LeadModal**: see §6. **Design gap:** the final export contains no form. Build to this spec using system form primitives (TextField, Select, Checkbox, Button) and the modal's existing visual language.
