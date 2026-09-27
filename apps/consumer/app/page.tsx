@@ -10,6 +10,8 @@ import { COPY, type Lang } from "../lib/showroom/copy";
 import { previewSubdomain } from "../lib/showroom/host";
 import { assetBase, assetUrl } from "../lib/showroom/images";
 import { loadShowroomPage } from "../lib/showroom/load";
+import { facetGroups, modelFacts } from "../lib/showroom/range";
+import { RangeExplorer } from "./range-explorer";
 import { configuredCatalogSource } from "../lib/showroom/source";
 import { breakpoints } from "@autoverse/tokens";
 
@@ -20,8 +22,9 @@ let assetBaseWarned = false;
 const CARD_IMAGE_SIZES = `(min-width: ${breakpoints.xl}px) 30vw, (min-width: ${breakpoints.md}px) 45vw, 100vw`;
 
 // The consumer app's entry: the Virtual Showroom for the brand-market this host names (spec §2).
-// Slice 2: the range (a ModelSection per model, a VehicleCard per trim, real images). The hero,
-// filters, drawer, compare and lead capture land in slices 3–8.
+// Slices 2–3: the range (a ModelSection per model, a VehicleCard per trim, real images) with its
+// filters, search and sort (RangeExplorer). The hero, drawer, compare and lead capture land in
+// slices 4–8.
 //
 // Rendered per request: reading the Host header makes the route dynamic. The catalogue is cached
 // per subdomain in the data source with a hard 60 s expiry (CATALOG_TTL_SECONDS; ADR 0017), and
@@ -84,45 +87,62 @@ export default async function Page({
           className="bg-surface-panel px-4 pt-12 pb-36 sm:px-[6.5vw] lg:pt-16"
         >
           <div className="mx-auto max-w-[120rem]">
-            <p className="text-on-panel-muted text-xs tracking-[0.18em] uppercase rtl:tracking-normal">
-              {showroom.brand.name} · {t.modelRange}
-            </p>
-            <h1
-              id="range-title"
-              className="text-on-panel mt-2 text-4xl font-light tracking-tight lg:text-6xl rtl:tracking-normal"
-            >
-              {t.theRange}
-            </h1>
-            <div className="mt-10 flex flex-col gap-12 lg:gap-16">
-              {showroom.models.map((model) => {
+            <RangeExplorer
+              lang={lang}
+              locale={showroom.market.locale}
+              numberingSystem={
+                new Intl.NumberFormat(
+                  lang === "ar" ? showroom.market.locale : "en",
+                ).resolvedOptions().numberingSystem
+              }
+              facets={facetGroups(showroom.facets)}
+              header={
+                <div>
+                  <p className="text-on-panel-muted text-xs tracking-[0.18em] uppercase rtl:tracking-normal">
+                    {showroom.brand.name} · {t.modelRange}
+                  </p>
+                  <h1
+                    id="range-title"
+                    className="text-on-panel mt-2 text-4xl font-light tracking-tight lg:text-6xl rtl:tracking-normal"
+                  >
+                    {t.theRange}
+                  </h1>
+                </div>
+              }
+              sections={showroom.models.map((model) => {
                 const section = sectionProps(model, lang, showroom.market, t);
-                return (
-                  <ModelSection key={model.id} {...section}>
-                    {model.trims.map((trim) => {
-                      const card = cardProps(model, trim, lang, showroom.market, t);
-                      const src = trim.cardImage ? assetUrl(trim.cardImage.publicPath, base) : null;
-                      return (
-                        <VehicleCard
-                          key={trim.id}
-                          {...card}
-                          image={
-                            src ? (
-                              <Image
-                                src={src}
-                                alt={t.sideView(card.title)}
-                                fill
-                                sizes={CARD_IMAGE_SIZES}
-                                className="object-contain object-bottom"
-                              />
-                            ) : null
-                          }
-                        />
-                      );
-                    })}
-                  </ModelSection>
-                );
+                return {
+                  facts: modelFacts(model),
+                  node: (
+                    <ModelSection key={model.id} {...section}>
+                      {model.trims.map((trim) => {
+                        const card = cardProps(model, trim, lang, showroom.market, t);
+                        const src = trim.cardImage
+                          ? assetUrl(trim.cardImage.publicPath, base)
+                          : null;
+                        return (
+                          <VehicleCard
+                            key={trim.id}
+                            {...card}
+                            image={
+                              src ? (
+                                <Image
+                                  src={src}
+                                  alt={t.sideView(card.title)}
+                                  fill
+                                  sizes={CARD_IMAGE_SIZES}
+                                  className="object-contain object-bottom"
+                                />
+                              ) : null
+                            }
+                          />
+                        );
+                      })}
+                    </ModelSection>
+                  ),
+                };
               })}
-            </div>
+            />
           </div>
         </section>
       </main>

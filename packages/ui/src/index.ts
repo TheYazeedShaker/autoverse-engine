@@ -41,6 +41,15 @@ export type {
 } from "./components/VehicleCard";
 export { ModelSection } from "./components/ModelSection";
 export type { ModelSectionProps } from "./components/ModelSection";
+export { FilterPanel, FilterSidebar, FilterSheet } from "./components/FilterPanel";
+export type {
+  FilterPanelProps,
+  FilterGroup,
+  FilterOption,
+  SortOption,
+  FilterSidebarProps,
+  FilterSheetProps,
+} from "./components/FilterPanel";
 
 // Primitives
 export { Icon } from "./components/Icon";
