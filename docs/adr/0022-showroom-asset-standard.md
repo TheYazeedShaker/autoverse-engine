@@ -62,6 +62,10 @@ On the first real preview, two things went wrong:
    - The image fills the box width with `object-contain` and bottom alignment, so every car appears
      the same size and stands on the same ground line.
    - The placeholder for a missing image takes the same box, so the layout never jumps.
+   - **Amendment (owner, 2026-09-28):** in the `side` box the car fills **80%** of the box width,
+     centred and still bottom-aligned; the box keeps its size. The 80% is one token,
+     `carFrame.sideFill` / `--av-car-fill-side` (TS↔CSS parity tested), never a literal. The hero's
+     framing (`front-34`, still the full box) is set in slice 4.
    - On the card, the box bleeds past the content column by exactly the card's padding, so it spans
      the card's full inner width (edge to border) and never overflows it. The placeholder is inset
      by the same padding, so it lines up with the content.

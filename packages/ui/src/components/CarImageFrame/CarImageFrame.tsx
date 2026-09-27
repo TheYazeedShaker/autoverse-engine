@@ -23,6 +23,16 @@ const ASPECT: Record<CarView, string> = {
   "front-34": "aspect-video",
 };
 
+/**
+ * The image layer per view. Side: the car fills --av-car-fill-side of the box's width (the token, 80%),
+ * centred (absolute + inset-x-0 + mx-auto) and still bottom-aligned, so the ground line is unchanged.
+ * Front three-quarter: the full box until the hero's framing is set (slice 4).
+ */
+const IMAGE_LAYER: Record<CarView, string> = {
+  side: "inset-y-0 inset-x-0 mx-auto w-(--av-car-fill-side)",
+  "front-34": "inset-0",
+};
+
 export interface CarImageFrameProps {
   view: CarView;
   /** The app's image element (fill, object-contain, object-bottom), or null for the placeholder. */
@@ -47,7 +57,9 @@ export function CarImageFrame({
       className={cn("relative w-full shrink-0 rtl:-scale-x-100", ASPECT[view], className)}
     >
       {image ? (
-        <div className="absolute inset-0 drop-shadow-xl">{image}</div>
+        <div data-car-image className={cn("absolute drop-shadow-xl", IMAGE_LAYER[view])}>
+          {image}
+        </div>
       ) : (
         <div
           role="img"
