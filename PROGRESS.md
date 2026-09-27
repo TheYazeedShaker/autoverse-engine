@@ -273,6 +273,8 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - `?lang=ar` renders Arabic/RTL until the TopBar toggle (slice 4).
      - Configure and Explore are **disabled** until their pages exist; Technical data (slice 5) and Compare (slice 6) are hidden.
      - **Card decided (owner, 2026-09-27, 1B + 2A; ADR 0021):** a white card with no wedge, as the approved file. White is a paired surface token (`--av-surface-white`, in both contrast tests, with the accent). The year, icons and dividers are brand-accent "small accents", and Configure is the accent. Spec §2/§5.7 and the theming REV are amended; the `muted_hex` → wedge routing is removed. ADR 0021 confirms the accent is validated against white (CHECK `brand_themes_aa_accent_on_white`). BACKLOG #14 `FOCUS-COLOUR-CONTRAST-CHECK` (trigger: before the first real brand goes live).
+     - **#74 merged (2026-09-27).** The owner re-processed and registered 14 hashed masters (0 errors); the preview shows every car facing right on one ground line.
+     - **Open: car fill PR (`feat/showroom-car-fill`, owner 2026-09-28).** The side-view car fills 80% of the 2:1 box, centred and bottom-aligned, from the token `carFrame.sideFill` / `--av-car-fill-side`; the hero is unchanged until slice 4. ADR 0022 amended. **Next: slice 3** (filters, search, sort, mobile sheet; spec §5.5), after this merges.
      - **Asset standard (owner, 2026-09-27; ADR 0022), added to #74:**
        - Finding: no code flipped any model; the wrong-way Lyriq was a stale copy under a reused name (storage `max-age=3600` + the optimiser).
        - One master per trim per view: partial unique indexes on `assets` (migration `20260927100000`, test 0023; hosted pre-check in the runbook).

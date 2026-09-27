@@ -126,6 +126,10 @@ export const space = {
 // Radius (§4.1).
 export const radius = { sm: 7, md: 10, lg: 14, xl: 18, "2xl": 28, pill: 999 } as const;
 
+// Car framing (ADR 0022). The share of the fixed side-view box's width (2:1; cards and the drawer) that
+// the car fills, centred and bottom-aligned. The hero's framing (front-34) is set in slice 4.
+export const carFrame = { sideFill: 0.8 } as const;
+
 // Border width. One hairline, used with --av-border for every divider and outline.
 export const borderWidth = { hairline: 1 } as const;
 

@@ -19,9 +19,28 @@ describe("CarImageFrame", () => {
     expect(hero.firstChild).toHaveClass("aspect-video");
   });
 
-  it("fills the box with the image; the placeholder takes the same box", () => {
+  it("side: the car fills the token share of the box width, centred, full height (same ground line)", () => {
     const c = render(<CarImageFrame view="side" image={img} placeholderLabel="x" />).container;
-    expect(within(c).getByRole("img").parentElement).toHaveClass("absolute", "inset-0");
+    const layer = within(c).getByRole("img").parentElement;
+    // Width from the token (--av-car-fill-side), never a literal; centred; top-to-bottom of the box.
+    expect(layer).toHaveClass(
+      "absolute",
+      "inset-y-0",
+      "inset-x-0",
+      "mx-auto",
+      "w-(--av-car-fill-side)",
+    );
+    expect(layer!.className).not.toMatch(/w-\[?\d/);
+  });
+
+  it("front-34 (hero) still fills the whole box until slice 4 sets its framing", () => {
+    const c = render(<CarImageFrame view="front-34" image={img} placeholderLabel="x" />).container;
+    const layer = within(c).getByRole("img").parentElement;
+    expect(layer).toHaveClass("absolute", "inset-0");
+    expect(layer!.className).not.toContain("--av-car-fill-side");
+  });
+
+  it("the placeholder takes the same box", () => {
     const p = render(
       <CarImageFrame view="side" image={null} placeholderLabel="Image coming soon" />,
     ).container;

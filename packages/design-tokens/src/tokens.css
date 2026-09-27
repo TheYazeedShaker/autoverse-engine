@@ -133,6 +133,9 @@
   --av-radius-2xl: 28px; /* the vehicle card (showroom) */
   --av-radius-pill: 999px;
 
+  /* --- car framing (ADR 0022): share of the 2:1 side box's width the car fills --- */
+  --av-car-fill-side: 80%;
+
   /* --- border width --- */
   --av-border-width: 1px; /* hairline — pair with --av-border */
 
