@@ -46,6 +46,8 @@ const surfacePairs: Record<string, string[]> = {
   ],
   "--av-surface-panel": ["--av-on-panel", "--av-on-panel-muted"],
   "--av-surface-card": ["--av-on-card", "--av-on-card-muted"],
+  // The vehicle card: the accent (year, icons, dividers, Configure) sits on white too.
+  "--av-surface-white": ["--av-on-white", "--av-on-white-muted", "--av-accent"],
   "--av-surface-dark": ["--av-on-dark", "--av-on-dark-soft", "--av-on-dark-muted"],
   // The accent family's neutral defaults (a brand theme replaces them with validated values).
   "--av-accent": ["--av-on-accent"],

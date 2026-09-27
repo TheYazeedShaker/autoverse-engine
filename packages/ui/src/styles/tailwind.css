@@ -10,6 +10,9 @@
   --color-surface: var(--av-surface);
   --color-surface-panel: var(--av-surface-panel);
   --color-surface-card: var(--av-surface-card);
+  --color-surface-white: var(--av-surface-white);
+  --color-on-white: var(--av-on-white);
+  --color-on-white-muted: var(--av-on-white-muted);
   --color-surface-dark: var(--av-surface-dark);
   /* contextual "current surface" pair → `bg-fg` / `text-fg` / `border-fg` / `text-fg-muted` / `text-bg`.
      These invert with the surface, so an inverting control (primary Button = `bg-fg text-bg`) is correct

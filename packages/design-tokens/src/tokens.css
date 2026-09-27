@@ -4,6 +4,7 @@
    Mirror of tokens.ts — keep the two in sync. */
 :root {
   /* --- raw neutral palette --- */
+  --av-white: #ffffff; /* the vehicle card (showroom), ADR 0021 */
   --av-mist: #f4f7f5; /* lightest surface / canvas */
   --av-panel: #ecefee; /* raised panel */
   --av-card: #e1e5e3; /* card edge / deepest light */
@@ -38,6 +39,11 @@
   --av-surface-card: var(--av-card);
   --av-on-card: var(--av-onyx);
   --av-on-card-muted: var(--av-slate);
+
+  /* the vehicle card (showroom): white, with brand accents on it (validated against white) */
+  --av-surface-white: var(--av-white);
+  --av-on-white: var(--av-onyx);
+  --av-on-white-muted: var(--av-slate);
 
   --av-surface-dark: var(--av-gunmetal);
   --av-on-dark: var(--av-mist);

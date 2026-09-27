@@ -26,17 +26,15 @@ import { Icon } from "../Icon";
 // (the image, Technical data in slice 5, Compare in slice 6), so no function has to cross the server/client
 // boundary.
 //
-// Colour routing (theming REV): the Configure button is the brand accent; the year and the icons are
-// "small accents" (--av-accent). The accent is only ever drawn on Mist here: a brand's accent is validated
-// for AA against Mist and white only (brand_themes CHECKs), so any other surface could fail for some brand.
-//
-// The surface itself is an open owner decision (#build-decisions, slice 2: white per the approved file, or a
-// greige with a wedge per spec §5.7). SURFACE below is the one place that changes when it is answered.
+// Surface and colour (owner decision 2026-09-27, ADR 0021): a WHITE card with no wedge, exactly as the
+// approved file. It is brand-invariant. The year, icons and dividers are "small accents" and Configure is
+// the primary action, all in the brand accent (--av-accent; theming REV). That is safe for every brand
+// because validate-theme and the brand_themes CHECKs require the accent to reach AA on white.
 
 const SURFACE = {
-  bg: "var(--av-surface)",
-  fg: "var(--av-on-surface)",
-  fgMuted: "var(--av-on-surface-muted)",
+  bg: "var(--av-surface-white)",
+  fg: "var(--av-on-white)",
+  fgMuted: "var(--av-on-white-muted)",
 };
 
 export type VehicleAttributeIcon = "fuel" | "drive" | "transmission";
@@ -218,7 +216,7 @@ export function VehicleCard({
         )}
       </div>
 
-      {/* the inset spec panel: same surface as the card, set apart by its border */}
+      {/* the inset spec panel: white like the card (as approved), set apart by its border */}
       <section
         aria-label={highlightsLabel}
         className="border-fg/10 w-full min-w-0 overflow-hidden rounded-xl border"

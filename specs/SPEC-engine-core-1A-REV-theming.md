@@ -45,9 +45,13 @@ Invariant: no theme row can exist that fails AA. Validation is the write gate.
 
 ## Accent routing (locked scope)
 
-Accent applies ONLY to: primary button fill + on-accent text, link color, focus ring, active/selected indicators (dock pills, filter chips, tab underlines), small text accents in specific kicker contexts, card wedge tint (muted_hex variant).
+Accent applies ONLY to: primary button fill + on-accent text, link color, focus ring, active/selected indicators (dock pills, filter chips, tab underlines), small text accents in specific kicker contexts, and **small accents on the vehicle card: the year, the attribute/stat/detail icons and the attribute dividers**.
 
-Everything else is brand-invariant: card surfaces (warm greige), canvas (Mist), hero stage (Gunmetal), sidebar (admin neutral), type, grid, radius, shadow, motion. A brand with accent #000000 gets black buttons and invisible wedge tint — acceptable, documented, shown in the admin Theme preview.
+_(Amended 2026-09-27, owner decision in `#build-decisions`, ADR 0021: the "card wedge tint (muted_hex variant)" routing is removed, because the approved card has no wedge. The vehicle card's small accents are added. `muted_hex` is still derived and stored, but nothing routes to it.)_
+
+Everything else is brand-invariant: card surfaces (white, the vehicle card), canvas (Mist), hero stage (Gunmetal), sidebar (admin neutral), type, grid, radius, shadow, motion. A brand with accent #000000 gets black buttons and black small accents — acceptable, documented, shown in the admin Theme preview.
+
+The accent is validated against exactly two surfaces: Mist and white (`validate-theme`: accent text on the Mist canvas ≥ 4.5:1, accent text on a white surface ≥ 4.5:1). The vehicle card's small accents and Configure sit on white, so they are covered. Drawing the accent as text or icons on any other surface (for example the Gunmetal hero) needs a new validated pair first.
 
 ---
 

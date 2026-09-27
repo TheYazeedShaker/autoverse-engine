@@ -4,6 +4,7 @@
 
 /* ============================ Neutral palette (locked, monochrome) ============================ */
 export const palette = {
+  white: "#FFFFFF", // the vehicle card (showroom): owner decision 2026-09-27, ADR 0021
   mist: "#F4F7F5", // lightest surface / canvas
   panel: "#ECEFEE", // raised panel
   card: "#E1E5E3", // card edge / deepest light
@@ -56,6 +57,8 @@ export const surfaces = {
   light: { bg: palette.mist, fg: palette.onyx, fgMute: palette.slate },
   panel: { bg: palette.panel, fg: palette.onyx, fgMute: palette.slate },
   card: { bg: palette.card, fg: palette.onyx, fgMute: palette.slate },
+  // The vehicle card. A brand accent is validated against white (validate-theme), so accents may sit on it.
+  white: { bg: palette.white, fg: palette.onyx, fgMute: palette.slate },
   dark: { bg: palette.gunmetal, fg: palette.onDark, fgMute: palette.onDarkMute },
   // admin — dark operator chrome (REV2). The light equivalents reuse the consumer neutrals rather
   // than inventing a second light ramp: an operator on a light theme sees the same greys as everyone.

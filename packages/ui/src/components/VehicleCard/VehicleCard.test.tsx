@@ -135,9 +135,9 @@ describe("VehicleCard", () => {
 
   it("uses tokens for its surface and publishes the contextual pair", () => {
     const article = card().querySelector("article")!;
-    // Mist: the surface every brand accent is validated against (brand_themes CHECKs).
-    expect(article.style.background).toBe("var(--av-surface)");
-    expect(article.style.getPropertyValue("--av-fg")).toBe("var(--av-on-surface)");
+    // White, as the approved card (ADR 0021): a surface every brand accent is validated against.
+    expect(article.style.background).toBe("var(--av-surface-white)");
+    expect(article.style.getPropertyValue("--av-fg")).toBe("var(--av-on-white)");
   });
 
   it("has no axe violations, LTR/English and RTL/Arabic, with and without an image", async () => {
