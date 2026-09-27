@@ -273,6 +273,19 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - `?lang=ar` renders Arabic/RTL until the TopBar toggle (slice 4).
      - Configure and Explore are **disabled** until their pages exist; Technical data (slice 5) and Compare (slice 6) are hidden.
      - **Card decided (owner, 2026-09-27, 1B + 2A; ADR 0021):** a white card with no wedge, as the approved file. White is a paired surface token (`--av-surface-white`, in both contrast tests, with the accent). The year, icons and dividers are brand-accent "small accents", and Configure is the accent. Spec §2/§5.7 and the theming REV are amended; the `muted_hex` → wedge routing is removed. ADR 0021 confirms the accent is validated against white (CHECK `brand_themes_aa_accent_on_white`). BACKLOG #14 `FOCUS-COLOUR-CONTRAST-CHECK` (trigger: before the first real brand goes live).
+     - **Asset standard (owner, 2026-09-27; ADR 0022), added to #74:**
+       - Finding: no code flipped any model; the wrong-way Lyriq was a stale copy under a reused name (storage `max-age=3600` + the optimiser).
+       - One master per trim per view: partial unique indexes on `assets` (migration `20260927100000`, test 0023; hosted pre-check in the runbook).
+       - Side masters face RIGHT; `car-direction.test.ts` fails on any mirror other than the RTL rule.
+       - Content-hashed names `{brand}/{model}/{trim}-{view}.{hash8}.{ext}`.
+       - `CarImageFrame`: a fixed 2:1 side box / 16:9 hero box, bottom-aligned, the placeholder in the same box.
+       - `packages/asset-tools`: `download.mjs` and `normalize.mjs`, placed in a workspace package rather than `scripts/assets` so their tests and typecheck run in CI.
+         - They require a transparent background, trim to the car (alpha > 16), scale to 1920, and write hashed files + a re-runnable `register.sql`.
+         - Direction check: a strong left is an error (`--confirm-right` after an eye check); a weak left or too close to call is a warning.
+         - `--out` must be empty.
+       - Code review (CHANGES REQUESTED) applied: the card padding moved to an inner wrapper, so the frame bleeds by exactly the padding; a wider flip detector; the download has a timeout, a size cap, and no redirects.
+       - Runbook `docs/runbooks/showroom-assets.md`: steps + the registry-vs-bucket check queries.
+       - The earlier hand-made `3-demo-assets.sql` (unhashed names) is superseded by `register.sql`.
      - Review fixes also applied: titles wrap to 2 lines (never truncated); no letter-spacing in Arabic (`rtl:tracking-normal`); the chevron uses the motion tokens; VehicleCard is a **server** component, with Technical data and Compare as slots the app fills with client triggers; correct Arabic plurals; the missing-base warning is logged once per process; `ASSET_BASE_URL` must be an https bucket prefix or the build fails (security review).
      - Deliberately deferred parity items vs the approved card: the car entry animation and the stat count-up (slice 8, motion), the slider glyph on Configure, and the approved compact car height under 24rem (ours: h-44 / h-48 / h-64 by container size).
    - `<html lang dir>` is still static `en`/`ltr` in `app/layout.tsx`. Fix it with the TopBar's EN/AR toggle (slice 4 or earlier).

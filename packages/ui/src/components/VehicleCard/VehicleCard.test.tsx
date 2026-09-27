@@ -105,7 +105,10 @@ describe("VehicleCard", () => {
   });
 
   it("mirrors the car in RTL and counter-mirrors the placeholder so its text stays readable", () => {
-    expect(card().querySelector("[data-car-area]")).toHaveClass("rtl:-scale-x-100");
+    expect(card().querySelector("[data-car-frame=side]")).toHaveClass(
+      "rtl:-scale-x-100",
+      "aspect-[2/1]",
+    );
     expect(card({ image: null }).querySelector("[data-placeholder]")).toHaveClass(
       "rtl:-scale-x-100",
     );

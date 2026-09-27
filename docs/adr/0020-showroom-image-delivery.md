@@ -42,9 +42,9 @@ page, and unpublish must delete the object (the ADR 0018 requirement on the publ
   `Cache-Control` max-age. Once 1·B sets long immutable headers, an unpublished image stays in
   the optimiser's cache for that long unless it is purged. A take-down is therefore only complete
   when that cache is purged as well.
-- The demo's object keys (`demo/<model>/<trim>-<view>.png`, uploaded by hand per the runbook) are
-  **not** content-hashed. Replace a demo image under a **new** key rather than overwriting in place.
-  Predictable keys are acceptable only because demo data is never under embargo.
+- **Object names are content-hashed** (ADR 0022, 2026-09-27): `{brand}/{model}/{trim}-{view}.{hash8}.{ext}`. A
+  replacement is a new URL, so no cache can serve an old copy under a current name. That supersedes
+  the earlier "replace under a new key" note for the hand-uploaded demo files.
 
 ## Requirements on the publish step (1·B), in addition to ADR 0018's
 

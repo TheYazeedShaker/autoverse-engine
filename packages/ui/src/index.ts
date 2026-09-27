@@ -30,6 +30,8 @@ export { Card } from "./components/Card";
 export type { CardProps, CardTone, CardPadding } from "./components/Card";
 
 // Showroom (PAGE-CONSUMER-SHOWROOM)
+export { CarImageFrame } from "./components/CarImageFrame";
+export type { CarImageFrameProps, CarView } from "./components/CarImageFrame";
 export { VehicleCard } from "./components/VehicleCard";
 export type {
   VehicleCardProps,
