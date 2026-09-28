@@ -138,7 +138,7 @@ export function ShowroomExperience({
           dir={lang === "ar" ? "rtl" : "ltr"}
           formatNumber={numbers}
           backdrop={backdrop}
-          className="h-[max(100svh,40rem)]"
+          className="h-[max(calc(100svh-var(--av-topbar-height)),40rem)]"
           labels={{
             region: t.modelsLabel,
             previous: t.previousModel,

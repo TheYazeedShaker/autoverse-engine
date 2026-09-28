@@ -1,4 +1,4 @@
-import { ModelSection, VehicleCard } from "@autoverse/ui";
+import { ModelSection, TopBar, VehicleCard } from "@autoverse/ui";
 import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 import Image from "next/image";
@@ -12,6 +12,7 @@ import { assetBase, assetUrl } from "../lib/showroom/images";
 import { loadShowroomPage } from "../lib/showroom/load";
 import { facetGroups, modelFacts } from "../lib/showroom/range";
 import { ShowroomExperience } from "./showroom-experience";
+import { dirOf, langFrom } from "../lib/showroom/lang";
 import { configuredCatalogSource } from "../lib/showroom/source";
 import { breakpoints, carFrame, heroCarousel } from "@autoverse/tokens";
 
@@ -74,9 +75,9 @@ export default async function Page({
   }
 
   const { showroom, themeCss } = outcome;
-  // EN by default; `?lang=ar` renders Arabic/RTL. The EN/AR toggle itself arrives with the TopBar
-  // (its slice is an open decision) and will drive this same value.
-  const lang: Lang = (await searchParams)?.lang === "ar" ? "ar" : "en";
+  // EN by default; `?lang=ar` renders Arabic/RTL. The TopBar's EN/AR switch links to the two; the
+  // proxy passes the same choice to the layout for `<html lang dir>`.
+  const lang: Lang = langFrom((await searchParams)?.lang);
   const t = COPY[lang];
   const base = assetBase(process.env.ASSET_BASE_URL);
   if (
@@ -96,7 +97,22 @@ export default async function Page({
           {themeCss}
         </style>
       )}
-      <main lang={lang} dir={lang === "ar" ? "rtl" : "ltr"} data-showroom={showroom.brand.slug}>
+      <div dir={dirOf(lang)} lang={lang}>
+        <TopBar
+          // The theme's logo reference has no defined format yet (asset id or public path), so the
+          // brand name is the wordmark until it does (an open decision; the logo is a theme slot).
+          brandName={showroom.brand.name}
+          marketLabel={`${showroom.market.code} · ${showroom.market.currency}`}
+          languageLabel={t.language}
+          languages={[
+            { code: "en", label: "EN", href: "?lang=en", current: lang === "en" },
+            { code: "ar", label: "عربي", href: "?lang=ar", current: lang === "ar" },
+          ]}
+          // Opens the LeadModal from slice 7; disabled until then.
+          bookTestDrive={{ label: t.bookTestDrive }}
+        />
+      </div>
+      <main lang={lang} dir={dirOf(lang)} data-showroom={showroom.brand.slug}>
         <ShowroomExperience
           lang={lang}
           locale={showroom.market.locale}

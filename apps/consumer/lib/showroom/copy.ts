@@ -50,6 +50,8 @@ export const COPY = {
     noMatch: "No models match these filters.",
     // Hero and dock (slice 4, spec §5.3–5.4).
     modelsLabel: "Models",
+    language: "Language",
+    bookTestDrive: "Book a Test Drive",
     previousModel: "Previous model",
     nextModel: "Next model",
     trim: "Trim",
@@ -148,6 +150,8 @@ export const COPY = {
     selectedCount: (n: string) => `محدد: ${n}`,
     noMatch: "لا توجد طرازات تطابق هذه الفلاتر.",
     modelsLabel: "الطرازات",
+    language: "اللغة",
+    bookTestDrive: "احجز تجربة قيادة",
     previousModel: "الطراز السابق",
     nextModel: "الطراز التالي",
     trim: "الفئة",
