@@ -1,7 +1,7 @@
 import { render, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ModelSection } from "./ModelSection";
 
 const section = (cards = 2) =>
@@ -90,5 +90,34 @@ describe("ModelSection", () => {
       </div>,
     ).container;
     expect(await axe(rtl)).toHaveNoViolations();
+  });
+});
+
+describe("ModelSection: the header action (slice 7)", () => {
+  it("sits beside the header, outside the toggle button, and is its own control", async () => {
+    const onClick = vi.fn();
+    const { container } = render(
+      <ModelSection
+        id="aurora-gt"
+        name="Aurora GT"
+        price="From EGP 3,900,000"
+        action={
+          <button type="button" onClick={onClick}>
+            Request a quote
+          </button>
+        }
+      >
+        <article aria-label="Trim 1">Trim 1</article>
+      </ModelSection>,
+    );
+    const quote = within(container).getByRole("button", { name: "Request a quote" });
+    const toggle = within(container).getByRole("button", { name: /Aurora GT/ });
+    expect(toggle.contains(quote)).toBe(false);
+    expect(within(container).getByRole("heading", { level: 2 }).contains(quote)).toBe(false);
+    await userEvent.click(quote);
+    expect(onClick).toHaveBeenCalledOnce();
+    // The section didn't collapse: the action is not the toggle.
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

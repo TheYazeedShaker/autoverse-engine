@@ -28,6 +28,9 @@ export interface ModelSectionProps {
   /** The trim cards. */
   children: ReactNode;
   defaultOpen?: boolean;
+  /** A control beside the header, outside the toggle (slice 7: "Request a quote"). A button can't
+   *  sit inside the header's toggle button, so it is a sibling, at the end of the band. */
+  action?: ReactNode;
   /** Heading level in the page outline. Defaults to 2. */
   headingLevel?: 2 | 3;
   className?: string;
@@ -41,36 +44,45 @@ export function ModelSection({
   children,
   defaultOpen = true,
   headingLevel = 2,
+  action,
   className,
 }: ModelSectionProps) {
   const Heading = `h${headingLevel}` as const;
   return (
     <Collapsible.Root asChild defaultOpen={defaultOpen}>
       <section id={id} aria-labelledby={`${id}-heading`} className={cn("scroll-mt-24", className)}>
-        <Heading id={`${id}-heading`} className="m-0">
-          <Collapsible.Trigger className="group border-fg/10 focus-visible:ring-focus-ring flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b pb-3.5 text-start focus-visible:outline-none focus-visible:ring-2">
-            <span className="flex max-w-full min-w-0 shrink-0 flex-col">
-              <span className="text-fg text-3xl font-light tracking-tight lg:text-4xl rtl:tracking-normal">
-                {name}
+        <div className={cn(action && "border-fg/10 flex items-end gap-x-4 border-b")}>
+          <Heading id={`${id}-heading`} className={cn("m-0", action && "min-w-0 flex-1")}>
+            <Collapsible.Trigger
+              className={cn(
+                "group focus-visible:ring-focus-ring flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-2 pb-3.5 text-start focus-visible:outline-none focus-visible:ring-2",
+                !action && "border-fg/10 border-b",
+              )}
+            >
+              <span className="flex max-w-full min-w-0 shrink-0 flex-col">
+                <span className="text-fg text-3xl font-light tracking-tight lg:text-4xl rtl:tracking-normal">
+                  {name}
+                </span>
+                {descriptor ? (
+                  <span className="text-fg-muted mt-1.5 text-sm font-normal">{descriptor}</span>
+                ) : null}
               </span>
-              {descriptor ? (
-                <span className="text-fg-muted mt-1.5 text-sm font-normal">{descriptor}</span>
-              ) : null}
-            </span>
-            <span className="flex shrink-0 items-center gap-3.5 pb-0.5">
-              {price ? (
-                <span className="text-fg text-sm font-medium whitespace-nowrap">{price}</span>
-              ) : null}
-              <span className="border-fg/20 text-fg-muted grid size-8 place-items-center rounded-full border">
-                <Icon
-                  icon={ChevronDown}
-                  size="sm"
-                  className="transition-transform duration-(--av-dur) ease-(--av-ease) group-data-[state=open]:rotate-180 motion-reduce:transition-none"
-                />
+              <span className="flex shrink-0 items-center gap-3.5 pb-0.5">
+                {price ? (
+                  <span className="text-fg text-sm font-medium whitespace-nowrap">{price}</span>
+                ) : null}
+                <span className="border-fg/20 text-fg-muted grid size-8 place-items-center rounded-full border">
+                  <Icon
+                    icon={ChevronDown}
+                    size="sm"
+                    className="transition-transform duration-(--av-dur) ease-(--av-ease) group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+                  />
+                </span>
               </span>
-            </span>
-          </Collapsible.Trigger>
-        </Heading>
+            </Collapsible.Trigger>
+          </Heading>
+          {action ? <div className="shrink-0 pb-3.5">{action}</div> : null}
+        </div>
         <Collapsible.Content className="pt-5 lg:pt-7">
           <ul
             role="list"

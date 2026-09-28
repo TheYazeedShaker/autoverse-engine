@@ -29,7 +29,11 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@sentry/nextjs", () => ({ getIsolationScope: () => ({ setTag: state.setTag }) }));
 vi.mock("../lib/flags", () => ({
-  FLAGS: { pageShowroom: "page_showroom", pageCompare: "page_compare" },
+  FLAGS: {
+    pageShowroom: "page_showroom",
+    pageCompare: "page_compare",
+    showroomLeadCapture: "showroom_lead_capture",
+  },
   isFlagEnabled: (...args: unknown[]) => state.flag(...args),
 }));
 // next/image's host checks and loader only exist inside Next; a plain <img> keeps the URL visible.
@@ -233,5 +237,53 @@ describe("showroom page: compare (slice 6)", () => {
     state.flag.mockImplementation(async (flag) => flag === "page_showroom");
     const html = renderToStaticMarkup(await Page());
     expect(html).toContain('type="checkbox"');
+  });
+
+  describe("lead capture (slice 7)", () => {
+    const KEY = "pk_" + "A".repeat(32);
+    const withKey = () => ({ ...demoCatalog(), capture_key: KEY });
+    const leadEnv = () => {
+      vi.stubEnv("SUPABASE_URL", "https://project.supabase.example");
+      vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "1x00000000000000000000AA");
+    };
+
+    it("flag on and ready: the TopBar, section and hero CTAs open the modal", async () => {
+      leadEnv();
+      state.source = { load: async (s) => (s === "demo" ? withKey() : null) };
+      const html = renderToStaticMarkup(await Page());
+      expect(html).toContain('data-lead-opener="test_drive"');
+      expect(html.match(/data-lead-opener="quote"/g)).toHaveLength(2); // one per model section
+      expect(state.flag).toHaveBeenCalledWith(
+        "showroom_lead_capture",
+        "demo",
+        undefined,
+        undefined,
+        expect.any(String),
+      );
+      // The key reaches the page only as the client's config, never as markup text.
+      expect(html).not.toContain(KEY);
+    });
+
+    it("flag off: no lead CTA anywhere, and the TopBar's button stays disabled", async () => {
+      leadEnv();
+      state.source = { load: async (s) => (s === "demo" ? withKey() : null) };
+      state.flag.mockImplementation(async (flag) => flag !== "showroom_lead_capture");
+      const html = renderToStaticMarkup(await Page());
+      expect(html).not.toContain("data-lead-opener");
+      expect(html).toMatch(new RegExp('<button[^>]*disabled=""[^>]*>Book a Test Drive'));
+    });
+
+    it("flag on but no capture key: fails closed and logs why (an error: leads are lost)", async () => {
+      leadEnv();
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const html = renderToStaticMarkup(await Page());
+      expect(html).not.toContain("data-lead-opener");
+      const logged = errors.mock.calls.map((c) => String(c[0]));
+      expect(
+        logged.some(
+          (l) => l.includes("showroom_lead_capture_unavailable") && l.includes("no_capture_key"),
+        ),
+      ).toBe(true);
+    });
   });
 });

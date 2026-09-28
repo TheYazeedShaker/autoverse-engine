@@ -68,3 +68,27 @@ describe("TopBar", () => {
     expect(await axe(rtl)).toHaveNoViolations();
   });
 });
+
+describe("TopBar: the lead CTA slot (slice 7)", () => {
+  it("renders the app's button in place of the disabled default", () => {
+    render(
+      <TopBar
+        {...props()}
+        bookTestDriveSlot={
+          <button type="button" data-lead-opener>
+            Book a test drive
+          </button>
+        }
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Book a test drive" });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute("data-lead-opener");
+    expect(screen.getAllByRole("button", { name: "Book a test drive" })).toHaveLength(1);
+  });
+
+  it("without a slot, the default stays honestly disabled", () => {
+    render(<TopBar {...props()} />);
+    expect(screen.getByRole("button", { name: "Book a test drive" })).toBeDisabled();
+  });
+});

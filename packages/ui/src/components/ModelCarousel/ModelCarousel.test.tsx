@@ -272,3 +272,29 @@ describe("CountUp", () => {
     expect(document.querySelector("[data-count-up]")!.textContent).toBe("٤٢٠");
   });
 });
+
+describe("ModelCarousel: Book a test drive (slice 7)", () => {
+  it("is a ghost button after Show trims that hands the active model and itself to the app", async () => {
+    const onClick = vi.fn();
+    render(
+      <ModelCarousel
+        models={HERO_MODELS}
+        activeId={HERO_MODELS[0]!.id}
+        onActiveChange={() => {}}
+        onShowTrims={() => {}}
+        dir="ltr"
+        labels={LABELS_EN}
+        formatNumber={formatEn}
+        bookTestDrive={{ label: "Book a test drive", onClick }}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Book a test drive" });
+    await userEvent.click(button);
+    expect(onClick).toHaveBeenCalledWith(HERO_MODELS[0]!.id, button);
+  });
+
+  it("is absent without the prop", () => {
+    render(<Hero />);
+    expect(screen.queryByRole("button", { name: "Book a test drive" })).toBeNull();
+  });
+});

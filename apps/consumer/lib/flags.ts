@@ -26,6 +26,9 @@ export const FLAGS = {
   pageShowroom: "page_showroom",
   /** The compare page placeholder (slice 6) until PAGE-CONSUMER-COMPARE ships. Keyed like the page. */
   pageCompare: "page_compare",
+  /** Every lead CTA and the LeadModal (slice 7). Keyed like the page. Off: no working lead CTA
+   *  (the TopBar keeps its disabled button, as before the slice). */
+  showroomLeadCapture: "showroom_lead_capture",
 } as const;
 
 export const FLAG_TIMEOUT_MS = 1500;

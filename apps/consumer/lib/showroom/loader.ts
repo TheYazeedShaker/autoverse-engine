@@ -111,6 +111,13 @@ export interface FacetOption {
 export interface Showroom {
   brand: { slug: string; name: string };
   market: { code: string; currency: string; locale: string; rtl: boolean };
+  /** The lead form's inputs (slice 7). Null consent or key: no lead CTAs (ADR 0025). */
+  lead: {
+    consent: { version: string; text: Bilingual } | null;
+    captureKey: string | null;
+    cities: { id: string; name: Bilingual }[];
+    whatsapp: string | null;
+  };
   models: ShowroomModel[];
   facets: { body: FacetOption[]; fuel: FacetOption[]; drive: FacetOption[]; seats: FacetOption[] };
 }
@@ -184,6 +191,17 @@ export function buildShowroom(snapshot: CatalogSnapshot, log: Logger): Showroom 
       currency: market.currency,
       locale: market.locale,
       rtl: market.rtl,
+    },
+    lead: {
+      consent: snapshot.lead_consent
+        ? {
+            version: snapshot.lead_consent.version,
+            text: { en: snapshot.lead_consent.en, ar: snapshot.lead_consent.ar },
+          }
+        : null,
+      captureKey: snapshot.capture_key ?? null,
+      cities: market.lead_cities.map((c) => ({ id: c.id, name: { en: c.en, ar: c.ar } })),
+      whatsapp: market.whatsapp_number,
     },
     models,
     facets: {

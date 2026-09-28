@@ -33,6 +33,15 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     }) as MediaQueryList;
 }
 
+// Radix Select uses pointer capture and scrollIntoView, which jsdom lacks (slice 7).
+if (typeof Element !== "undefined") {
+  const proto = Element.prototype as unknown as Record<string, unknown>;
+  proto.hasPointerCapture ??= () => false;
+  proto.setPointerCapture ??= () => {};
+  proto.releasePointerCapture ??= () => {};
+  proto.scrollIntoView ??= () => {};
+}
+
 // jest-axe ships only jest types, so teach vitest's expect about the matcher. The `Assertion` generic
 // default must match vitest's own (`any`) — TS requires identical type parameters when merging.
 declare module "vitest" {
