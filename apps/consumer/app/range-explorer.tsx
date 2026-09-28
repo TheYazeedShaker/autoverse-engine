@@ -1,7 +1,7 @@
 "use client";
 
 import { FilterSheet, FilterSidebar, type FilterGroup, type FilterPanelProps } from "@autoverse/ui";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { COPY, type Lang } from "../lib/showroom/copy";
 import type { FacetOption } from "../lib/showroom/loader";
 import {
@@ -46,6 +46,8 @@ export interface RangeExplorerProps {
   facets: { key: FacetKey; options: FacetOption[] }[];
   /** The eyebrow and title block, rendered by the page. */
   header: ReactNode;
+  /** The visible model ids, in display order, whenever they change (the dock shows only these). */
+  onVisibleChange?: (ids: string[]) => void;
 }
 
 const DEFAULT_OPEN: Record<FacetKey, boolean> = {
@@ -62,6 +64,7 @@ export function RangeExplorer({
   sections,
   facets,
   header,
+  onVisibleChange,
 }: RangeExplorerProps) {
   const t = COPY[lang];
   const int = useMemo(
@@ -86,6 +89,11 @@ export function RangeExplorer({
     [sections, selection, search, sort, lang, locale],
   );
   const byId = useMemo(() => new Map(sections.map((s) => [s.facts.id, s.node])), [sections]);
+  const onVisibleChangeRef = useRef(onVisibleChange);
+  onVisibleChangeRef.current = onVisibleChange;
+  useEffect(() => {
+    onVisibleChangeRef.current?.(visible);
+  }, [visible]);
 
   const groups: FilterGroup[] = facets.map(({ key, options }) => ({
     key,
@@ -180,7 +188,8 @@ export function RangeExplorer({
             </div>
           ) : (
             visible.map((id) => (
-              <div key={id} data-range-model={id}>
+              // scroll-mt: a dock pick scrolls here, and the section must clear the floating dock.
+              <div key={id} data-range-model={id} className="scroll-mt-24">
                 {byId.get(id)}
               </div>
             ))

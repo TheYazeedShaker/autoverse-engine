@@ -35,6 +35,8 @@ const NOT_FROM_THE_ENVIRONMENT: Record<string, string> = {
   NODE_ENV: "set by Next itself for each command",
   NEXT_RUNTIME: "set by Next itself inside the server runtime",
   BUILD_TIME: "defined in next.config.js `env`, not read from the environment",
+  HERO_BACKDROP:
+    "defined in next.config.js `env` from whether the file is in public/, not read from the environment",
   SHOWROOM_SOURCE:
     "local development only; kept out of the build as a second layer (source.ts refuses the fixture on any deployment)",
 };

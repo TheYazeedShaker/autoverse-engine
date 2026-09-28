@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AA, contrastRatio } from "./contrast";
-import { borderWidth, carFrame, radius, space } from "./tokens";
+import { borderWidth, carFrame, heroCarousel, radius, space } from "./tokens";
 
 // Companion to surfaces.test.ts: tokens.css is the CANONICAL web source, so its surface↔foreground
 // pairs must clear AA too — not just the TS registry. This parses the CSS, resolves var() chains to
@@ -90,7 +90,11 @@ describe("tokens.css scales match the TS registry (no drift)", () => {
 
   it("the car's side-view fill matches in CSS and TS, and leaves the box room (0 < fill ≤ 1)", () => {
     expect(declarations.get("--av-car-fill-side")).toBe(`${carFrame.sideFill * 100}%`);
-    expect(carFrame.sideFill).toBeGreaterThan(0);
-    expect(carFrame.sideFill).toBeLessThanOrEqual(1);
+    expect(declarations.get("--av-car-fill-hero")).toBe(`${carFrame.heroFill * 100}%`);
+    expect(declarations.get("--av-hero-slide")).toBe(`${heroCarousel.slide * 100}%`);
+    for (const fill of [...Object.values(carFrame), heroCarousel.slide]) {
+      expect(fill).toBeGreaterThan(0);
+      expect(fill).toBeLessThanOrEqual(1);
+    }
   });
 });

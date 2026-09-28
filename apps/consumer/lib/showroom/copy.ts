@@ -48,6 +48,15 @@ export const COPY = {
       count === 1 ? `Show ${n} model` : `Show ${n} models`,
     selectedCount: (n: string) => `${n} selected`,
     noMatch: "No models match these filters.",
+    // Hero and dock (slice 4, spec §5.3–5.4).
+    modelsLabel: "Models",
+    previousModel: "Previous model",
+    nextModel: "Next model",
+    trim: "Trim",
+    showTrims: "Show trims",
+    frontView: (name: string) => `${name}, front three-quarter view`,
+    announceModel: (name: string, position: string, total: string) =>
+      `${name}, ${position} of ${total}`,
   },
   ar: {
     priceOnRequest: "السعر عند الطلب",
@@ -136,8 +145,16 @@ export const COPY = {
           return `عرض ${n} طراز`;
       }
     },
-    selectedCount: (n: string) => `${n} محدد`,
+    selectedCount: (n: string) => `محدد: ${n}`,
     noMatch: "لا توجد طرازات تطابق هذه الفلاتر.",
+    modelsLabel: "الطرازات",
+    previousModel: "الطراز السابق",
+    nextModel: "الطراز التالي",
+    trim: "الفئة",
+    showTrims: "عرض الفئات",
+    frontView: (name: string) => `${name}، منظر أمامي جانبي`,
+    announceModel: (name: string, position: string, total: string) =>
+      `${name}، ${position} من ${total}`,
   },
 } as const;
 
