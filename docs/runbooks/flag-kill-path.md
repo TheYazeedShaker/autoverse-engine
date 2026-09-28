@@ -41,3 +41,29 @@ Step 2 needs the demo brand seeded and the Supabase variables set: see
 
 Verified locally 2026-09-26 (no PostHog key → off): `demo.localhost:3000` answered the generic
 404 with `reason: flag_off`.
+
+## `showroom_lead_capture` — the lead CTAs and the LeadModal (slice 7)
+
+Gates every lead CTA on the showroom (TopBar "Book a Test Drive", the hero's ghost button, each
+section's "Request a quote", the spec drawer's "Book a test drive") and the modal they open. Keyed
+exactly like `page_showroom` (distinct id = the subdomain), evaluated per request, no flag events.
+Off, the page renders as before: no lead CTA, and the TopBar's button honestly disabled.
+
+| Step      | Action in PostHog                                                         | Expected on the showroom                                                                           |
+| --------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1. create | Flag `showroom_lead_capture` exists, boolean, **inactive**                | no lead CTAs; the TopBar's "Book a Test Drive" is disabled                                         |
+| 2. on     | Active, release condition: distinct id = the subdomain (after the checks) | the CTAs appear; a submit reaches capture-lead (201 → "Request received")                          |
+| 3. kill   | Toggle **inactive**                                                       | the CTAs are gone on the next request; no redeploy. Leads already captured are unaffected (stored) |
+
+Turning it on does nothing unless the brand-market is ready, and the page then logs
+`showroom_lead_capture_unavailable` (an error) with the reason:
+
+| `reason`          | Fix                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `no_consent_text` | insert the market's consent text (`public-capture-rollout.md` §2.4)                    |
+| `no_capture_key`  | issue a key labelled `web` (§2.3)                                                      |
+| `no_site_key`     | set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in Vercel for that environment (§1), and redeploy |
+| `no_capture_url`  | `SUPABASE_URL` is unset or not https                                                   |
+
+Before step 2 on any host, that host's origin must be in the market's `allowed_origins` and its
+hostname in the Turnstile widget's hostname list, or every submit gets a 403.

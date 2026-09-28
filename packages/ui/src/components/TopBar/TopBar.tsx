@@ -10,8 +10,9 @@ import { Button } from "../Button";
 // - On the dark surface: it re-publishes the contextual pair, so the inverting primary button (Mist on
 //   Onyx, as approved) is AA.
 // - Its height is the `--av-topbar-height` token; the hero fills the screen below it.
-// - "Book a test drive" opens the LeadModal from slice 7. Until then it is honestly disabled, and it is
-//   hidden on phones as in the approved page.
+// - "Book a test drive" opens the LeadModal (slice 7). The bar stays a server component: the app
+//   passes its client button as `bookTestDriveSlot`. Without a slot, the button is honestly disabled.
+//   Either way it is hidden on phones, as in the approved page.
 
 export interface TopBarLanguage {
   /** BCP 47 code, e.g. "en", "ar". */
@@ -33,6 +34,8 @@ export interface TopBarProps {
   /** The language switch's accessible name, e.g. "Language". */
   languageLabel: string;
   bookTestDrive: { label: string; onClick?: () => void; disabled?: boolean };
+  /** The app's client button for "Book a test drive" (it opens the LeadModal). Replaces the default. */
+  bookTestDriveSlot?: ReactNode;
   className?: string;
 }
 
@@ -43,6 +46,7 @@ export function TopBar({
   languages,
   languageLabel,
   bookTestDrive,
+  bookTestDriveSlot,
   className,
 }: TopBarProps) {
   return (
@@ -86,15 +90,19 @@ export function TopBar({
             ))}
           </ul>
         </nav>
-        <Button
-          variant="primary"
-          size="sm"
-          className="hidden md:inline-flex"
-          disabled={bookTestDrive.disabled ?? !bookTestDrive.onClick}
-          onClick={bookTestDrive.onClick}
-        >
-          {bookTestDrive.label}
-        </Button>
+        {bookTestDriveSlot ? (
+          <div className="hidden md:block">{bookTestDriveSlot}</div>
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            className="hidden md:inline-flex"
+            disabled={bookTestDrive.disabled ?? !bookTestDrive.onClick}
+            onClick={bookTestDrive.onClick}
+          >
+            {bookTestDrive.label}
+          </Button>
+        )}
       </div>
     </header>
   );

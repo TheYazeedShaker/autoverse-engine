@@ -57,6 +57,8 @@ export interface SpecDrawerProps {
   /** Shown when there are no tabs (no ledger yet). */
   pending: string;
   labels: { close: string; configure: string };
+  /** A secondary action beside Configure (slice 7: "Book a test drive" for this trim). */
+  secondaryAction?: { label: string; onClick: (trigger: HTMLElement) => void };
   /** The configurator's link when it exists; the button is disabled until then. */
   configureHref?: string;
   /**
@@ -83,6 +85,7 @@ export function SpecDrawer({
   pending,
   labels,
   configureHref,
+  secondaryAction,
   returnFocusTo,
   dir,
 }: SpecDrawerProps) {
@@ -168,13 +171,23 @@ export function SpecDrawer({
             )}
           </div>
 
-          <div className="border-fg/10 bg-surface shrink-0 border-t px-6 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+          <div className="border-fg/10 bg-surface flex shrink-0 gap-3 border-t px-6 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+            {secondaryAction ? (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex-1"
+                onClick={(e) => secondaryAction.onClick(e.currentTarget)}
+              >
+                {secondaryAction.label}
+              </Button>
+            ) : null}
             {configureHref ? (
-              <Button asChild variant="accent" size="lg" className="w-full">
+              <Button asChild variant="accent" size="lg" className="flex-1">
                 <a href={configureHref}>{labels.configure}</a>
               </Button>
             ) : (
-              <Button variant="accent" size="lg" className="w-full" disabled>
+              <Button variant="accent" size="lg" className="flex-1" disabled>
                 {labels.configure}
               </Button>
             )}

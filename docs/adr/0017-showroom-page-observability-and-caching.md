@@ -62,6 +62,25 @@ choose freely under wildcard DNS. So flags are evaluated with `sendFeatureFlagEv
 `disableGeoip: true`: an arbitrary host creates no PostHog events or persons. The flag is checked
 before any catalogue read, so the kill path needs no database.
 
+### Amendment — lead capture (2026-09-28, slice 7)
+
+Leads are stricter than events (CLAUDE.md): synchronous, acknowledged, any failure pages. The
+page adds, with no visitor data in any of them (no name, phone or city; outcome, status, attempt
+count, market, lead type and trace id only):
+
+| Signal                                                                                                     | Where            | Who      |
+| ---------------------------------------------------------------------------------------------------------- | ---------------- | -------- |
+| `showroom_lead_capture_unavailable` (flag on, a piece missing; `reason`)                                   | server log       | **page** |
+| Sentry `lead_submit_failed`, level error (`unavailable`, `verification_failed`, `duplicate`, `unexpected`) | browser → Sentry | **page** |
+| Sentry `lead_submit_failed`, level warning (`invalid`, `rate_limited`)                                     | browser → Sentry | ops      |
+| Sentry `lead_bot_check_unavailable` (the Turnstile script didn't load)                                     | browser → Sentry | **page** |
+
+The browser report is the only signal for a failure the server never sees (a CORS break, a
+network drop, a Turnstile outage). The server side already logs and pages its own outcomes
+(`lead_captured`, `lead_not_captured`, `lead_dead_lettered`, ADR 0013). The Sentry alert rules
+are the owner's to create in Sentry: an issue alert on `lead_submit_failed` or
+`lead_bot_check_unavailable` at level error, notifying the paging channel.
+
 ## Caching (amended: the interval is set)
 
 - **The page renders per request.** Reading the Host header already makes the route dynamic.

@@ -21,6 +21,14 @@ export type {
   SegmentedOption,
 } from "./components/SegmentedToggle";
 
+// Forms (slice 7, the lead form)
+export { TextField } from "./components/TextField";
+export type { TextFieldProps } from "./components/TextField";
+export { Select } from "./components/Select";
+export type { SelectProps, SelectOption } from "./components/Select";
+export { Checkbox } from "./components/Checkbox";
+export type { CheckboxProps } from "./components/Checkbox";
+
 // Display
 export { StatBlock } from "./components/StatBlock";
 export type { StatBlockProps, StatBlockSize } from "./components/StatBlock";
@@ -66,6 +74,8 @@ export type {
   SpecDrawerTriggerProps,
 } from "./components/SpecDrawer";
 export type { TopBarProps, TopBarLanguage } from "./components/TopBar";
+export { LeadModal } from "./components/LeadModal";
+export type { LeadModalProps, LeadTextBinding, LeadSelectBinding } from "./components/LeadModal";
 export type { ModelDockProps, DockModel } from "./components/ModelDock";
 export { semanticMotion } from "./motion";
 export { useReducedMotion } from "motion/react";

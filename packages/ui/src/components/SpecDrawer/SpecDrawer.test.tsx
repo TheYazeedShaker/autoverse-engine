@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CONTENT_AR, CONTENT_EN } from "./fixtures";
 import { SpecDrawer, type SpecDrawerProps } from "./SpecDrawer";
 
@@ -166,5 +166,24 @@ describe("SpecDrawer", () => {
     expect(
       within(dialog).getByRole("heading", { level: 4, name: "Performance" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("SpecDrawer: the secondary action (slice 7)", () => {
+  it("sits beside Configure and hands its button to the app", async () => {
+    const onClick = vi.fn();
+    const dialog = await openDrawer({
+      ...CONTENT_EN,
+      secondaryAction: { label: "Book a test drive", onClick },
+    });
+    const button = within(dialog).getByRole("button", { name: "Book a test drive" });
+    expect(within(dialog).getByRole("button", { name: "Configure" })).toBeDisabled();
+    await userEvent.click(button);
+    expect(onClick).toHaveBeenCalledWith(button);
+  });
+
+  it("is absent without the prop", async () => {
+    const dialog = await openDrawer();
+    expect(within(dialog).queryByRole("button", { name: "Book a test drive" })).toBeNull();
   });
 });

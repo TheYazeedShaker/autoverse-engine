@@ -6,6 +6,9 @@ import posthog from "posthog-js";
 
 // ---- Sentry: errors + a light trace sample. No PII (CLAUDE.md, "Delivery & quality"). ----
 const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+// Keep tracePropagationTargets at its default (same origin). Widening it to the Supabase origin
+// would add sentry-trace/baggage to lead submits; capture-lead's CORS preflight allows only the
+// page contract's headers (services/shared/cors.ts), so every lead submit would fail.
 Sentry.init({
   dsn: sentryDsn,
   enabled: Boolean(sentryDsn),

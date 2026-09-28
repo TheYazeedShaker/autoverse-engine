@@ -85,6 +85,8 @@ export interface ModelCarouselProps {
     /** Live-region text for the active model, e.g. "Aurora GT, 2 of 5". */
     announce: (name: string, position: number, total: number) => string;
   };
+  /** A ghost "Book a test drive" after "Show trims" (slice 7), for the active model. */
+  bookTestDrive?: { label: string; onClick: (modelId: string, trigger: HTMLElement) => void };
   /** Formats a stat for display (the page's digits). */
   formatNumber: (n: number, fractionDigits: number) => string;
   /** Behind the hero content: the backdrop (brand-invariant). */
@@ -102,6 +104,7 @@ export function ModelCarousel({
   labels,
   formatNumber,
   backdrop,
+  bookTestDrive,
   className,
 }: ModelCarouselProps) {
   const reduced = useReducedMotion();
@@ -424,6 +427,15 @@ export function ModelCarousel({
           >
             {labels.showTrims}
           </Button>
+          {bookTestDrive ? (
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={(e) => bookTestDrive.onClick(active.id, e.currentTarget)}
+            >
+              {bookTestDrive.label}
+            </Button>
+          ) : null}
         </div>
       </div>
     </section>

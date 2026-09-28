@@ -8,7 +8,15 @@ import {
   useReducedMotion,
   type HeroModel,
 } from "@autoverse/ui";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { COPY, type Lang } from "../lib/showroom/copy";
 import type { DrawerContent } from "../lib/showroom/drawer";
 import { createSpyHold, currentSection } from "../lib/showroom/spy";
@@ -16,6 +24,7 @@ import { RangeExplorer, type RangeExplorerProps } from "./range-explorer";
 import { SpecDrawerContext } from "./spec-drawer-trigger";
 import { CompareContext, type CompareApi } from "./compare-controls";
 import { COMPARE_LIMIT, COMPARE_MIN, compareHref, toggleCompare } from "../lib/showroom/compare";
+import { LeadContext } from "./lead-capture";
 
 // The showroom's interactive shell (spec §4, §5.3–5.5): the hero carousel, the model dock and the
 // range, sharing ONE active model.
@@ -64,6 +73,13 @@ export function ShowroomExperience({
   compareBase,
 }: ShowroomExperienceProps) {
   const t = COPY[lang];
+  // Lead capture (slice 7): present only when the page allowed it (LeadCapture). The hero's ghost
+  // "Book a test drive" prefills the active model; the drawer's prefills its model and trim.
+  const lead = useContext(LeadContext);
+  const trimToModel = useMemo(
+    () => new Map(hero.flatMap((m) => m.trims.map((tr) => [tr.id, m.id] as const))),
+    [hero],
+  );
   // The spec drawer (slice 5): one at a time, for the trim whose "Technical data" was pressed. The
   // last trim stays mounted while closed, so nothing jumps as it closes.
   const [drawerTrim, setDrawerTrim] = useState<string | null>(null);
@@ -185,6 +201,15 @@ export function ShowroomExperience({
           dir={lang === "ar" ? "rtl" : "ltr"}
           formatNumber={numbers}
           backdrop={backdrop}
+          bookTestDrive={
+            lead
+              ? {
+                  label: t.bookTestDrive,
+                  onClick: (modelId, trigger) =>
+                    lead.open({ type: "test_drive", modelId }, trigger),
+                }
+              : undefined
+          }
           className="h-[max(calc(100svh-var(--av-topbar-height)),40rem)]"
           labels={{
             region: t.modelsLabel,
@@ -259,6 +284,22 @@ export function ShowroomExperience({
           image={drawer.image}
           imagePlaceholderLabel={t.imageComingSoon}
           labels={{ close: t.close, configure: t.configure }}
+          secondaryAction={
+            lead && drawerTrim
+              ? {
+                  label: t.bookTestDrive,
+                  onClick: (trigger) =>
+                    lead.open(
+                      {
+                        type: "test_drive",
+                        modelId: trimToModel.get(drawerTrim) ?? null,
+                        trimId: drawerTrim,
+                      },
+                      trigger,
+                    ),
+                }
+              : undefined
+          }
           returnFocusTo={drawerTrigger}
           dir={lang === "ar" ? "rtl" : "ltr"}
         />
