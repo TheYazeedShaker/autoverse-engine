@@ -12,6 +12,8 @@ import { assetBase, assetUrl } from "../lib/showroom/images";
 import { loadShowroomPage } from "../lib/showroom/load";
 import { facetGroups, modelFacts } from "../lib/showroom/range";
 import { ShowroomExperience } from "./showroom-experience";
+import { TechnicalDataButton } from "./spec-drawer-trigger";
+import { drawerContent } from "../lib/showroom/drawer";
 import { dirOf, langFrom } from "../lib/showroom/lang";
 import { configuredCatalogSource } from "../lib/showroom/source";
 import { breakpoints, carFrame, heroCarousel } from "@autoverse/tokens";
@@ -21,6 +23,8 @@ let assetBaseWarned = false;
 
 // The card image's rendered width per breakpoint (1 / 2 / 3 columns), from the token breakpoints.
 const CARD_IMAGE_SIZES = `(min-width: ${breakpoints.xl}px) 30vw, (min-width: ${breakpoints.md}px) 45vw, 100vw`;
+// The drawer is 40vw wide from md (the approved panel width), full width below.
+const DRAWER_IMAGE_SIZES = `(min-width: ${breakpoints.md}px) 40vw, 100vw`;
 // The hero car: the slide (heroCarousel.slide of the stage from md, full width below) × the hero fill.
 const HERO_IMAGE_SIZES = `(min-width: ${breakpoints.md}px) ${Math.round(100 * heroCarousel.slide * carFrame.heroFill)}vw, ${Math.round(100 * carFrame.heroFill)}vw`;
 // The brand-invariant hero backdrop (an Autoverse asset, no column; decision on PR #68). Set by
@@ -158,6 +162,39 @@ export default async function Page({
             }),
           }))}
           dock={showroom.models.map((m) => ({ id: m.id, name: m.name[lang], slug: m.slug }))}
+          // The spec drawer per trim (slice 5): the ledger resolved on the server for that trim, and
+          // its side-view image (the same master as its card; ADR 0022).
+          drawers={Object.fromEntries(
+            showroom.models.flatMap((model) =>
+              model.trims.map((trim) => {
+                const src = trim.cardImage ? assetUrl(trim.cardImage.publicPath, base) : null;
+                const content = drawerContent(
+                  model,
+                  trim,
+                  lang,
+                  showroom.market,
+                  showroom.brand.name,
+                  t,
+                );
+                return [
+                  trim.id,
+                  {
+                    content,
+                    image: src ? (
+                      <Image
+                        src={src}
+                        alt={t.sideView(`${content.modelName} ${content.trimName}`)}
+                        fill
+                        sizes={DRAWER_IMAGE_SIZES}
+                        loading="lazy"
+                        className="object-contain object-bottom"
+                      />
+                    ) : null,
+                  },
+                ];
+              }),
+            ),
+          )}
           backdrop={
             HERO_BACKDROP ? (
               <Image src={HERO_BACKDROP} alt="" fill sizes="100vw" className="object-cover" />
@@ -201,6 +238,13 @@ export default async function Page({
                                 className="object-contain object-bottom"
                               />
                             ) : null
+                          }
+                          technicalDataSlot={
+                            <TechnicalDataButton
+                              trimId={trim.id}
+                              label={t.technicalData}
+                              dir={dirOf(lang)}
+                            />
                           }
                         />
                       );

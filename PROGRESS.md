@@ -266,7 +266,22 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - The showroom lives at `/` of the preview address.
      - **Probably not the cause of the 404** (code review): Turbo filters the build process, while Vercel functions read runtime variables from the project settings; the `NEXT_PUBLIC_*` values reached the build anyway through Turbo's Next.js inference. The actual reason was not readable here (the Vercel connector can't see the project). The page now also logs `flag_eval_failed` with `reason: no_posthog_key` when the PostHog key is missing, which was the one silent path to a 404. The runbook's table maps the logged `showroom_not_found` reason to its fix.
    - #73 is merged. **The preview works end to end** (owner, 2026-09-26): at `/` it shows the demo brand, 5 models, 7 trims and the correct EGP prices, read live.
-   - **Open: brand-logo PR** (`feat/brand-logo`, 2026-09-28; #78 TopBar merged). **ADR 0024.**
+   - **Open: slice 5, spec drawer** (2026-09-28; #79 brand logos merged, and the demo logo is registered). Two PRs, **merge #80 first**:
+     - **#80, read path** (`feat/showroom-catalog-spec`): `showroom_catalog` returns `spec { tabs, groups, rows }` for published models.
+       - Per-trim values: published trims only, well-formed only, `{en, ar}`.
+       - A per-trim row with no published trim is left out.
+       - Migration `20260928120000`, test 0025, 0022 key set, ADR 0018 amended.
+       - The consumer's Zod takes `spec` as optional.
+       - Security review: isolation clean; its Medium (a draft-trim row's label) and Low (a malformed value) are fixed.
+     - **Slice 5 UI** (`feat/showroom-slice-5-drawer`, stacked on #80):
+       - `packages/ui` **SpecDrawer**: a Radix Dialog side panel from the inline end (full height on phones); Radix Tabs, then Collapsible groups (first open), then key/value rows and notes; Configure (accent) disabled; focus returns to the trigger, even in Safari (`returnFocusTo`).
+       - **SpecDrawerTrigger**: the card's "Technical data ›" row.
+       - Consumer: `lib/showroom/drawer.ts` resolves the ledger per trim with engine-core `resolveLedgerRow` (now typed on `LedgerRowFields`). An empty group gets the "data will be added" note; no ledger gets the note alone.
+       - The shell opens one drawer at a time.
+     - **Demo data:** a demo-ledger seed file (not committed) builds the approved tabs and groups from the demo's own columns; the owner runs it after #80.
+     - Code review (CHANGES REQUESTED) applied: the drawer carries its own `dir` (it is portaled out of the page), so the tab arrows follow RTL (tested); the RTL axe test now really runs RTL; the model name is `h3` and group toggles sit in `h4`s; loader orphans: dropped tabs are logged, and rows are checked against ACCEPTED groups; focus after Escape is tested. Kept by choice: "From" on a trim price (same as the cards).
+     - Deferred: drawer slide motion (slice 8). Watch the payload in the slice-10 performance pass: every trim's resolved drawer ships to the client (small at demo scale). If it grows, ship each model's ledger once and resolve on the client (resolveLedgerRow is pure).
+   - **Brand logos** (`feat/brand-logo`, merged as #79; #78 TopBar merged). **ADR 0024.**
      - Owner decision (`#build-decisions`): a logo is a public-bucket key `{brand}/_brand/logo-{light|dark}.{hash8}.{svg|png}`, rendered via `<img>`, never inline SVG, with the brand name as fallback.
      - Migration `20260928100000` + test 0024:
        - CHECK formats per variant;

@@ -51,6 +51,14 @@ export type {
 } from "./components/ModelCarousel";
 export { ModelDock } from "./components/ModelDock";
 export { TopBar } from "./components/TopBar";
+export { SpecDrawer, SpecDrawerTrigger } from "./components/SpecDrawer";
+export type {
+  SpecDrawerProps,
+  SpecDrawerTab,
+  SpecDrawerGroup,
+  SpecDrawerRow,
+  SpecDrawerTriggerProps,
+} from "./components/SpecDrawer";
 export type { TopBarProps, TopBarLanguage } from "./components/TopBar";
 export type { ModelDockProps, DockModel } from "./components/ModelDock";
 export { semanticMotion } from "./motion";

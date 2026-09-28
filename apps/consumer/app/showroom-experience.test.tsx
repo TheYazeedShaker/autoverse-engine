@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { ModelFacts } from "../lib/showroom/range";
 import { ShowroomExperience } from "./showroom-experience";
+import { TechnicalDataButton } from "./spec-drawer-trigger";
 
 // The shared shell: the dock shows only the models the filters leave visible, in their order, and
 // disappears below 2; the hero and the dock share one active model.
@@ -66,6 +67,34 @@ function shell() {
         ],
       }))}
       dock={MODELS.map((m) => ({ id: m.id, name: m.id, slug: m.id.toLowerCase() }))}
+      drawers={Object.fromEntries(
+        MODELS.map((m) => [
+          `${m.id}-t`,
+          {
+            image: null,
+            content: {
+              eyebrow: "2026 · Demo Motors",
+              modelName: m.id,
+              trimName: "Base",
+              price: "Price on request",
+              pending: "Data will be added once provided by Demo Motors.",
+              tabs: [
+                {
+                  key: "tech",
+                  label: "Technical data",
+                  groups: [
+                    {
+                      label: "Performance",
+                      note: null,
+                      rows: [{ k: "Power", v: `${m.powerHp} hp` }],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ]),
+      )}
       range={{
         facets: [
           {
@@ -79,7 +108,16 @@ function shell() {
         header: <h1 id="range-title">The Range</h1>,
         sections: MODELS.map((m) => ({
           facts: m,
-          node: <section aria-label={m.id}>{m.id}</section>,
+          node: (
+            <section aria-label={m.id}>
+              {m.id}
+              <TechnicalDataButton
+                trimId={`${m.id}-t`}
+                label={`Technical data ${m.id}`}
+                dir="ltr"
+              />
+            </section>
+          ),
         })),
       }}
     />,
@@ -125,5 +163,19 @@ describe("ShowroomExperience", () => {
       .getAllByRole("button")
       .find((b) => b.getAttribute("aria-current") === "true");
     expect(current?.textContent).toBe("Mid");
+  });
+});
+
+describe("ShowroomExperience: the spec drawer", () => {
+  it("a card's Technical data opens the drawer for THAT trim; closing returns focus", async () => {
+    shell();
+    const trigger = screen.getByRole("button", { name: /Technical data Mid/ });
+    await userEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Model details" });
+    expect(within(dialog).getByRole("heading", { name: "Mid" })).toBeTruthy();
+    expect(within(dialog).getByText("350 hp")).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });

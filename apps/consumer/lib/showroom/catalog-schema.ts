@@ -196,3 +196,5 @@ export type CatalogTrimRow = z.infer<typeof CatalogTrim>;
 export type CatalogAssetRow = z.infer<typeof CatalogAsset>;
 export type CatalogThemeRow = z.infer<typeof CatalogTheme>;
 export type CatalogSpecRowRow = z.infer<typeof CatalogSpecRow>;
+export type CatalogSpecGroupRow = z.infer<typeof CatalogSpecGroup>;
+export type CatalogSpecTabRow = z.infer<typeof CatalogSpecTab>;
