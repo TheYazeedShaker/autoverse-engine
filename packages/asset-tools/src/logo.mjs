@@ -74,6 +74,67 @@ export async function checkLogo(fileName, data) {
 }
 
 /**
+ * The surface each variant is FOR (logos are named by the surface they go on; owner decision B):
+ * `light` → the light canvas (Mist), `dark` → the dark surface (Gunmetal, the TopBar). The same
+ * values as the design tokens (a test keeps them equal; this file runs in plain Node).
+ */
+export const SURFACE = { light: "#F4F7F5", dark: "#222823" };
+
+/** WCAG 2.2 §1.4.11: a graphic needs 3:1 against what it sits on. */
+export const MIN_GRAPHIC_CONTRAST = 3;
+
+/** @param {string} hex */
+function luminanceOfHex(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return luminance([(n >> 16) & 255, (n >> 8) & 255, n & 255]);
+}
+
+/** @param {[number, number, number]} rgb 0–255 */
+function luminance(rgb) {
+  const [r, g, b] = rgb.map((c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return (
+    0.2126 * /** @type {number} */ (r) +
+    0.7152 * /** @type {number} */ (g) +
+    0.0722 * /** @type {number} */ (b)
+  );
+}
+
+/**
+ * How well a logo's ink stands out on the surface its variant is for: the contrast ratio of its
+ * alpha-weighted average colour (the visible pixels only) against that surface. A mostly-white mark
+ * registered as `light` (for light surfaces) scores near 1. The tool warns below 3:1.
+ * @param {Buffer} data  SVG or PNG
+ * @param {LogoVariant} variant
+ */
+export async function logoSurfaceContrast(data, variant) {
+  const { data: px, info } = await sharp(data, { density: 144 })
+    .resize({ width: 256, withoutEnlargement: false })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let weight = 0;
+  for (let i = 0; i < px.length; i += info.channels) {
+    const a = /** @type {number} */ (px[i + info.channels - 1]) / 255;
+    if (a <= 16 / 255) continue;
+    r += /** @type {number} */ (px[i]) * a;
+    g += /** @type {number} */ (px[i + 1]) * a;
+    b += /** @type {number} */ (px[i + 2]) * a;
+    weight += a;
+  }
+  if (weight === 0) throw new Error("the logo has no visible pixels");
+  const ink = luminance([r / weight, g / weight, b / weight]);
+  const surface = luminanceOfHex(SURFACE[variant]);
+  const ratio = (Math.max(ink, surface) + 0.05) / (Math.min(ink, surface) + 0.05);
+  return Math.round(ratio * 100) / 100;
+}
+
+/**
  * The content-hashed object key: {brand}/_brand/logo-{variant}.{hash8}.{ext}.
  * @param {string} brand
  * @param {LogoVariant} variant

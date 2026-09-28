@@ -2,8 +2,10 @@
 -- Brand logos (owner decision, #build-decisions 2026-09-28; ADR 0024). The theme's logo refs are
 -- object keys in the public published bucket, under the asset standard (ADR 0022):
 --
---   {brand}/_brand/logo-light.{hash8}.{svg|png}   the light-coloured mark, for dark surfaces (TopBar)
---   {brand}/_brand/logo-dark.{hash8}.{svg|png}    the dark mark, for light surfaces
+--   {brand}/_brand/logo-light.{hash8}.{svg|png}   for LIGHT surfaces (a dark-coloured mark)
+--   {brand}/_brand/logo-dark.{hash8}.{svg|png}    for DARK surfaces (a light-coloured mark; the TopBar)
+-- Named by the surface the logo goes on, as the theming REV and the admin Theme tab ("Logo · light
+-- surfaces" / "Logo · dark surfaces") name them (owner decision B, #build-decisions 2026-09-28).
 --
 -- - Content-hashed, never reused (ADR 0022). SVG or PNG only. The page renders them with <img>, never
 --   inline SVG, so a logo can't run script in the page.
@@ -27,9 +29,9 @@ alter table public.brand_themes
   );
 
 comment on column public.brand_themes.logo_light_asset_ref is
-  'ADR 0024: public-bucket key {brand}/_brand/logo-light.{hash8}.{svg|png}; the light mark for dark surfaces. Null = brand-name wordmark.';
+  'ADR 0024: public-bucket key {brand}/_brand/logo-light.{hash8}.{svg|png}; the logo FOR LIGHT SURFACES (a dark-coloured mark). Null = brand-name wordmark.';
 comment on column public.brand_themes.logo_dark_asset_ref is
-  'ADR 0024: public-bucket key {brand}/_brand/logo-dark.{hash8}.{svg|png}; the dark mark for light surfaces. Null = brand-name wordmark.';
+  'ADR 0024: public-bucket key {brand}/_brand/logo-dark.{hash8}.{svg|png}; the logo FOR DARK SURFACES (a light-coloured mark; the TopBar). Null = brand-name wordmark.';
 
 -- The logo's brand folder must be the theme's own brand.
 create or replace function app_auth.brand_theme_logos_own_brand()

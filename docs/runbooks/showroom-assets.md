@@ -154,8 +154,11 @@ orphan query for that brand and delete the old object.
 
 A logo is `{brand}/_brand/logo-{light|dark}.{hash8}.{svg|png}` in `showroom-public`:
 
-- **light** is the light-coloured mark, for dark surfaces. The TopBar uses it.
-- **dark** is the dark mark, for light surfaces.
+Logos are **named by the surface they go on**, as in the admin Theme tab:
+
+- **light** is the logo **for light surfaces**, so a dark-coloured mark (`--light`, `logo_light_asset_ref`).
+- **dark** is the logo **for dark surfaces**, so a light or white mark (`--dark`,
+  `logo_dark_asset_ref`). **The dark TopBar shows this one.**
 - SVG or PNG only. The page shows it with `<img>`. With no logo, it shows the brand name.
 
 ### Upload and register a logo
@@ -165,16 +168,18 @@ A logo is `{brand}/_brand/logo-{light|dark}.{hash8}.{svg|png}` in `showroom-publ
 2. **Prepare them.** From the repo root:
 
    ```bash
-   node packages/asset-tools/src/logo-cli.mjs --brand demo --out C:/showroom/logo --light C:/showroom/demo-logo-light.svg --dark C:/showroom/demo-logo-dark.svg
+   node packages/asset-tools/src/logo-cli.mjs --brand demo --out C:/showroom/logo --dark C:/showroom/logo-white.png --light C:/showroom/logo-black.svg
    ```
 
-   - Either `--light` or `--dark` alone is fine.
+   - Either `--light` or `--dark` alone is fine. **The TopBar needs `--dark`.**
    - `--out` must be a new or empty folder.
-   - It prints `OK light: … → demo/_brand/logo-light.<hash8>.svg`. An `ERR` line says what to fix, and
-     no SQL is written until every file passes.
+   - It prints `OK dark (for DARK surfaces, contrast 14:1): … → demo/_brand/logo-dark.<hash8>.png`.
+   - A **`WARN`** line means the logo barely stands out on its surface (under 3:1), e.g. a white mark
+     given as `--light`. Swap the flag if the file is on the wrong one, otherwise check by eye.
+   - An `ERR` line says what to fix, and no SQL is written until every file passes.
 
 3. **Upload.** Storage → `showroom-public` → open the `demo` folder → **Upload**. Drag in the `_brand`
-   folder from `C:\showroom\logo\demo`, so the key is `demo/_brand/logo-light.<hash8>.svg`.
+   folder from `C:\showroom\logo\demo`, so the key is `demo/_brand/logo-dark.<hash8>.png`.
 4. **Register.** Run `C:\showroom\logo\register-logo.sql` in the SQL editor. It sets the logo on every
    market theme of the brand, and its last query shows the keys.
 5. **Check.** Open the preview: the TopBar shows the logo instead of the brand name.
@@ -186,7 +191,7 @@ A logo is `{brand}/_brand/logo-{light|dark}.{hash8}.{svg|png}` in `showroom-publ
 To remove a logo, set the column to null:
 
 ```sql
-update public.brand_themes set logo_light_asset_ref = null
+update public.brand_themes set logo_dark_asset_ref = null  -- or logo_light_asset_ref
  where brand_id = (select id from public.brands where slug = 'demo');
 ```
 

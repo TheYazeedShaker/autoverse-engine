@@ -272,10 +272,10 @@ found no path for an end user, anon or another brand to reach lead data. The pro
        - CHECK formats per variant;
        - a trigger: the key's brand folder must be the row's own brand (insert, update, a brand move);
        - a trigger: a brand's slug can't change while it has logos.
-     - Consumer: `logoPath()` re-checks, drops a foreign ref and logs `showroom_logo_invalid`. The TopBar shows the light logo.
+     - Consumer: `logoPath()` re-checks, drops a foreign ref and logs `showroom_logo_invalid`. The TopBar shows `logo_dark` (for dark surfaces).
      - Tool: `asset-tools/src/logo-cli.mjs` (SVG blocklist, PNG alpha, hashed names, SQL). Runbook section _Brand logos_; the orphan query now excludes logo keys.
      - Security review PASS; its fixes applied.
-     - **Open (owner, thread posted):** which variant the dark TopBar uses (built: `logo_light` = the light-coloured mark).
+     - **Decided (owner, B):** logos are named by the surface they go on. The dark TopBar uses `logo_dark` (the white mark); `logo_light` is for light surfaces. The tool warns when a logo is under 3:1 on its surface. The hosted pre-check returned 0 rows.
      - **Next: slice 5** (spec drawer).
    - **TopBar** (`feat/showroom-topbar`, merged as #78; #77 merged with the hero backdrop). The owner's slice-4 decisions are recorded in `#build-decisions`: 1–3 agreed; the dock stays solid for now, with a tinted glass that passes contrast in slice 8.
      - `packages/ui` **TopBar** (server component): brand wordmark (the logo slot waits for a defined `logo_*_asset_ref` format), the market chip, EN/AR as plain links (hreflang, aria-current), and "Book a test drive" disabled until slice 7 (hidden on phones). The height is a token, `--av-topbar-height` / `topBar.height` (64px); the hero is `max(100svh − bar, 40rem)`.

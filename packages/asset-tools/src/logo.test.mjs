@@ -1,6 +1,14 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { checkLogo, logoObjectName, logoSql } from "./logo.mjs";
+import { palette } from "../../design-tokens/src/tokens";
+import {
+  checkLogo,
+  logoObjectName,
+  logoSql,
+  logoSurfaceContrast,
+  MIN_GRAPHIC_CONTRAST,
+  SURFACE,
+} from "./logo.mjs";
 
 const svg = (body) =>
   Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20">${body}</svg>`);
@@ -45,6 +53,46 @@ describe("checkLogo", () => {
       .png()
       .toBuffer();
     await expect(checkLogo("logo.png", opaque)).rejects.toThrow(/no transparency/);
+  });
+});
+
+describe("logoSurfaceContrast (logos are named by the surface they go on)", () => {
+  const WHITE_MARK = svg('<path fill="#ffffff" d="M10 2h80v16H10z"/>');
+  const DARK_MARK = svg('<path fill="#08090a" d="M10 2h80v16H10z"/>');
+
+  it("a white mark stands out on dark surfaces and not on light ones", async () => {
+    expect(await logoSurfaceContrast(WHITE_MARK, "dark")).toBeGreaterThan(MIN_GRAPHIC_CONTRAST);
+    expect(await logoSurfaceContrast(WHITE_MARK, "light")).toBeLessThan(MIN_GRAPHIC_CONTRAST);
+  });
+
+  it("a dark mark stands out on light surfaces and not on dark ones", async () => {
+    expect(await logoSurfaceContrast(DARK_MARK, "light")).toBeGreaterThan(MIN_GRAPHIC_CONTRAST);
+    expect(await logoSurfaceContrast(DARK_MARK, "dark")).toBeLessThan(MIN_GRAPHIC_CONTRAST);
+  });
+
+  it("measures only the visible pixels (a transparent PNG's background doesn't count)", async () => {
+    const png = await sharp({
+      create: { width: 40, height: 10, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    })
+      .composite([
+        {
+          input: await sharp({
+            create: { width: 20, height: 10, channels: 4, background: "#ffffff" },
+          })
+            .png()
+            .toBuffer(),
+          left: 0,
+          top: 0,
+        },
+      ])
+      .png()
+      .toBuffer();
+    expect(await logoSurfaceContrast(png, "dark")).toBeGreaterThan(10);
+  });
+
+  it("uses the design tokens' surfaces (Mist for light, Gunmetal for dark)", () => {
+    expect(SURFACE.light.toLowerCase()).toBe(palette.mist.toLowerCase());
+    expect(SURFACE.dark.toLowerCase()).toBe(palette.gunmetal.toLowerCase());
   });
 });
 

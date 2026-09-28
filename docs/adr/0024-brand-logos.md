@@ -14,10 +14,17 @@ name as a wordmark instead of guessing.
    `{brand}/_brand/logo-{light|dark}.{hash8}.{svg|png}`.
    - It is content-hashed and a name is never reused, so a new logo is a new URL.
    - `_brand` can't collide with a model folder, because model slugs are `[a-z0-9-]` only.
-2. **Light and dark variants.**
-   - `logo_light_asset_ref` is the light-coloured mark, for dark surfaces. The TopBar uses it.
-   - `logo_dark_asset_ref` is the dark mark, for light surfaces. Nothing uses it yet; the footer
-     (§5.11) may.
+2. **Two variants, named by the surface they go on** (owner decision B, `#build-decisions`,
+   2026-09-28; this matches the theming REV and the admin Theme tab's "Logo · light surfaces" /
+   "Logo · dark surfaces"):
+   - `logo_light_asset_ref` is the logo **for light surfaces**, so a dark-coloured mark. Nothing uses
+     it yet; a light footer (§5.11) may.
+   - `logo_dark_asset_ref` is the logo **for dark surfaces**, so a light or white mark. **The dark
+     TopBar uses it.**
+   - The tool warns when a logo barely stands out on its surface: the average colour of its visible
+     pixels has less than 3:1 contrast (WCAG 1.4.11) against Mist for light surfaces or Gunmetal for
+     dark. That catches, for example, a white mark registered as `light`. It's a warning, not an
+     error: check by eye.
 3. **SVG or PNG only, rendered with `<img>`, never inline SVG.** An `<img>` can't run a logo's script
    in the page.
    - An SVG opened directly at its bucket URL would run script, so the owner's tool (`logo-cli.mjs`)

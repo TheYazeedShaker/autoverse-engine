@@ -75,7 +75,7 @@ export default async function Page({
   }
 
   const { showroom, themeCss, logos } = outcome;
-  const logoSrc = logos.light ? assetUrl(logos.light, assetBase(process.env.ASSET_BASE_URL)) : null;
+  const logoSrc = logos.dark ? assetUrl(logos.dark, assetBase(process.env.ASSET_BASE_URL)) : null;
   // EN by default; `?lang=ar` renders Arabic/RTL. The TopBar's EN/AR switch links to the two; the
   // proxy passes the same choice to the layout for `<html lang dir>`.
   const lang: Lang = langFrom((await searchParams)?.lang);
@@ -101,8 +101,9 @@ export default async function Page({
       <div dir={dirOf(lang)} lang={lang}>
         <TopBar
           brandName={showroom.brand.name}
-          // The light mark on the dark bar (ADR 0024): a plain <img>, never inline SVG, so a logo
-          // file can't run script in the page. Without one (or without ASSET_BASE_URL), the wordmark.
+          // The bar is dark, so it takes the logo FOR DARK SURFACES (logo_dark; ADR 0024; logos are
+          // named by the surface they go on). A plain <img>, never inline SVG, so a logo file can't
+          // run script in the page. Without one (or without ASSET_BASE_URL), the wordmark.
           logo={
             logoSrc ? (
               <img
