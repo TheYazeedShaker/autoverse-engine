@@ -1,7 +1,9 @@
 name: Smoke (post-deploy)
 
 # Runs after every successful PRODUCTION deploy that Vercel reports to GitHub. It proves the new
-# commit is actually live on the public production domain, then checks health + the home page.
+# commit is actually live on the public production domain, then checks health and that a host with
+# no brand fails closed: the production vercel.app address has no brand domain yet, so "/" must be
+# the brand-neutral 404 (spec §2), not a showroom.
 # (GitHub runs deployment_status workflows from the default branch's copy of this file.)
 on: deployment_status
 
@@ -31,15 +33,24 @@ jobs:
           echo "::error::Production never served $EXPECTED_SHA within 5 minutes."
           exit 1
 
-      - name: Smoke — health endpoint
-        run: curl -fsS --max-time 10 "$PROD_URL/api/health" | jq -e '.status == "ok"'
+      - name: Smoke — health endpoint reports this commit
+        run: |
+          curl -fsS --max-time 10 "$PROD_URL/api/health" \
+            | jq -e --arg sha "$EXPECTED_SHA" '.status == "ok" and .sha == $sha'
 
-      - name: Smoke — home page renders
+      # No brand is mapped to this host, so the showroom at "/" must answer 404 with the brand-neutral
+      # page. That is the tenancy rule working, not an error. A 200 would mean an unknown host
+      # rendered a brand; a 5xx would mean the page itself broke.
+      - name: Smoke — an unknown host gets the brand-neutral 404
         run: |
           code=$(curl -sS --max-time 10 -o page.html -w '%{http_code}' "$PROD_URL/")
-          [ "$code" = "200" ] || { echo "::error::Home page returned HTTP $code"; exit 1; }
-          grep -q "<main" page.html || { echo "::error::Home page rendered without a <main> landmark"; exit 1; }
-          echo "Smoke OK: $PROD_URL is healthy on $EXPECTED_SHA"
+          [ "$code" = "404" ] || { echo "::error::Unknown host returned HTTP $code on / (expected 404)"; exit 1; }
+          grep -q "Page not found" page.html || { echo "::error::The 404 page did not render"; exit 1; }
+          if grep -q "data-showroom" page.html; then echo "::error::An unknown host rendered a showroom"; exit 1; fi
+          echo "Smoke OK: $PROD_URL is healthy on $EXPECTED_SHA and fails closed for an unknown host"
+
+      # When a real brand domain exists, add a step that GETs it and expects 200 with <main
+      # data-showroom="<slug>">, so the smoke test also proves a brand page renders.
 
       # Auto-rollback (CLAUDE.md build loop) needs a Vercel token as a repo secret, which this repo
       # does not have yet. Until then a failed smoke fails loudly here and GitHub notifies.
