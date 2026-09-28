@@ -21,6 +21,9 @@ jobs:
       # Public production domain. Per-deployment and preview URLs sit behind Vercel login.
       PROD_URL: https://autoverse-engine-consumer.vercel.app
       EXPECTED_SHA: ${{ github.event.deployment.sha }}
+      # The Edge Functions base, e.g. https://<project-ref>.supabase.co/functions/v1. An Actions
+      # VARIABLE (not a secret, and kept out of the public repo): Settings → Variables → Actions.
+      FUNCTIONS_URL: ${{ vars.SUPABASE_FUNCTIONS_URL }}
     steps:
       - name: Wait until production serves this exact commit
         run: |
@@ -48,6 +51,31 @@ jobs:
           grep -q "Page not found" page.html || { echo "::error::The 404 page did not render"; exit 1; }
           if grep -q "data-showroom" page.html; then echo "::error::An unknown host rendered a showroom"; exit 1; fi
           echo "Smoke OK: $PROD_URL is healthy on $EXPECTED_SHA and fails closed for an unknown host"
+
+      # A page submits leads (and later events) straight from the browser with the page contract's
+      # custom headers, which force a CORS preflight. If the preflight breaks, no lead is ever sent
+      # and the functions log nothing, so this is the only place the break shows (ADR 0013,
+      # amendment — CORS). Nothing secret is sent: no key, no body.
+      - name: Smoke — the capture functions answer the CORS preflight
+        run: |
+          [ -n "$FUNCTIONS_URL" ] || { echo "::error::Set the Actions variable SUPABASE_FUNCTIONS_URL"; exit 1; }
+          for fn in capture-lead ingest-event; do
+            code=$(curl -sS --max-time 10 -o /dev/null -D headers.txt -w '%{http_code}' -X OPTIONS \
+              -H "Origin: https://smoke.example.com" \
+              -H "Access-Control-Request-Method: POST" \
+              -H "Access-Control-Request-Headers: content-type,x-autoverse-key,x-autoverse-market" \
+              "$FUNCTIONS_URL/$fn")
+            [ "$code" = "204" ] || { echo "::error::$fn preflight returned HTTP $code (expected 204)"; exit 1; }
+            grep -qi '^access-control-allow-origin: \*' headers.txt \
+              || { echo "::error::$fn preflight has no access-control-allow-origin: *"; exit 1; }
+            allowed=$(grep -i '^access-control-allow-headers:' headers.txt | tr 'A-Z' 'a-z')
+            for h in x-autoverse-key x-autoverse-market content-type; do
+              echo "$allowed" | grep -q "$h" || { echo "::error::$fn preflight does not allow $h"; exit 1; }
+            done
+            grep -qi '^access-control-allow-methods:.*post' headers.txt \
+              || { echo "::error::$fn preflight does not allow POST"; exit 1; }
+            echo "Preflight OK: $fn"
+          done
 
       # When a real brand domain exists, add a step that GETs it and expects 200 with <main
       # data-showroom="<slug>">, so the smoke test also proves a brand page renders.
