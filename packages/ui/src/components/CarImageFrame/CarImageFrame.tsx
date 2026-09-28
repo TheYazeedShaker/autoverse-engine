@@ -24,13 +24,13 @@ const ASPECT: Record<CarView, string> = {
 };
 
 /**
- * The image layer per view. Side: the car fills --av-car-fill-side of the box's width (the token, 80%),
- * centred (absolute + inset-x-0 + mx-auto) and still bottom-aligned, so the ground line is unchanged.
- * Front three-quarter: the full box until the hero's framing is set (slice 4).
+ * The image layer per view: the car fills its view's token share of the box's width (side
+ * --av-car-fill-side, hero --av-car-fill-hero; 80% each), centred (absolute + inset-x-0 + mx-auto) and
+ * bottom-aligned, so every car in a view has the same width and the same ground line.
  */
 const IMAGE_LAYER: Record<CarView, string> = {
   side: "inset-y-0 inset-x-0 mx-auto w-(--av-car-fill-side)",
-  "front-34": "inset-0",
+  "front-34": "inset-y-0 inset-x-0 mx-auto w-(--av-car-fill-hero)",
 };
 
 export interface CarImageFrameProps {

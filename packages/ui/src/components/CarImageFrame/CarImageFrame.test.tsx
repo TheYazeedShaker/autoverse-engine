@@ -33,10 +33,10 @@ describe("CarImageFrame", () => {
     expect(layer!.className).not.toMatch(/w-\[?\d/);
   });
 
-  it("front-34 (hero) still fills the whole box until slice 4 sets its framing", () => {
+  it("front-34 (hero): the car fills the hero token's share, centred, bottom-aligned", () => {
     const c = render(<CarImageFrame view="front-34" image={img} placeholderLabel="x" />).container;
     const layer = within(c).getByRole("img").parentElement;
-    expect(layer).toHaveClass("absolute", "inset-0");
+    expect(layer).toHaveClass("absolute", "inset-y-0", "mx-auto", "w-(--av-car-fill-hero)");
     expect(layer!.className).not.toContain("--av-car-fill-side");
   });
 

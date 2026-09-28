@@ -11,20 +11,35 @@ import { previewSubdomain } from "../lib/showroom/host";
 import { assetBase, assetUrl } from "../lib/showroom/images";
 import { loadShowroomPage } from "../lib/showroom/load";
 import { facetGroups, modelFacts } from "../lib/showroom/range";
-import { RangeExplorer } from "./range-explorer";
+import { ShowroomExperience } from "./showroom-experience";
 import { configuredCatalogSource } from "../lib/showroom/source";
-import { breakpoints } from "@autoverse/tokens";
+import { breakpoints, carFrame, heroCarousel } from "@autoverse/tokens";
 
 // A missing ASSET_BASE_URL is logged once per server instance, not on every request.
 let assetBaseWarned = false;
 
 // The card image's rendered width per breakpoint (1 / 2 / 3 columns), from the token breakpoints.
 const CARD_IMAGE_SIZES = `(min-width: ${breakpoints.xl}px) 30vw, (min-width: ${breakpoints.md}px) 45vw, 100vw`;
+// The hero car: the slide (heroCarousel.slide of the stage from md, full width below) × the hero fill.
+const HERO_IMAGE_SIZES = `(min-width: ${breakpoints.md}px) ${Math.round(100 * heroCarousel.slide * carFrame.heroFill)}vw, ${Math.round(100 * carFrame.heroFill)}vw`;
+// The brand-invariant hero backdrop (an Autoverse asset, no column; decision on PR #68). Set by
+// next.config.js only when the file is in public/, so a missing file never becomes a broken request.
+const HERO_BACKDROP = process.env.HERO_BACKDROP || null;
+
+/**
+ * Hero image loading (spec §5.3): the first model's first trim is the page's one high-priority fetch;
+ * its neighbours (the next and, looping, the last model) load eagerly; everything else is lazy.
+ */
+function heroLoading(index: number, trimIndex: number, total: number) {
+  if (index === 0 && trimIndex === 0) return { preload: true, fetchPriority: "high" as const };
+  const neighbour = index === 1 || index === total - 1;
+  return { loading: neighbour && trimIndex === 0 ? ("eager" as const) : ("lazy" as const) };
+}
 
 // The consumer app's entry: the Virtual Showroom for the brand-market this host names (spec §2).
-// Slices 2–3: the range (a ModelSection per model, a VehicleCard per trim, real images) with its
-// filters, search and sort (RangeExplorer). The hero, drawer, compare and lead capture land in
-// slices 4–8.
+// Slices 2–4: the hero carousel and model dock, and the range (a ModelSection per model, a
+// VehicleCard per trim) with its filters, search and sort, all in ShowroomExperience. The drawer,
+// compare and lead capture land in slices 5–8.
 //
 // Rendered per request: reading the Host header makes the route dynamic. The catalogue is cached
 // per subdomain in the data source with a hard 60 s expiry (CATALOG_TTL_SECONDS; ADR 0017), and
@@ -60,7 +75,7 @@ export default async function Page({
 
   const { showroom, themeCss } = outcome;
   // EN by default; `?lang=ar` renders Arabic/RTL. The EN/AR toggle itself arrives with the TopBar
-  // (slice 4) and will drive this same value.
+  // (its slice is an open decision) and will drive this same value.
   const lang: Lang = (await searchParams)?.lang === "ar" ? "ar" : "en";
   const t = COPY[lang];
   const base = assetBase(process.env.ASSET_BASE_URL);
@@ -82,69 +97,93 @@ export default async function Page({
         </style>
       )}
       <main lang={lang} dir={lang === "ar" ? "rtl" : "ltr"} data-showroom={showroom.brand.slug}>
-        <section
-          aria-labelledby="range-title"
-          className="bg-surface-panel px-4 pt-12 pb-36 sm:px-[6.5vw] lg:pt-16"
-        >
-          <div className="mx-auto max-w-[120rem]">
-            <RangeExplorer
-              lang={lang}
-              locale={showroom.market.locale}
-              numberingSystem={
-                new Intl.NumberFormat(
-                  lang === "ar" ? showroom.market.locale : "en",
-                ).resolvedOptions().numberingSystem
-              }
-              facets={facetGroups(showroom.facets)}
-              header={
-                <div>
-                  <p className="text-on-panel-muted text-xs tracking-[0.18em] uppercase rtl:tracking-normal">
-                    {showroom.brand.name} · {t.modelRange}
-                  </p>
-                  <h1
-                    id="range-title"
-                    className="text-on-panel mt-2 text-4xl font-light tracking-tight lg:text-6xl rtl:tracking-normal"
-                  >
-                    {t.theRange}
-                  </h1>
-                </div>
-              }
-              sections={showroom.models.map((model) => {
-                const section = sectionProps(model, lang, showroom.market, t);
-                return {
-                  facts: modelFacts(model),
-                  node: (
-                    <ModelSection key={model.id} {...section}>
-                      {model.trims.map((trim) => {
-                        const card = cardProps(model, trim, lang, showroom.market, t);
-                        const src = trim.cardImage
-                          ? assetUrl(trim.cardImage.publicPath, base)
-                          : null;
-                        return (
-                          <VehicleCard
-                            key={trim.id}
-                            {...card}
-                            image={
-                              src ? (
-                                <Image
-                                  src={src}
-                                  alt={t.sideView(card.title)}
-                                  fill
-                                  sizes={CARD_IMAGE_SIZES}
-                                  className="object-contain object-bottom"
-                                />
-                              ) : null
-                            }
-                          />
-                        );
-                      })}
-                    </ModelSection>
-                  ),
-                };
-              })}
-            />
-          </div>
-        </section>
+        <ShowroomExperience
+          lang={lang}
+          locale={showroom.market.locale}
+          numberingSystem={
+            new Intl.NumberFormat(lang === "ar" ? showroom.market.locale : "en").resolvedOptions()
+              .numberingSystem
+          }
+          hero={showroom.models.map((model, index) => ({
+            id: model.id,
+            name: model.name[lang],
+            trims: model.trims.map((trim, trimIndex) => {
+              const src = trim.heroImage ? assetUrl(trim.heroImage.publicPath, base) : null;
+              return {
+                id: trim.id,
+                label: trim.name[lang],
+                stats: {
+                  powerHp: trim.stats.powerHp,
+                  topSpeedKph: trim.stats.topSpeedKph,
+                  accelS: trim.stats.accelS,
+                },
+                image: src ? (
+                  <Image
+                    src={src}
+                    alt={t.frontView(`${model.name[lang]} ${trim.name[lang]}`)}
+                    fill
+                    sizes={HERO_IMAGE_SIZES}
+                    className="object-contain object-bottom"
+                    {...heroLoading(index, trimIndex, showroom.models.length)}
+                  />
+                ) : null,
+              };
+            }),
+          }))}
+          dock={showroom.models.map((m) => ({ id: m.id, name: m.name[lang], slug: m.slug }))}
+          backdrop={
+            HERO_BACKDROP ? (
+              <Image src={HERO_BACKDROP} alt="" fill sizes="100vw" className="object-cover" />
+            ) : undefined
+          }
+          range={{
+            facets: facetGroups(showroom.facets),
+            header: (
+              <div>
+                <p className="text-on-panel-muted text-xs tracking-[0.18em] uppercase rtl:tracking-normal">
+                  {showroom.brand.name} · {t.modelRange}
+                </p>
+                <h1
+                  id="range-title"
+                  className="text-on-panel mt-2 text-4xl font-light tracking-tight lg:text-6xl rtl:tracking-normal"
+                >
+                  {t.theRange}
+                </h1>
+              </div>
+            ),
+            sections: showroom.models.map((model) => {
+              const section = sectionProps(model, lang, showroom.market, t);
+              return {
+                facts: modelFacts(model),
+                node: (
+                  <ModelSection key={model.id} {...section}>
+                    {model.trims.map((trim) => {
+                      const card = cardProps(model, trim, lang, showroom.market, t);
+                      const src = trim.cardImage ? assetUrl(trim.cardImage.publicPath, base) : null;
+                      return (
+                        <VehicleCard
+                          key={trim.id}
+                          {...card}
+                          image={
+                            src ? (
+                              <Image
+                                src={src}
+                                alt={t.sideView(card.title)}
+                                fill
+                                sizes={CARD_IMAGE_SIZES}
+                                className="object-contain object-bottom"
+                              />
+                            ) : null
+                          }
+                        />
+                      );
+                    })}
+                  </ModelSection>
+                ),
+              };
+            }),
+          }}
+        />
       </main>
     </>
   );

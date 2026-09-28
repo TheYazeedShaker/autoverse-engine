@@ -21,7 +21,11 @@ module.exports = {
         ar: "var(--av-font-ar)",
         mono: "var(--av-font-mono)",
       },
-      borderRadius: { DEFAULT: "var(--av-radius)", sm: "var(--av-radius-sm)", lg: "var(--av-radius-lg)" },
+      borderRadius: {
+        DEFAULT: "var(--av-radius)",
+        sm: "var(--av-radius-sm)",
+        lg: "var(--av-radius-lg)",
+      },
       transitionTimingFunction: { av: "var(--av-ease)" },
     },
   },

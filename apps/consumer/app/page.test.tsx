@@ -34,7 +34,17 @@ vi.mock("../lib/flags", () => ({
 }));
 // next/image's host checks and loader only exist inside Next; a plain <img> keeps the URL visible.
 vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
+  default: ({
+    src,
+    alt,
+    fetchPriority,
+    loading,
+  }: {
+    src: string;
+    alt: string;
+    fetchPriority?: "high" | "low" | "auto";
+    loading?: "eager" | "lazy";
+  }) => <img src={src} alt={alt} fetchPriority={fetchPriority} loading={loading} />,
 }));
 vi.mock("../lib/showroom/source", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/showroom/source")>()),
@@ -81,7 +91,23 @@ describe("showroom page", () => {
     );
     expect(html).toContain('alt="Demo SUV Base, side view"');
     // The EV's only trim has a side image, the SUV Sport falls back to the model's: every card has one.
-    expect(html).not.toContain("Image coming soon");
+    const sideFrames = html.split('data-car-frame="side"').slice(1);
+    expect(sideFrames.length).toBeGreaterThan(0);
+    expect(sideFrames.every((f) => !f.slice(0, 400).includes("data-placeholder"))).toBe(true);
+    // The hero: only the SUV Base has a front three-quarter image; the SUV Sport and the EV show the
+    // placeholder in the same 16:9 box.
+    expect(html.split('data-car-frame="front-34"').length - 1).toBe(3);
+    expect(html.match(/data-placeholder/g)).toHaveLength(2);
+  });
+
+  it("makes the first hero image the one high-priority fetch", async () => {
+    vi.stubEnv("ASSET_BASE_URL", "https://cdn.example.test/public/showroom-public/");
+    const html = renderToStaticMarkup(await Page());
+    // One <img> is high priority (React also emits a matching <link rel="preload"> for it).
+    expect(html.match(/<img[^>]*fetchPriority="high"/gi) ?? []).toHaveLength(1);
+    expect(html).toMatch(
+      /<img[^>]*fetchpriority="high"[^>]*b1-front-34|<img[^>]*b1-front-34[^>]*fetchpriority="high"/i,
+    );
   });
 
   it("without ASSET_BASE_URL, shows placeholders and logs it once per server instance", async () => {

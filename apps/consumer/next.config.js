@@ -1,4 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import { existsSync } from "node:fs";
 
 // Showroom images (ADR 0020): next/image may fetch from exactly one remote base, the public
 // published bucket in ASSET_BASE_URL (read at BUILD time; declared in apps/consumer/turbo.json).
@@ -45,9 +46,14 @@ const nextConfig = {
     "@autoverse/types",
     "@autoverse/engine-core",
   ],
-  // Build time, baked in at build and shown on /api/health behind the health_build_info flag.
   env: {
+    // Build time, baked in at build and shown on /api/health behind the health_build_info flag.
     BUILD_TIME: new Date().toISOString(),
+    // The brand-invariant hero backdrop (an Autoverse asset in public/, no database column). Only set
+    // when the file is there, so the page never requests a missing image.
+    HERO_BACKDROP: existsSync(new URL("./public/showroom/hero-backdrop.jpg", import.meta.url))
+      ? "/showroom/hero-backdrop.jpg"
+      : "",
   },
 };
 

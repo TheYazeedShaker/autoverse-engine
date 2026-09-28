@@ -41,6 +41,18 @@ export type {
 } from "./components/VehicleCard";
 export { ModelSection } from "./components/ModelSection";
 export type { ModelSectionProps } from "./components/ModelSection";
+export { ModelCarousel, CountUp } from "./components/ModelCarousel";
+export type {
+  ModelCarouselProps,
+  HeroModel,
+  HeroTrim,
+  HeroState,
+  CountUpProps,
+} from "./components/ModelCarousel";
+export { ModelDock } from "./components/ModelDock";
+export type { ModelDockProps, DockModel } from "./components/ModelDock";
+export { semanticMotion } from "./motion";
+export { useReducedMotion } from "motion/react";
 export { FilterPanel, FilterSidebar, FilterSheet } from "./components/FilterPanel";
 export type {
   FilterPanelProps,

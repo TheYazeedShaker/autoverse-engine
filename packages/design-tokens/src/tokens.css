@@ -133,8 +133,10 @@
   --av-radius-2xl: 28px; /* the vehicle card (showroom) */
   --av-radius-pill: 999px;
 
-  /* --- car framing (ADR 0022): share of the 2:1 side box's width the car fills --- */
+  /* --- car framing (ADR 0022): share of each box's width the car fills (side 2:1, hero 16:9) --- */
   --av-car-fill-side: 80%;
+  --av-car-fill-hero: 80%;
+  --av-hero-slide: 92%; /* the hero carousel slide from md: a 4% neighbour peek each side */
 
   /* --- border width --- */
   --av-border-width: 1px; /* hairline — pair with --av-border */
