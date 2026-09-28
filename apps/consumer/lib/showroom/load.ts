@@ -2,7 +2,13 @@ import type { Logger } from "../log";
 import { isVercelPreviewHost, subdomainFromHost } from "./host";
 import { buildShowroom, type Showroom } from "./loader";
 import { isLoggableError, type CatalogSource } from "./source";
-import { themeCss } from "./theme";
+import { logoPath, themeCss } from "./theme";
+
+/** The theme's logo keys in the public bucket (ADR 0024), or null for the wordmark. */
+export interface Logos {
+  light: string | null;
+  dark: string | null;
+}
 
 // One showroom request, start to finish: host → subdomain → flag → catalogue → view.
 //
@@ -18,7 +24,7 @@ export type NotFoundReason =
   "host_unresolved" | "flag_off" | "source_unconfigured" | "unknown_subdomain";
 
 export type LoadOutcome =
-  | { kind: "ok"; showroom: Showroom; themeCss: string | null }
+  | { kind: "ok"; showroom: Showroom; themeCss: string | null; logos: Logos }
   | { kind: "not_found"; reason: NotFoundReason }
   | { kind: "unavailable" };
 
@@ -88,12 +94,21 @@ export async function loadShowroomPage(deps: LoadDeps): Promise<LoadOutcome> {
   const showroom = buildShowroom(snapshot, log);
 
   let css: string | null = null;
+  const logos: Logos = { light: null, dark: null };
   if (snapshot.theme) {
     const theme = themeCss(snapshot.theme);
     // A bad theme row can't happen past the database's CHECKs; if it does, the page still
     // renders in the neutral system accent rather than failing.
     if (theme.ok) css = theme.css;
     else log("error", "showroom_theme_invalid", { brand: showroom.brand.slug, field: theme.field });
+    // Logos (ADR 0024): a ref that isn't this brand's hashed key is dropped (the wordmark shows).
+    for (const variant of ["light", "dark"] as const) {
+      const ref = snapshot.theme[`logo_${variant}_asset_ref`];
+      logos[variant] = logoPath(ref, variant, showroom.brand.slug);
+      if (ref !== null && logos[variant] === null) {
+        log("error", "showroom_logo_invalid", { brand: showroom.brand.slug, variant });
+      }
+    }
   } else {
     log("warn", "showroom_theme_missing", {
       brand: showroom.brand.slug,
@@ -108,7 +123,7 @@ export async function loadShowroomPage(deps: LoadDeps): Promise<LoadOutcome> {
     models: showroom.models.length,
     duration_ms: now() - started,
   });
-  return { kind: "ok", showroom, themeCss: css };
+  return { kind: "ok", showroom, themeCss: css, logos };
 }
 
 /**

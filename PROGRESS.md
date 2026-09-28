@@ -266,7 +266,18 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - The showroom lives at `/` of the preview address.
      - **Probably not the cause of the 404** (code review): Turbo filters the build process, while Vercel functions read runtime variables from the project settings; the `NEXT_PUBLIC_*` values reached the build anyway through Turbo's Next.js inference. The actual reason was not readable here (the Vercel connector can't see the project). The page now also logs `flag_eval_failed` with `reason: no_posthog_key` when the PostHog key is missing, which was the one silent path to a 404. The runbook's table maps the logged `showroom_not_found` reason to its fix.
    - #73 is merged. **The preview works end to end** (owner, 2026-09-26): at `/` it shows the demo brand, 5 models, 7 trims and the correct EGP prices, read live.
-   - **Open: TopBar PR** (`feat/showroom-topbar`, 2026-09-28; #77 merged with the hero backdrop). The owner's slice-4 decisions are recorded in `#build-decisions`: 1–3 agreed; the dock stays solid for now, with a tinted glass that passes contrast in slice 8.
+   - **Open: brand-logo PR** (`feat/brand-logo`, 2026-09-28; #78 TopBar merged). **ADR 0024.**
+     - Owner decision (`#build-decisions`): a logo is a public-bucket key `{brand}/_brand/logo-{light|dark}.{hash8}.{svg|png}`, rendered via `<img>`, never inline SVG, with the brand name as fallback.
+     - Migration `20260928100000` + test 0024:
+       - CHECK formats per variant;
+       - a trigger: the key's brand folder must be the row's own brand (insert, update, a brand move);
+       - a trigger: a brand's slug can't change while it has logos.
+     - Consumer: `logoPath()` re-checks, drops a foreign ref and logs `showroom_logo_invalid`. The TopBar shows `logo_dark` (for dark surfaces).
+     - Tool: `asset-tools/src/logo-cli.mjs` (SVG blocklist, PNG alpha, hashed names, SQL). Runbook section _Brand logos_; the orphan query now excludes logo keys.
+     - Security review PASS; its fixes applied.
+     - **Decided (owner, B):** logos are named by the surface they go on. The dark TopBar uses `logo_dark` (the white mark); `logo_light` is for light surfaces. The tool warns when a logo is under 3:1 on its surface. The hosted pre-check returned 0 rows.
+     - **Next: slice 5** (spec drawer).
+   - **TopBar** (`feat/showroom-topbar`, merged as #78; #77 merged with the hero backdrop). The owner's slice-4 decisions are recorded in `#build-decisions`: 1–3 agreed; the dock stays solid for now, with a tinted glass that passes contrast in slice 8.
      - `packages/ui` **TopBar** (server component): brand wordmark (the logo slot waits for a defined `logo_*_asset_ref` format), the market chip, EN/AR as plain links (hreflang, aria-current), and "Book a test drive" disabled until slice 7 (hidden on phones). The height is a token, `--av-topbar-height` / `topBar.height` (64px); the hero is `max(100svh − bar, 40rem)`.
      - `proxy.ts` passes `?lang=` to the root layout as a header (always overwritten), so `<html lang dir>` follows the page (it was static `en`/`ltr`).
      - Carousel keyboard fix (owner report: ←/→ did nothing on the preview). The keys worked only with focus inside the hero. Now they also work with nothing focused while the hero fills the middle of the screen; focused controls keep their keys.

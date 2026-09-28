@@ -74,7 +74,8 @@ export default async function Page({
     throw new Error("showroom_unavailable");
   }
 
-  const { showroom, themeCss } = outcome;
+  const { showroom, themeCss, logos } = outcome;
+  const logoSrc = logos.dark ? assetUrl(logos.dark, assetBase(process.env.ASSET_BASE_URL)) : null;
   // EN by default; `?lang=ar` renders Arabic/RTL. The TopBar's EN/AR switch links to the two; the
   // proxy passes the same choice to the layout for `<html lang dir>`.
   const lang: Lang = langFrom((await searchParams)?.lang);
@@ -99,9 +100,19 @@ export default async function Page({
       )}
       <div dir={dirOf(lang)} lang={lang}>
         <TopBar
-          // The theme's logo reference has no defined format yet (asset id or public path), so the
-          // brand name is the wordmark until it does (an open decision; the logo is a theme slot).
           brandName={showroom.brand.name}
+          // The bar is dark, so it takes the logo FOR DARK SURFACES (logo_dark; ADR 0024; logos are
+          // named by the surface they go on). A plain <img>, never inline SVG, so a logo file can't
+          // run script in the page. Without one (or without ASSET_BASE_URL), the wordmark.
+          logo={
+            logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={showroom.brand.name}
+                className="h-6 w-auto max-w-40 object-contain"
+              />
+            ) : null
+          }
           marketLabel={`${showroom.market.code} · ${showroom.market.currency}`}
           languageLabel={t.language}
           languages={[
