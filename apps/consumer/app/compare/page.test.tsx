@@ -84,22 +84,30 @@ describe("compare page placeholder", () => {
     );
   });
 
-  it("lists only the picked trims this catalogue publishes, in order; ignores anything else", async () => {
+  const titlesIn = (html: string) =>
+    [...html.matchAll(/<span class="text-base font-medium">([^<]+)<\/span>/g)].map((m) => m[1]);
+
+  it("lists the picked pair, in order; junk in ?trims= is ignored", async () => {
     const [a, b] = trimIds();
     const html = renderToStaticMarkup(
       await ComparePage({
-        searchParams: Promise.resolve({
-          trims: `${b},00000000-0000-0000-0000-0000000000ff,<script>,${a}`,
-        }),
+        searchParams: Promise.resolve({ trims: `${b},<script>,${a}` }),
       }),
     );
     expect(html).toContain("Compare models");
-    const titles = [...html.matchAll(/<span class="text-base font-medium">([^<]+)<\/span>/g)].map(
-      (m) => m[1],
-    );
-    expect(titles).toHaveLength(2);
+    expect(titlesIn(html)).toHaveLength(2);
     expect(html).not.toContain("script");
     expect(html).toContain("coming soon");
+  });
+
+  it("a trim this catalogue doesn't publish (e.g. another brand's) is left out", async () => {
+    const [a] = trimIds();
+    const html = renderToStaticMarkup(
+      await ComparePage({
+        searchParams: Promise.resolve({ trims: `00000000-0000-0000-0000-0000000000ff,${a}` }),
+      }),
+    );
+    expect(titlesIn(html)).toHaveLength(1);
   });
 
   it("is Arabic with ?lang=ar", async () => {

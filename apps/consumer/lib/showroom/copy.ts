@@ -66,7 +66,7 @@ export const COPY = {
       count === 0
         ? "No trims selected for comparison"
         : `${n} ${count === 1 ? "trim" : "trims"} selected for comparison`,
-    compareLimit: (n: string) => `Up to ${n} trims can be compared`,
+    compareLimit: "Two trims are compared at a time. Remove one to pick another.",
     compareTitle: "Compare models",
     compareSoon: "The side-by-side comparison is coming soon.",
     backToRange: "Back to the range",
@@ -193,7 +193,7 @@ export const COPY = {
           return `${n} فئة محددة للمقارنة`;
       }
     },
-    compareLimit: (n: string) => `يمكن مقارنة ${n} فئات كحد أقصى`,
+    compareLimit: "تتم المقارنة بين فئتين فقط. أزِل إحداهما لاختيار أخرى.",
     compareTitle: "قارن الطرازات",
     compareSoon: "المقارنة جنبًا إلى جنب قريبًا.",
     backToRange: "العودة إلى التشكيلة",

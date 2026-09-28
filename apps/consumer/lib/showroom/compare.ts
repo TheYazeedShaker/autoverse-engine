@@ -1,13 +1,13 @@
 import type { Lang } from "./copy";
 
 // Compare (spec §5.9), pure so every rule is unit tested:
-// - Up to COMPARE_LIMIT trims (spec: max 3; open decision in #build-decisions: the approved page
-//   stops at 2. One constant either way).
-// - "Compare N" needs at least COMPARE_MIN.
+// - EXACTLY two trims: the approved compare page is built as a pair (owner decision B,
+//   #build-decisions 2026-09-28; spec §5.9 amended). So the limit and the minimum are both 2:
+//   "Compare" works only with a pair, and a third pick is refused.
 // - The compare page link carries the picked trims in pick order, and the page language. It exists
 //   only while the compare page's own flag is on (until PAGE-CONSUMER-COMPARE ships).
 
-export const COMPARE_LIMIT = 3;
+export const COMPARE_LIMIT = 2;
 export const COMPARE_MIN = 2;
 
 /** Pick or unpick a trim. A pick past the limit (or a duplicate) changes nothing. */

@@ -124,7 +124,7 @@ function shell() {
               <CompareCheckbox
                 trimId={`${m.id}-t`}
                 label={`Compare ${m.id}`}
-                limitNote="Up to 3 trims can be compared"
+                limitNote="Two trims are compared at a time."
               />
             </section>
           ),
@@ -191,7 +191,7 @@ describe("ShowroomExperience: the spec drawer", () => {
 });
 
 describe("ShowroomExperience: compare", () => {
-  it("cards' checkboxes fill the tray (pick order), Compare links from 2, Remove unpicks the card", async () => {
+  it("a pair: Compare links at exactly 2, a third pick is refused, Remove unpicks the card", async () => {
     shell();
     expect(screen.queryByRole("region", { name: "Comparison" })).toBeNull();
     await userEvent.click(screen.getByRole("checkbox", { name: "Compare Zeta" }));
@@ -202,10 +202,11 @@ describe("ShowroomExperience: compare", () => {
       "/compare?trims=Zeta-t,Mid-t",
     );
     await userEvent.click(screen.getByRole("checkbox", { name: "Compare Alpha" }));
-    // Three picked: the limit. (The fixture has only three models, so check the state directly.)
-    expect(
-      (screen.getByRole("checkbox", { name: "Compare Alpha" }) as HTMLInputElement).checked,
-    ).toBe(true);
+    // A third pick is refused: the pair is the limit (aria-disabled, so it stays focusable).
+    const third = screen.getByRole("checkbox", { name: "Compare Alpha" }) as HTMLInputElement;
+    expect(third.checked).toBe(false);
+    expect(third.getAttribute("aria-disabled")).toBe("true");
+    expect(within(tray).queryByText("Alpha Base")).toBeNull();
     await userEvent.click(within(tray).getByRole("button", { name: "Remove Zeta Base" }));
     expect(
       (screen.getByRole("checkbox", { name: "Compare Zeta" }) as HTMLInputElement).checked,

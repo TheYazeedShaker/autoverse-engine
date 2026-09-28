@@ -270,9 +270,9 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - `packages/ui`:
        - **CompareToggle**: a native checkbox with its label, token-styled. At the limit it is disabled and says why.
        - **CompareTray**: dark, fixed at the bottom centre; thumbnail, name and Remove per trim; a polite live count; "Compare N" from 2, and only with a link. Remove keeps focus in the tray.
-     - Consumer: `lib/showroom/compare.ts` (limit 3, min 2, link builder, `?trims=` parser); the shell holds the selection (in memory for the visit); each card's compare slot gets the checkbox.
+     - Consumer: `lib/showroom/compare.ts` (**exactly a pair**: limit 2 = min 2; link builder; `?trims=` parser); the shell holds the selection (in memory for the visit); each card's compare slot gets the checkbox.
      - **Compare route placeholder** `/compare`, behind its own flag **`page_compare`** (default off): the showroom's gates, then that flag. It lists only published trims of this brand-market from `?trims=` (at most 3 uuids), says the comparison is coming, and links back; `noindex`.
-     - **Open (owner, thread posted):** the limit, 3 (spec) or 2 (the approved page). It's one constant.
+     - **Decided (owner, B):** exactly 2, a pair (the approved compare page is built as one). "Compare" works only with the pair; a third pick is refused. Spec §5.9 amended.
      - Code review (CHANGES REQUESTED) applied:
        - removing the last trim returns focus to its card checkbox;
        - at the limit the checkbox is `aria-disabled`, so it stays focusable and says why;

@@ -10,7 +10,6 @@ import { ShowroomExperience } from "./showroom-experience";
 import { loadGatedShowroom } from "./showroom-gate";
 import { TechnicalDataButton } from "./spec-drawer-trigger";
 import { CompareCheckbox } from "./compare-controls";
-import { COMPARE_LIMIT } from "../lib/showroom/compare";
 import { drawerContent } from "../lib/showroom/drawer";
 import { dirOf, langFrom } from "../lib/showroom/lang";
 import { breakpoints, carFrame, heroCarousel } from "@autoverse/tokens";
@@ -72,9 +71,6 @@ export default async function Page({
   // EN by default; `?lang=ar` renders Arabic/RTL. The TopBar's EN/AR switch links to the two; the
   // proxy passes the same choice to the layout for `<html lang dir>`.
   const lang: Lang = langFrom(params?.lang);
-  const compareLimitLabel = new Intl.NumberFormat(
-    lang === "ar" ? showroom.market.locale : "en",
-  ).format(COMPARE_LIMIT);
   const t = COPY[lang];
   const base = assetBase(process.env.ASSET_BASE_URL);
   if (
@@ -262,7 +258,7 @@ export default async function Page({
                             <CompareCheckbox
                               trimId={trim.id}
                               label={t.compare}
-                              limitNote={t.compareLimit(compareLimitLabel)}
+                              limitNote={t.compareLimit}
                             />
                           }
                           technicalDataSlot={

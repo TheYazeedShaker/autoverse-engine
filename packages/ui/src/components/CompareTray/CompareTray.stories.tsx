@@ -3,8 +3,8 @@ import { useState } from "react";
 import { CompareToggle } from "./CompareToggle";
 import { CompareTray, type CompareTrayItem } from "./CompareTray";
 
-// Compare (spec §5.9): the card's Compare checkbox and the floating tray. Up to the limit (the other
-// checkboxes disable and say why); "Compare N" from 2 picks, and only when the compare page exists.
+// Compare (spec §5.9): the card's Compare checkbox and the floating tray. A pair (owner decision B):
+// with two picked the others disable and say why; "Compare 2" only when the compare page exists.
 
 const meta = {
   title: "Showroom/CompareTray",
@@ -36,8 +36,8 @@ function Demo({
           key={t.id}
           label={`Compare · ${t.name}`}
           checked={selected.includes(t.id)}
-          atLimit={selected.length >= 3}
-          limitNote="Up to 3 trims can be compared"
+          atLimit={selected.length >= 2}
+          limitNote="Two trims are compared at a time. Remove one to pick another."
           onCheckedChange={(on) =>
             setSelected((s) => (on ? [...s, t.id] : s.filter((x) => x !== t.id)))
           }
@@ -60,6 +60,6 @@ function Demo({
 }
 
 export const TwoPicked: Story = { render: () => <Demo /> };
-export const AtTheLimit: Story = { render: () => <Demo initial={["a", "b", "c"]} /> };
+export const OnePicked: Story = { render: () => <Demo initial={["a"]} /> };
 /** The compare page's flag is off: Compare stays disabled. */
 export const CompareUnavailable: Story = { render: () => <Demo href={null} /> };
