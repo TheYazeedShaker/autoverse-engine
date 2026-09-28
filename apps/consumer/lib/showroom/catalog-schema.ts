@@ -133,6 +133,49 @@ export const CatalogVocabulary = z.strictObject({
   display_ar: text,
 });
 
+// The spec ledger (migration 20260928120000; spec §5.8). A per-trim row's values are keyed by trim
+// id, published trims only, each exactly {en, ar}.
+const Bilingual = z.strictObject({ en: text, ar: text });
+
+export const CatalogSpecTab = z.strictObject({
+  id: uuid,
+  model_id: uuid,
+  key: text,
+  title_en: text,
+  title_ar: text,
+  order_index: z.number().int(),
+});
+
+export const CatalogSpecGroup = z.strictObject({
+  id: uuid,
+  tab_id: uuid,
+  model_id: uuid,
+  title_en: text,
+  title_ar: text,
+  note_en: maybeText,
+  note_ar: maybeText,
+  order_index: z.number().int(),
+});
+
+export const CatalogSpecRow = z.strictObject({
+  id: uuid,
+  group_id: uuid,
+  model_id: uuid,
+  key_en: text,
+  key_ar: text,
+  scope: z.enum(["all_trims", "per_trim"]),
+  value_en: maybeText,
+  value_ar: maybeText,
+  trim_values: z.record(uuid, Bilingual).nullable(),
+  order_index: z.number().int(),
+});
+
+export const CatalogSpec = z.strictObject({
+  tabs: z.array(CatalogSpecTab),
+  groups: z.array(CatalogSpecGroup),
+  rows: z.array(CatalogSpecRow),
+});
+
 export const ShowroomCatalog = z.strictObject({
   brand: z.strictObject({ slug: text, name: text }),
   market: CatalogMarket,
@@ -142,6 +185,9 @@ export const ShowroomCatalog = z.strictObject({
   prices: z.array(CatalogPrice),
   assets: z.array(CatalogAsset),
   vocabulary: z.array(CatalogVocabulary),
+  // Optional so the page renders whether the deploy or the migration lands first; absent = no
+  // ledger (the drawer shows its "data will be added" state).
+  spec: CatalogSpec.optional(),
 });
 
 export type CatalogSnapshot = z.infer<typeof ShowroomCatalog>;
@@ -149,3 +195,4 @@ export type CatalogModelRow = z.infer<typeof CatalogModel>;
 export type CatalogTrimRow = z.infer<typeof CatalogTrim>;
 export type CatalogAssetRow = z.infer<typeof CatalogAsset>;
 export type CatalogThemeRow = z.infer<typeof CatalogTheme>;
+export type CatalogSpecRowRow = z.infer<typeof CatalogSpecRow>;

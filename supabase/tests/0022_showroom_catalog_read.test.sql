@@ -174,7 +174,7 @@ declare
   keys text[];
 begin
   select array_agg(k order by k) into keys from jsonb_object_keys(a) k;
-  if keys <> array['assets','brand','market','models','prices','theme','trims','vocabulary'] then
+  if keys <> array['assets','brand','market','models','prices','spec','theme','trims','vocabulary'] then
     raise exception 'FAIL: unexpected top-level keys %', keys;
   end if;
   select array_agg(k order by k) into keys from jsonb_object_keys(a -> 'brand') k;

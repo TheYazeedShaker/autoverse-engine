@@ -113,3 +113,27 @@ it down. The 1·B publish step's acceptance therefore includes:
 
 The owner approved `public_path` itself as the way to enforce "public bucket only" in the same
 thread.
+
+## Amendment — the spec ledger (2026-09-28, slice 5)
+
+The spec drawer (spec §5.8) shows the spec ledger for one trim, and the catalogue is read
+server-side only (§3). So `showroom_catalog` also returns `spec: { tabs, groups, rows }` (migration
+`20260928120000`). This stays within the owner's four conditions:
+
+1. **Page-rendered columns only:**
+   - tabs: title and key;
+   - groups: title and note;
+   - rows: key, scope, value or per-trim values;
+   - plus the ids and order the page needs to nest and sort them.
+   - No brand id and no timestamps.
+2. **Published data only:**
+   - the ledger of the published models it already returns;
+   - per-trim values are filtered to **published trims**. `trim_values` is keyed by trim id, so an
+     unfiltered row would leak a pre-launch trim's figures and its id.
+   - Each value is rebuilt as exactly `{en, ar}`, so nothing else stored in the jsonb passes through.
+3. **Paired test 0025:** cross-tenant both ways, unpublished model, unpublished trim, extra jsonb
+   keys, exact key sets. Test 0022's top-level key set now includes `spec`.
+4. **This amendment.**
+
+The consumer's Zod schema accepts `spec` as optional, so the page keeps rendering whichever lands
+first, the deploy or the migration.
