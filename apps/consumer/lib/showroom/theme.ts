@@ -18,6 +18,24 @@ export type ThemeColours = Pick<
   "accent_hex" | "on_accent" | "hover_hex" | "muted_hex" | "focus_hex"
 >;
 
+export type LogoVariant = "light" | "dark";
+
+/**
+ * A theme logo ref, checked again on this side of the boundary (ADR 0024): the public-bucket key
+ * {brand}/_brand/logo-{variant}.{hash8}.{svg|png}, in THIS brand's folder. Anything else is null, so
+ * the page falls back to the brand-name wordmark rather than requesting an unexpected path.
+ */
+export function logoPath(
+  ref: string | null,
+  variant: LogoVariant,
+  brandSlug: string,
+): string | null {
+  if (ref === null) return null;
+  const m =
+    /^([a-z0-9]+(?:-[a-z0-9]+)*)\/_brand\/logo-(light|dark)\.[0-9a-f]{8}\.(?:svg|png)$/.exec(ref);
+  return m && m[1] === brandSlug && m[2] === variant ? ref : null;
+}
+
 export function themeCss(theme: ThemeColours): ThemeResult {
   const colours: [string, string, string][] = [
     ["--av-accent", "accent_hex", theme.accent_hex],

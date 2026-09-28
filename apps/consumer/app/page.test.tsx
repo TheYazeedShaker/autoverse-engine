@@ -125,6 +125,26 @@ describe("showroom page", () => {
     expect(warnings).toHaveLength(1);
   });
 
+  it("shows the brand's light logo as an <img> when the theme has one; the wordmark otherwise", async () => {
+    vi.stubEnv("ASSET_BASE_URL", "https://cdn.example.test/public/showroom-public/");
+    const withLogo = demoCatalog();
+    withLogo.theme!.logo_light_asset_ref = "demo/_brand/logo-light.a1b2c3d4.svg";
+    state.source = { load: async () => withLogo };
+    const html = renderToStaticMarkup(await Page());
+    expect(html).toMatch(
+      /<header[^>]*>.*<img src="https:\/\/cdn\.example\.test\/public\/showroom-public\/demo\/_brand\/logo-light\.a1b2c3d4\.svg" alt="Demo Motors"/s,
+    );
+    const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+    expect(header).not.toContain("<svg"); // never inline: the logo is an <img>
+    // Another brand's logo in this theme: dropped, the wordmark shows (and it is logged).
+    const foreign = demoCatalog();
+    foreign.theme!.logo_light_asset_ref = "other/_brand/logo-light.a1b2c3d4.svg";
+    state.source = { load: async () => foreign };
+    const html2 = renderToStaticMarkup(await Page());
+    expect(html2).not.toContain("_brand/logo-light");
+    expect(html2).toMatch(/<header[^>]*>.*Demo Motors/s);
+  });
+
   it("has the TopBar: wordmark, market chip, EN/AR links, and Book a test drive disabled", async () => {
     const html = renderToStaticMarkup(await Page());
     expect(html).toMatch(/<header[^>]*h-\(--av-topbar-height\)/);

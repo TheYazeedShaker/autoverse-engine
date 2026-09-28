@@ -135,6 +135,9 @@ select o.name, o.created_at
   left join public.assets a on a.public_path = o.name
  where o.bucket_id = 'showroom-public' and o.name like 'demo/%' and a.id is null
    and o.name not like '%/.emptyFolderPlaceholder'
+   -- Logos are referenced by the theme, not the asset registry (ADR 0024).
+   and not exists (select 1 from public.brand_themes t
+                    where o.name in (t.logo_light_asset_ref, t.logo_dark_asset_ref))
  order by 1;
 ```
 
@@ -146,3 +149,51 @@ hashed name. Confirm it shows on the preview, wait a while (step 4, point 3), th
 orphan query for that brand and delete the old object.
 
 **Never** upload a new version under an existing name.
+
+## Brand logos (ADR 0024)
+
+A logo is `{brand}/_brand/logo-{light|dark}.{hash8}.{svg|png}` in `showroom-public`:
+
+- **light** is the light-coloured mark, for dark surfaces. The TopBar uses it.
+- **dark** is the dark mark, for light surfaces.
+- SVG or PNG only. The page shows it with `<img>`. With no logo, it shows the brand name.
+
+### Upload and register a logo
+
+1. **Get the files.** An SVG must be plain: shapes and paths only, with no script, links, embedded
+   images or fonts loaded from elsewhere. A PNG must have a transparent background.
+2. **Prepare them.** From the repo root:
+
+   ```bash
+   node packages/asset-tools/src/logo-cli.mjs --brand demo --out C:/showroom/logo --light C:/showroom/demo-logo-light.svg --dark C:/showroom/demo-logo-dark.svg
+   ```
+
+   - Either `--light` or `--dark` alone is fine.
+   - `--out` must be a new or empty folder.
+   - It prints `OK light: … → demo/_brand/logo-light.<hash8>.svg`. An `ERR` line says what to fix, and
+     no SQL is written until every file passes.
+
+3. **Upload.** Storage → `showroom-public` → open the `demo` folder → **Upload**. Drag in the `_brand`
+   folder from `C:\showroom\logo\demo`, so the key is `demo/_brand/logo-light.<hash8>.svg`.
+4. **Register.** Run `C:\showroom\logo\register-logo.sql` in the SQL editor. It sets the logo on every
+   market theme of the brand, and its last query shows the keys.
+5. **Check.** Open the preview: the TopBar shows the logo instead of the brand name.
+   - It appears once the catalogue cache turns over (at most 60 s; ADR 0017).
+   - If the name still shows, check that the object key in Storage matches the registered key exactly.
+6. **A new version later:** repeat steps 2–5. The new file gets a new name, and the theme is updated
+   to it. After confirming, delete the old object (the orphan query lists it).
+
+To remove a logo, set the column to null:
+
+```sql
+update public.brand_themes set logo_light_asset_ref = null
+ where brand_id = (select id from public.brands where slug = 'demo');
+```
+
+Then delete the object.
+
+- **Renaming a brand's slug** is refused while its themes have logos (`brand_slug_has_logos`).
+  1. Clear the logos (the query above).
+  2. Rename the slug.
+  3. Re-run steps 2–4 with the new slug.
+  4. Delete the old objects.
