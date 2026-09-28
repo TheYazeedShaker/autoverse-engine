@@ -2,9 +2,12 @@
 
 import * as Collapsible from "@radix-ui/react-collapsible";
 import * as Dialog from "@radix-ui/react-dialog";
+import { AnimatePresence, motion } from "motion/react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { ChevronDown, X } from "lucide-react";
 import { useRef, type ReactNode } from "react";
+import { overlayScrim, overlaySurface } from "../../overlay-motion";
+import { useReducedMotionPreference } from "../../use-reduced-motion";
 import { Button } from "../Button";
 import { CarImageFrame } from "../CarImageFrame";
 import { Icon } from "../Icon";
@@ -21,7 +24,8 @@ import { Icon } from "../Icon";
 //
 // Data-free: the app resolves the ledger for the trim (resolveLedgerRow) and passes strings. The car
 // is the app's image element, drawn in the side-view frame (the same box as the cards; ADR 0022).
-// Enter and exit motion are deferred to slice 8; it opens and closes instantly.
+// Slice 8: it slides in from the inline end over a fading scrim and back out (overlayIn/overlayOut,
+// src/overlay-motion.ts); instant under reduced motion.
 
 export interface SpecDrawerRow {
   k: string;
@@ -89,6 +93,7 @@ export function SpecDrawer({
   returnFocusTo,
   dir,
 }: SpecDrawerProps) {
+  const reduced = useReducedMotionPreference();
   // The drawer is opened by the app (a card's "Technical data"), not by a Dialog.Trigger, so Radix
   // has no trigger to return focus to. Remember what had focus at the moment it opens (read during
   // the render that opens it, before Radix moves focus inside), and return focus there on close.
@@ -102,98 +107,117 @@ export function SpecDrawer({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="bg-surface-dark/45 fixed inset-0 z-40 backdrop-blur-xs" />
-        <Dialog.Content
-          aria-describedby={undefined}
-          dir={dir}
-          onCloseAutoFocus={(e) => {
-            const target = returnFocusTo ?? returnTo.current;
-            if (target?.isConnected) {
-              e.preventDefault();
-              target.focus();
-            }
-          }}
-          className="bg-surface text-on-surface fixed inset-y-0 end-0 z-40 flex w-full flex-col shadow-lg focus:outline-none md:w-[min(max(30rem,40vw),94vw)] [--av-bg:var(--av-surface)] [--av-fg-muted:var(--av-on-surface-muted)] [--av-fg:var(--av-on-surface)]"
-        >
-          <div className="flex shrink-0 items-start justify-between gap-3 px-6 pt-4.5">
-            <Dialog.Title className="text-fg-muted pt-2 text-xs tracking-[0.2em] uppercase rtl:tracking-normal">
-              {title}
-            </Dialog.Title>
-            <Dialog.Close
-              aria-label={labels.close}
-              className="border-fg/20 text-fg hover:bg-fg/5 focus-visible:ring-focus-ring grid size-9 shrink-0 place-items-center rounded-full border focus-visible:outline-none focus-visible:ring-2"
+      <AnimatePresence>
+        {open ? (
+          <Dialog.Portal forceMount>
+            <Dialog.Overlay asChild forceMount>
+              <motion.div
+                className="bg-surface-dark/45 fixed inset-0 z-40 backdrop-blur-xs"
+                {...overlayScrim(reduced)}
+              />
+            </Dialog.Overlay>
+            <Dialog.Content
+              asChild
+              forceMount
+              aria-describedby={undefined}
+              dir={dir}
+              onCloseAutoFocus={(e) => {
+                const target = returnFocusTo ?? returnTo.current;
+                if (target?.isConnected) {
+                  e.preventDefault();
+                  target.focus();
+                }
+              }}
             >
-              <Icon icon={X} size="sm" />
-            </Dialog.Close>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-2.5 pb-8">
-            <p className="text-fg-muted mt-2 text-xs tracking-[0.18em] uppercase rtl:tracking-normal">
-              {eyebrow}
-            </p>
-            <h3 className="text-fg mt-2 text-3xl font-light tracking-tight md:text-4xl rtl:tracking-normal">
-              {modelName}
-            </h3>
-            <div className="mt-2.5 flex flex-wrap items-baseline justify-between gap-3">
-              <span className="text-fg-muted text-xs tracking-[0.14em] uppercase rtl:tracking-normal">
-                {trimName}
-              </span>
-              <span className="text-fg text-base font-medium">{price}</span>
-            </div>
-            <div className="mt-4 mb-5">
-              <CarImageFrame view="side" image={image} placeholderLabel={imagePlaceholderLabel} />
-            </div>
-
-            {tabs.length === 0 ? (
-              <p className="text-fg-muted border-fg/10 border-t pt-4 text-sm">{pending}</p>
-            ) : tabs.length === 1 ? (
-              <TabBody tab={tabs[0]!} />
-            ) : (
-              <Tabs.Root defaultValue={tabs[0]!.key} dir={dir}>
-                <Tabs.List className="border-fg/10 flex gap-6 border-b">
-                  {tabs.map((tab) => (
-                    <Tabs.Trigger
-                      key={tab.key}
-                      value={tab.key}
-                      className="text-fg-muted data-[state=active]:text-fg data-[state=active]:border-accent focus-visible:ring-focus-ring -mb-px border-b-2 border-transparent px-0.5 py-3 text-sm tracking-[0.08em] uppercase transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 data-[state=active]:font-semibold motion-reduce:transition-none rtl:tracking-normal"
-                    >
-                      {tab.label}
-                    </Tabs.Trigger>
-                  ))}
-                </Tabs.List>
-                {tabs.map((tab) => (
-                  <Tabs.Content key={tab.key} value={tab.key} className="focus:outline-none">
-                    <TabBody tab={tab} />
-                  </Tabs.Content>
-                ))}
-              </Tabs.Root>
-            )}
-          </div>
-
-          <div className="border-fg/10 bg-surface flex shrink-0 gap-3 border-t px-6 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
-            {secondaryAction ? (
-              <Button
-                variant="secondary"
-                size="lg"
-                className="flex-1"
-                onClick={(e) => secondaryAction.onClick(e.currentTarget)}
+              <motion.div
+                {...overlaySurface("side", dir, reduced)}
+                className="bg-surface text-on-surface fixed inset-y-0 end-0 z-40 flex w-full flex-col shadow-lg focus:outline-none md:w-[min(max(30rem,40vw),94vw)] [--av-bg:var(--av-surface)] [--av-fg-muted:var(--av-on-surface-muted)] [--av-fg:var(--av-on-surface)]"
               >
-                {secondaryAction.label}
-              </Button>
-            ) : null}
-            {configureHref ? (
-              <Button asChild variant="accent" size="lg" className="flex-1">
-                <a href={configureHref}>{labels.configure}</a>
-              </Button>
-            ) : (
-              <Button variant="accent" size="lg" className="flex-1" disabled>
-                {labels.configure}
-              </Button>
-            )}
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
+                <div className="flex shrink-0 items-start justify-between gap-3 px-6 pt-4.5">
+                  <Dialog.Title className="text-fg-muted pt-2 text-xs tracking-[0.2em] uppercase rtl:tracking-normal">
+                    {title}
+                  </Dialog.Title>
+                  <Dialog.Close
+                    aria-label={labels.close}
+                    className="border-fg/20 text-fg hover:bg-fg/5 focus-visible:ring-focus-ring grid size-9 shrink-0 place-items-center rounded-full border focus-visible:outline-none focus-visible:ring-2"
+                  >
+                    <Icon icon={X} size="sm" />
+                  </Dialog.Close>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-2.5 pb-8">
+                  <p className="text-fg-muted mt-2 text-xs tracking-[0.18em] uppercase rtl:tracking-normal">
+                    {eyebrow}
+                  </p>
+                  <h3 className="text-fg mt-2 text-3xl font-light tracking-tight md:text-4xl rtl:tracking-normal">
+                    {modelName}
+                  </h3>
+                  <div className="mt-2.5 flex flex-wrap items-baseline justify-between gap-3">
+                    <span className="text-fg-muted text-xs tracking-[0.14em] uppercase rtl:tracking-normal">
+                      {trimName}
+                    </span>
+                    <span className="text-fg text-base font-medium">{price}</span>
+                  </div>
+                  <div className="mt-4 mb-5">
+                    <CarImageFrame
+                      view="side"
+                      image={image}
+                      placeholderLabel={imagePlaceholderLabel}
+                    />
+                  </div>
+
+                  {tabs.length === 0 ? (
+                    <p className="text-fg-muted border-fg/10 border-t pt-4 text-sm">{pending}</p>
+                  ) : tabs.length === 1 ? (
+                    <TabBody tab={tabs[0]!} />
+                  ) : (
+                    <Tabs.Root defaultValue={tabs[0]!.key} dir={dir}>
+                      <Tabs.List className="border-fg/10 flex gap-6 border-b">
+                        {tabs.map((tab) => (
+                          <Tabs.Trigger
+                            key={tab.key}
+                            value={tab.key}
+                            className="text-fg-muted data-[state=active]:text-fg data-[state=active]:border-accent focus-visible:ring-focus-ring -mb-px border-b-2 border-transparent px-0.5 py-3 text-sm tracking-[0.08em] uppercase transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 data-[state=active]:font-semibold motion-reduce:transition-none rtl:tracking-normal"
+                          >
+                            {tab.label}
+                          </Tabs.Trigger>
+                        ))}
+                      </Tabs.List>
+                      {tabs.map((tab) => (
+                        <Tabs.Content key={tab.key} value={tab.key} className="focus:outline-none">
+                          <TabBody tab={tab} />
+                        </Tabs.Content>
+                      ))}
+                    </Tabs.Root>
+                  )}
+                </div>
+
+                <div className="border-fg/10 bg-surface flex shrink-0 gap-3 border-t px-6 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+                  {secondaryAction ? (
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="flex-1"
+                      onClick={(e) => secondaryAction.onClick(e.currentTarget)}
+                    >
+                      {secondaryAction.label}
+                    </Button>
+                  ) : null}
+                  {configureHref ? (
+                    <Button asChild variant="accent" size="lg" className="flex-1">
+                      <a href={configureHref}>{labels.configure}</a>
+                    </Button>
+                  ) : (
+                    <Button variant="accent" size="lg" className="flex-1" disabled>
+                      {labels.configure}
+                    </Button>
+                  )}
+                </div>
+              </motion.div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        ) : null}
+      </AnimatePresence>
     </Dialog.Root>
   );
 }

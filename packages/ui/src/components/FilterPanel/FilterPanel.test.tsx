@@ -1,5 +1,6 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { stubMedia, tick } from "../../test-media";
 import { axe } from "jest-axe";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FilterPanel } from "./FilterPanel";
@@ -162,7 +163,7 @@ describe("FilterSheet", () => {
     await userEvent.click(suv);
     expect(suv).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(within(dialog).getByRole("button", { name: "Show 4 models" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(trigger).toHaveFocus();
   });
 
@@ -171,7 +172,7 @@ describe("FilterSheet", () => {
     await userEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("keeps the selection across open/close (the state is the app's)", async () => {
@@ -179,6 +180,7 @@ describe("FilterSheet", () => {
     await userEvent.click(screen.getByRole("button", { name: "Filters" }));
     await userEvent.click(screen.getByRole("button", { name: /^EV/ }));
     await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await userEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByRole("button", { name: /^EV/ })).toHaveAttribute("aria-pressed", "true");
   });
@@ -215,5 +217,46 @@ describe("FilterSheet", () => {
     render(<Arabic />);
     await userEvent.click(screen.getByRole("button", { name: "الفلاتر" }));
     expect(await axe(document.body)).toHaveNoViolations();
+  });
+});
+
+describe("FilterSheet: motion and breakpoint (slice 8)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("works uncontrolled, and closes itself when the window grows to lg (the sidebar takes over)", async () => {
+    let wide = false;
+    const listeners: (() => void)[] = [];
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (q: string) =>
+        ({
+          get matches() {
+            return q.includes("min-width") && wide;
+          },
+          media: q,
+          addEventListener: (_: string, l: () => void) => listeners.push(l),
+          removeEventListener() {},
+          addListener() {},
+          removeListener() {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    );
+    render(<Sheet />);
+    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await act(async () => {
+      wide = true;
+      for (const l of listeners) l();
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("reduced motion: it is gone at once on close", async () => {
+    stubMedia((q) => q.includes("reduce"));
+    render(<Sheet />);
+    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
+    await userEvent.keyboard("{Escape}");
+    await act(tick);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

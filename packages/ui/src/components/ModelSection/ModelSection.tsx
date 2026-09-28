@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { Children, type ReactNode } from "react";
 import { cn } from "../../cn";
 import { Icon } from "../Icon";
+import { Reveal } from "../Reveal";
 
 // ModelSection — one model's block in the range (spec §5.6): a header band (name, descriptor, from-price)
 // and its trim cards in the 3-per-row grid. It is rendered for every model, even one with a single trim.
@@ -51,7 +52,8 @@ export function ModelSection({
   return (
     <Collapsible.Root asChild defaultOpen={defaultOpen}>
       <section id={id} aria-labelledby={`${id}-heading`} className={cn("scroll-mt-24", className)}>
-        <div className={cn(action && "border-fg/10 flex items-end gap-x-4 border-b")}>
+        {/* Slice 8: the header band fades in as it scrolls into view (reveal level 0, as approved). */}
+        <Reveal level={0} className={cn(action && "border-fg/10 flex items-end gap-x-4 border-b")}>
           <Heading id={`${id}-heading`} className={cn("m-0", action && "min-w-0 flex-1")}>
             <Collapsible.Trigger
               className={cn(
@@ -82,14 +84,19 @@ export function ModelSection({
             </Collapsible.Trigger>
           </Heading>
           {action ? <div className="shrink-0 pb-3.5">{action}</div> : null}
-        </div>
+        </Reveal>
         <Collapsible.Content className="pt-5 lg:pt-7">
           <ul
             role="list"
             className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:gap-10"
           >
             {Children.map(children, (child) => (
-              <li className="flex min-w-0 max-w-[35rem]">{child}</li>
+              <li className="flex min-w-0 max-w-[35rem]">
+                {/* Slice 8: each card fades in one stagger step after its header (as approved). */}
+                <Reveal level={1} className="flex w-full min-w-0">
+                  {child}
+                </Reveal>
+              </li>
             ))}
           </ul>
         </Collapsible.Content>

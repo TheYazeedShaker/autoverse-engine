@@ -19,6 +19,7 @@ export const palette = {
   gunmetalLine: "#3A413B",
   onDark: "#F4F7F5",
   onDarkMute: "#9AA19D", // muted ink on dark (AA on gunmetal)
+  onDarkSoft: "#CFD3D1", // secondary ink on dark (the dock's idle pills; tokens.css --av-on-dark-soft)
 
   // Admin ramp (REV2). The operator portal runs denser and darker than the consumer surfaces, so it
   // gets its own neutrals rather than bending the consumer ones. The same pairing rule applies.
@@ -154,6 +155,43 @@ export const motion = {
   durationBase: 220,
   durationSlow: 600,
   easingStandard: "cubic-bezier(0.2, 0.7, 0.2, 1)",
+  // The approved showroom's timings (slice 8, ADR 0026). Durations in ms.
+  /** Overlays landing: the spec drawer, the filter sheet, the lead modal. */
+  durationOverlay: 550,
+  /** A section or card fading in as it scrolls into view. */
+  durationReveal: 650,
+  /** The intro curtain lifting. */
+  durationCurtain: 820,
+  /** A card's car driving into place. */
+  durationEntrance: 1600,
+  /** A card's figures counting up from zero. */
+  durationCount: 1750,
+  /** Between one revealed item and the next. */
+  staggerReveal: 120,
+  /** Before a card's car starts driving in. */
+  delayEntrance: 75,
+  /**
+   * The intro curtain's CSS failsafe: it hides itself this long after the page loads even if no
+   * JavaScript runs (the cap, 900 ms, plus the lift, 820 ms, plus a margin).
+   */
+  delayCurtainFailsafe: 2000,
+  easingEmphasized: "cubic-bezier(0.22, 1, 0.36, 1)",
+  easingReveal: "cubic-bezier(0.2, 0.6, 0.2, 1)",
+  easingCurtain: "cubic-bezier(0.65, 0, 0.35, 1)",
+  easingEntrance: "cubic-bezier(0.16, 1, 0.3, 1)",
+  easingDecelerate: "cubic-bezier(0.33, 1, 0.68, 1)",
+  /** How far a card's car travels in. */
+  distanceEntrance: "2.5rem",
+  /** How far an overlay panel rises in (the lead modal). */
+  distanceOverlay: "1.5rem",
+} as const;
+
+/* Glass — a tinted, blurred panel over moving content (the model dock). The page behind it can be
+   anything, white included, so the tint alone must carry the text: every foreground is checked
+   against the tint composited over the lightest possible backdrop (white) and the darkest (Onyx).
+   Slice 8, ADR 0026. */
+export const glass = {
+  dark: { tint: palette.gunmetal, alpha: 0.88, fg: palette.onDark, fgSoft: palette.onDarkSoft },
 } as const;
 
 // Responsive breakpoints (px) — Grid / Container consume these (revision R3).

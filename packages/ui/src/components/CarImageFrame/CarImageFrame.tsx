@@ -2,6 +2,7 @@ import { Car } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../../cn";
 import { Icon } from "../Icon";
+import { CarEntrance } from "../Reveal";
 
 // CarImageFrame — the one place a car image is drawn (ADR 0022, the asset standard).
 //
@@ -41,6 +42,8 @@ export interface CarImageFrameProps {
   placeholderLabel: string;
   /** Where the placeholder draws its fill inside the box, e.g. inset to a card's content width. */
   placeholderClassName?: string;
+  /** The car drives in as the frame scrolls into view (slice 8: the cards). */
+  entrance?: boolean;
   className?: string;
 }
 
@@ -49,6 +52,7 @@ export function CarImageFrame({
   image,
   placeholderLabel,
   placeholderClassName,
+  entrance = false,
   className,
 }: CarImageFrameProps) {
   return (
@@ -56,7 +60,11 @@ export function CarImageFrame({
       data-car-frame={view}
       className={cn("relative w-full shrink-0 rtl:-scale-x-100", ASPECT[view], className)}
     >
-      {image ? (
+      {image && entrance ? (
+        <CarEntrance className={cn("absolute drop-shadow-xl", IMAGE_LAYER[view])}>
+          {image}
+        </CarEntrance>
+      ) : image ? (
         <div data-car-image className={cn("absolute drop-shadow-xl", IMAGE_LAYER[view])}>
           {image}
         </div>

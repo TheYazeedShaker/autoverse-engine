@@ -50,9 +50,27 @@ describe("cardProps", () => {
       { icon: "transmission", label: "8-speed automatic" },
     ]);
     expect(p.stats).toEqual([
-      { icon: "accel", value: "5.9", unit: "s", label: "0 – 100 km/h" },
-      { icon: "power", value: "460", unit: "hp", label: "Power" },
-      { icon: "top-speed", value: "200", unit: "km/h", label: "Top speed" },
+      {
+        icon: "accel",
+        value: "5.9",
+        unit: "s",
+        label: "0 – 100 km/h",
+        count: { to: 5.9, fractionDigits: 1, locale: expect.any(String), numberingSystem: "latn" },
+      },
+      {
+        icon: "power",
+        value: "460",
+        unit: "hp",
+        label: "Power",
+        count: { to: 460, fractionDigits: 0, locale: expect.any(String), numberingSystem: "latn" },
+      },
+      {
+        icon: "top-speed",
+        value: "200",
+        unit: "km/h",
+        label: "Top speed",
+        count: { to: 200, fractionDigits: 0, locale: expect.any(String), numberingSystem: "latn" },
+      },
     ]);
     expect(p.details).toEqual([
       { icon: "pump", label: "Fuel consumption (combined)", value: "11.2 L/100km" },

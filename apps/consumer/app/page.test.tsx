@@ -239,6 +239,20 @@ describe("showroom page: compare (slice 6)", () => {
     expect(html).toContain('type="checkbox"');
   });
 
+  it("renders the intro curtain after its seen-check script (slice 8, spec §5.1)", async () => {
+    const html = renderToStaticMarkup(await Page());
+    const script = html.indexOf("av-intro-seen");
+    const curtain = html.indexOf("data-intro-curtain");
+    expect(script).toBeGreaterThan(-1);
+    expect(curtain).toBeGreaterThan(script);
+    // Decorative: the brand name inside it is hidden from assistive tech.
+    expect(html).toMatch(
+      new RegExp(
+        'data-intro-curtain="true"[^>]*aria-hidden="true"|aria-hidden="true"[^>]*data-intro-curtain',
+      ),
+    );
+  });
+
   describe("lead capture (slice 7)", () => {
     const KEY = "pk_" + "A".repeat(32);
     const withKey = () => ({ ...demoCatalog(), capture_key: KEY });

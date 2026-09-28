@@ -18,6 +18,7 @@ import { LEAD_COPY } from "../lib/lead/copy";
 import { interestOption } from "../lib/lead/form";
 import { whatsappHref } from "../lib/lead/phone";
 import { LeadButton, LeadCapture } from "./lead-capture";
+import { INTRO_CURTAIN_SCRIPT, IntroCurtain, Reveal } from "@autoverse/ui";
 
 // A missing ASSET_BASE_URL is logged once per server instance, not on every request.
 let assetBaseWarned = false;
@@ -113,6 +114,17 @@ export default async function Page({
 
   const page = (
     <>
+      {/* The intro curtain (slice 8, spec §5.1). The script runs before the curtain is parsed and
+          marks <html> when it was already seen this session, so CSS hides it before it paints. */}
+      <script dangerouslySetInnerHTML={{ __html: INTRO_CURTAIN_SCRIPT }} />
+      <IntroCurtain
+        logo={
+          logoSrc ? (
+            <img src={logoSrc} alt="" className="h-8 w-auto max-w-48 object-contain" />
+          ) : null
+        }
+        brandName={showroom.brand.name}
+      />
       <div dir={dirOf(lang)} lang={lang}>
         <TopBar
           brandName={showroom.brand.name}
@@ -251,7 +263,7 @@ export default async function Page({
           range={{
             facets: facetGroups(showroom.facets),
             header: (
-              <div>
+              <Reveal level={0}>
                 <p className="text-on-panel-muted text-xs tracking-[0.18em] uppercase rtl:tracking-normal">
                   {showroom.brand.name} · {t.modelRange}
                 </p>
@@ -261,7 +273,7 @@ export default async function Page({
                 >
                   {t.theRange}
                 </h1>
-              </div>
+              </Reveal>
             ),
             sections: showroom.models.map((model) => {
               const section = sectionProps(model, lang, showroom.market, t);

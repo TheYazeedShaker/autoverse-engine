@@ -11,7 +11,17 @@ import { motion as tokens } from "@autoverse/tokens";
 //   instant.
 // - carouselSettle: the hero carousel settling on a model. Reduced: instant.
 //
-// Slice 8 (motion polish) grows this into the REV's full token set (springs, distances, stagger).
+// Slice 8 (motion polish; ADR 0026), from the approved showroom's timings:
+// - curtainLift: the intro curtain rises off the page (transform). Reduced: never rendered.
+// - curtainSkip: the same, cut short by the visitor's first input.
+// - sectionReveal: a section header or a card fades in as it scrolls into view, one stagger step
+//   per level (opacity only, as approved). Reduced: present from the start.
+// - carEntrance: a card's car drives in from behind (transform + opacity). Reduced: in place.
+// - statCount: a card's figures count up from zero once it is seen. Reduced: final values.
+// - overlayIn / overlayOut: the drawer, the filter sheet and the lead modal land (transform) over a
+//   fading scrim. Reduced: instant.
+// - scrimFade: the overlay's scrim.
+// Durations and curves come from the tokens only; components never hold raw values.
 
 /** The standard easing token as motion/react's cubic-bezier array. */
 function bezier(css: string): [number, number, number, number] {
@@ -24,6 +34,7 @@ function bezier(css: string): [number, number, number, number] {
 }
 
 const standard = bezier(tokens.easingStandard);
+const emphasized = bezier(tokens.easingEmphasized);
 const seconds = (ms: number) => ms / 1000;
 
 export const semanticMotion = {
@@ -36,6 +47,31 @@ export const semanticMotion = {
    * motion: 1, effectively instant (programmatic moves also jump outright).
    */
   carouselSettle: { duration: 28, reducedDuration: 1 },
+  curtainLift: {
+    duration: seconds(tokens.durationCurtain),
+    ease: bezier(tokens.easingCurtain),
+    /** Where the curtain goes: fully off the top, plus a hair so its edge never shows. */
+    offstage: "-101%",
+  },
+  curtainSkip: { duration: seconds(tokens.durationBase), ease: bezier(tokens.easingCurtain) },
+  sectionReveal: {
+    duration: seconds(tokens.durationReveal),
+    ease: bezier(tokens.easingReveal),
+    /** Seconds between one reveal level and the next. */
+    stagger: seconds(tokens.staggerReveal),
+  },
+  carEntrance: {
+    duration: seconds(tokens.durationEntrance),
+    ease: bezier(tokens.easingEntrance),
+    delay: seconds(tokens.delayEntrance),
+    distance: tokens.distanceEntrance,
+  },
+  statCount: { duration: seconds(tokens.durationCount), ease: bezier(tokens.easingDecelerate) },
+  overlayIn: { duration: seconds(tokens.durationOverlay), ease: emphasized },
+  overlayOut: { duration: seconds(tokens.durationBase), ease: standard },
+  /** How far the lead modal's panel rises in. The drawer and the sheet travel their own size. */
+  overlayDistance: tokens.distanceOverlay,
+  scrimFade: { duration: seconds(tokens.durationBase), ease: standard },
 } as const;
 
 /** A transition that respects reduced motion: instant when reduced. */

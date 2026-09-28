@@ -14,6 +14,8 @@
   --color-on-white: var(--av-on-white);
   --color-on-white-muted: var(--av-on-white-muted);
   --color-surface-dark: var(--av-surface-dark);
+  /* glass over moving content (the dock): AA over any backdrop, tokens glass.test.ts (ADR 0026) */
+  --color-glass-dark: var(--av-glass-dark);
   /* contextual "current surface" pair → `bg-fg` / `text-fg` / `border-fg` / `text-fg-muted` / `text-bg`.
      These invert with the surface, so an inverting control (primary Button = `bg-fg text-bg`) is correct
      on any surface. The vars are set per surface (tokens.css :root, the Surface component, SB themes). */
@@ -91,3 +93,22 @@
    They are standard Tailwind utilities, but because Col builds the class name from `span` at runtime the
    source scanner can't see them — so generate col-span-1…12 across the base + each breakpoint variant. */
 @source inline("{sm:,md:,lg:,xl:,}col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
+
+/* The intro curtain's failsafe (ADR 0026): if no JavaScript lifts it, it hides itself shortly
+   after the page loads, so the page is never covered for good. Opacity and visibility only, so
+   it never fights the JavaScript lift (a transform). */
+@keyframes av-curtain-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+.av-curtain-failsafe {
+  animation: av-curtain-failsafe var(--av-dur-fast) linear var(--av-delay-curtain-failsafe) forwards;
+}
+/* Reduced motion: the curtain is never shown (motion-reduce:hidden), so no failsafe runs. */
+@media (prefers-reduced-motion: reduce) {
+  .av-curtain-failsafe {
+    animation: none;
+  }
+}

@@ -152,6 +152,24 @@
   --av-dur: 220ms;
   --av-dur-slow: 600ms;
   --av-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* the approved showroom's timings (slice 8, ADR 0026) */
+  --av-dur-overlay: 550ms;
+  --av-dur-reveal: 650ms;
+  --av-dur-curtain: 820ms;
+  --av-dur-entrance: 1600ms;
+  --av-dur-count: 1750ms;
+  --av-stagger-reveal: 120ms;
+  --av-delay-entrance: 75ms;
+  --av-delay-curtain-failsafe: 2000ms;
+  --av-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  --av-ease-reveal: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --av-ease-curtain: cubic-bezier(0.65, 0, 0.35, 1);
+  --av-ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  --av-ease-decelerate: cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* --- glass: a tinted panel over moving content (the dock); AA over any backdrop (ADR 0026) --- */
+  --av-glass-dark-alpha: 88%;
+  --av-glass-dark: color-mix(in srgb, var(--av-gunmetal) var(--av-glass-dark-alpha), transparent);
 
   /* --- breakpoints (px, for reference; Grid/Container read the TS values) --- */
   --av-bp-sm: 640px;
