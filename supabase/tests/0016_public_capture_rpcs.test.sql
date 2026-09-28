@@ -24,6 +24,12 @@ insert into public.brands (id, slug, name, status) values
 insert into public.brand_markets (brand_id, market_code, currency, locale, live, allowed_origins) values
   ('00000000-0000-0000-0000-00000000000a', 'EG', 'EGP', 'ar-EG', true, '{https://a.example.com}'),
   ('00000000-0000-0000-0000-00000000000b', 'EG', 'EGP', 'ar-EG', true, '{https://b.example.com}');
+
+-- Leads must cite an existing consent version of their brand-market (migration 20260928140000).
+insert into public.consent_texts (brand_id, market_code, version, text_en, text_ar)
+  select brand_id, market_code, 'eg-v1', 'Test consent for {Brand}.', 'موافقة اختبار لـ {Brand}.'
+    from public.brand_markets
+  on conflict (brand_id, market_code, version) do nothing;
 insert into public.brand_publishable_keys (brand_id, key) values
   ('00000000-0000-0000-0000-00000000000a', 'pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'),
   ('00000000-0000-0000-0000-00000000000b', 'pk_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB');

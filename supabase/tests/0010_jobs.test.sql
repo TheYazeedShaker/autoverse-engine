@@ -28,6 +28,12 @@ insert into public.profiles (id, brand_id, brand_role, platform_role) values
 insert into public.brand_markets (brand_id, market_code, currency, locale, live) values
   ('00000000-0000-0000-0000-00000000000a', 'EG', 'EGP', 'ar-EG', true);
 
+-- Leads must cite an existing consent version of their brand-market (migration 20260928140000).
+insert into public.consent_texts (brand_id, market_code, version, text_en, text_ar)
+  select brand_id, market_code, 'eg-v1', 'Test consent for {Brand}.', 'موافقة اختبار لـ {Brand}.'
+    from public.brand_markets
+  on conflict (brand_id, market_code, version) do nothing;
+
 -- ---- 1. capturing a lead enqueues its routing, in the same transaction ----
 do $$
 declare lead_id uuid; queued int;

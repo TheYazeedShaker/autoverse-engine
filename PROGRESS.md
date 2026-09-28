@@ -5,7 +5,7 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-28
-**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` slice 7 (LeadModal + capture contract) started: slices 1–6 are merged (#82 last). PR 1 of 3, `fix/capture-lead-cors`, **waits for the owner's merge**; three Tier B threads are open in `#build-decisions` (consent text source, publishable key delivery, openers). See _Next Session_ §0.
+**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` slice 7 (LeadModal + capture contract): slices 1–6 are merged (#82 last), and #84 (capture CORS, PR 1/3) is merged and redeployed. PR 2/3, `feat/consent-texts-capture-key` (read path), **waits for the owner's merge**. All three Tier B decisions are answered (A, A, A). See _Next Session_ §0.
 
 **Earlier (2026-09-26):** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (#66) and the migrations #67 (price_amount), #68 (presentation fields) and #69 (attribute vocabulary) are **merged**. All five Tier B decisions are answered. The read path (#70, `showroom_catalog`, ADR 0018) is **merged** too. The wiring PR (slice 1b: the page reads `showroom_catalog`, plus the Vercel preview demo path) **waits for the owner’s merge**; slice 2 follows.
 
@@ -269,7 +269,7 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - **Probably not the cause of the 404** (code review): Turbo filters the build process, while Vercel functions read runtime variables from the project settings; the `NEXT_PUBLIC_*` values reached the build anyway through Turbo's Next.js inference. The actual reason was not readable here (the Vercel connector can't see the project). The page now also logs `flag_eval_failed` with `reason: no_posthog_key` when the PostHog key is missing, which was the one silent path to a 404. The runbook's table maps the logged `showroom_not_found` reason to its fix.
    - #73 is merged. **The preview works end to end** (owner, 2026-09-26): at `/` it shows the demo brand, 5 models, 7 trims and the correct EGP prices, read live.
    - **Open: slice 7, LeadModal + capture contract** (2026-09-28). Three PRs, each against `main`, stop after each:
-     1. **`fix/capture-lead-cors` (open, waits for merge).** Finding: `capture-lead` and `ingest-event` answered the browser's CORS preflight with 405 and no CORS headers, so no page could ever submit (the contract's custom headers force a preflight).
+     1. **#84 `fix/capture-lead-cors`: merged.** The owner redeployed both functions; the preflight answers 204 with `access-control-allow-origin` on both. Finding: `capture-lead` and `ingest-event` answered the browser's CORS preflight with 405 and no CORS headers, so no page could ever submit (the contract's custom headers force a preflight).
         - Now: `OPTIONS` → 204 first thing (`services/shared/cors.ts`: `*`, no credentials, the four contract headers, max-age 600); every answer carries the CORS header and `nosniff`.
         - A top-level try/catch turns any throw into a logged 503 (`lead_unhandled_error` pages).
         - `Origin: null` is refused as no caller.
@@ -279,17 +279,42 @@ found no path for an end user, anon or another brand to reach lead data. The pro
         - **Owner after merge:** redeploy both functions.
         - Follow-up (security review, predates it): Turnstile is called before any rate limit, so a cheap per-address limit ahead of it is owed.
         - Info: two brands could list the same origin; add a rule before any shared hosting.
-     2. **Read path (waits for Tier B 1 + 2):** consent text + version, and the publishable key, returned by `showroom_catalog`.
+     2. **Read path, `feat/consent-texts-capture-key` (open, waits for merge).** Migration `20260928140000`, test 0026, ADR 0025 and an ADR 0018 amendment.
+        - `consent_texts`:
+          - append-only in the database: row triggers refuse update/delete and a statement trigger refuses truncate, for every role;
+          - format, length and `{Brand}`-only placeholder CHECKs;
+          - RLS read for staff and the owning brand; writes by the service role only.
+        - Leads cite `(brand_id, market_code, consent_text_version)`. The FK is **NOT VALID**: it binds new leads, and older test leads keep their strings. An unknown version → 23503 → `rejected` → 422.
+        - `showroom_catalog` returns:
+          - `lead_consent {version, en, ar}`: the latest row with `published_at <= now()`;
+          - `capture_key`: the newest unrevoked `web` key, as a string only.
+          - Both are null when there is none, and then there are no lead CTAs.
+        - Every existing lead test and `phase-gate.sh` seeds a consent row; 0022's top-level key set now includes both keys.
+        - Consumer Zod accepts both as optional/nullable, with the database's rules. The fixture carries `eg-v1` with the owner's wording and `capture_key: null`.
+        - The SQL tests run only in CI: no Docker locally.
+        - Review changes applied:
+          - Security (tenant isolation APPROVE): NULL-safe assertions in 0026 (`is distinct from`, including the owner's revoked-key fallback test); the DB and Zod text rules aligned (≤ 2000 code points, a non-space character); an unacceptable consent row becomes `null` (no CTAs), never a failed catalogue; `created_at` stamped by the DB.
+          - Code review: a lint fix in the schema test; the one-way deploy order recorded (ADR 0018); a runbook step with the consent insert and a verify query.
+        - Follow-ups (not in this PR):
+          - A lead can cite a version scheduled for later. A possible hardening is `published_at <= consent_at` in `capture_lead`, which would be sensitive to skew in the form's clock.
+          - `lead_activities` has no truncate guard; `consent_texts` shows the pattern.
+          - Before a real brand is live, ship a read-path change consumer-first.
+        - **Owner:** after merge, run runbook §2.4 (the `eg-v1` insert for the demo) and §2.3's key check. The demo needs an unrevoked key labelled `web`.
      3. **Slice 7 UI:**
         - TextField / Select / Checkbox / LeadModal in `packages/ui`;
         - the capture client (one `submission_id` per submit, a fresh Turnstile token per attempt, backoff on 503/network, the six outcome states);
         - EG phone normalisation to `+20`;
         - the WhatsApp success state;
         - openers behind the new flag `showroom_lead_capture` (default off).
-     - **Tier B open in `#build-decisions` (2026-09-28):**
-       - (1) **consent text source**: no column holds the lead consent text or its version; recommended A, an append-only `consent_texts` table. The EG wording is the owner's.
-       - (2) **publishable key delivery**: anon can't read `brand_publishable_keys`; recommended A, `showroom_catalog` returns `capture_key`.
-       - (3) **openers the design lacks**: the design has only the TopBar and footer; recommended A, hero / section header / drawer, not the card.
+     - **Tier B, all decided by the owner in `#build-decisions` (2026-09-28):**
+       - (1) consent **A**: append-only, enforced in the DB; leads reference an existing version. The EG wording is supplied by the owner as `eg-v1`, approved for the demo and EG pending legal review before a real brand. `{Brand}` is filled from the brand name at render time.
+       - (2) key **A**: only the newest unrevoked `web` key, with exact-field and revoked-key tests.
+       - (3) openers **A**:
+         - TopBar "Book a test drive" (`test_drive`);
+         - hero ghost "Book a test drive" (model prefilled);
+         - section-header "Request a quote" (`quote`, model);
+         - drawer secondary "Book a test drive" (model + trim);
+         - the card unchanged; `contact` for the future footer.
      - Found: `packages/ui` has no TextField, Select or Checkbox yet (Tier 1 had nine other primitives); they come with PR 3.
    - **Slice 6, compare tray: merged as #82** (`feat/showroom-slice-6-compare`, 2026-09-28; #80 and #81 merged; the spec seed is verified: 2 tabs / 26 groups / 10 rows per model).
      - `packages/ui`:

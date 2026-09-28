@@ -37,6 +37,12 @@ insert into public.brand_markets (brand_id, market_code, currency, locale, live)
   ('00000000-0000-0000-0000-00000000000a', 'EG', 'EGP', 'ar-EG', true),
   ('00000000-0000-0000-0000-00000000000b', 'EG', 'EGP', 'ar-EG', true);
 
+-- Leads must cite an existing consent version of their brand-market (migration 20260928140000).
+insert into public.consent_texts (brand_id, market_code, version, text_en, text_ar)
+  select brand_id, market_code, 'eg-v1', 'Test consent for {Brand}.', 'موافقة اختبار لـ {Brand}.'
+    from public.brand_markets
+  on conflict (brand_id, market_code, version) do nothing;
+
 insert into public.leads (id, brand_id, market_code, full_name, phone, city, type, consent_text_version, consent_at, submission_id) values
   ('00000000-0000-0000-0000-0000000a7001', '00000000-0000-0000-0000-00000000000a', 'EG', 'Fatma Hassan', '+201000000001', 'Cairo', 'test_drive', 'eg-v1', now(), gen_random_uuid()),
   ('00000000-0000-0000-0000-0000000b7001', '00000000-0000-0000-0000-00000000000b', 'EG', 'Omar Adel',    '+201000000002', 'Giza',  'quote',      'eg-v1', now(), gen_random_uuid());

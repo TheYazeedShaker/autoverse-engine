@@ -27,7 +27,24 @@ solved on any other hostname.
    `https://…`, no path. `http://localhost` is only accepted while the market isn't live.
 2. The brand must be `status = 'live'` and the market `live = true`. Otherwise nothing resolves.
 3. Issue a key once per brand: `select public.issue_publishable_key('<brand_id>', 'web');`. It is
-   public by design and goes in the page bundle.
+   public by design and reaches the page through `showroom_catalog` (`capture_key`: the newest
+   unrevoked key labelled **`web`**; a key with any other label, or none, is never served). Check:
+   `select label, revoked_at, created_at from public.brand_publishable_keys where brand_id = '<brand_id>' order by created_at desc;`
+4. Record the market's lead consent text (ADR 0025). The wording and its version label are the
+   owner's (HUMAN ONLY); `{Brand}` is filled with the brand's name on the page. Rows can't be edited
+   or deleted afterwards, so check the text before running it. A change of wording is a new version.
+   For EG, `eg-v1` (approved 2026-09-28, pending legal review before a real brand):
+
+   ```sql
+   insert into public.consent_texts (brand_id, market_code, version, text_en, text_ar)
+   values ('<brand_id>', 'EG', 'eg-v1',
+     $en$I agree that {Brand} and its authorised dealers in Egypt may contact me by phone or WhatsApp about this request, and use my details for that purpose only. I can withdraw my consent at any time.$en$,
+     $ar$أوافق على أن تتواصل معي {Brand} ووكلاؤها المعتمدون في مصر عبر الهاتف أو واتساب بخصوص هذا الطلب، وعلى استخدام بياناتي لهذا الغرض فقط. ويمكنني سحب موافقتي في أي وقت.$ar$);
+   ```
+
+   Verify: `select public.showroom_catalog('<subdomain>') -> 'lead_consent', public.showroom_catalog('<subdomain>') ->> 'capture_key';`
+   gives the text and a `pk_…` key. Until both exist the page shows no lead CTAs, and a lead naming
+   a version with no row is refused (422).
 
 ## 3. Deploy
 

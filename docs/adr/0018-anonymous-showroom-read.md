@@ -141,3 +141,31 @@ server-side only (§3). So `showroom_catalog` also returns `spec: { tabs, groups
 
 The consumer's Zod schema accepts `spec` as optional, so the page keeps rendering whichever lands
 first, the deploy or the migration.
+
+## Amendment — lead consent and capture key (2026-09-28, slice 7)
+
+The lead modal (spec §6) needs the market's consent wording and version, and the brand's
+publishable key for `X-Autoverse-Key`. The owner decided both in `#build-decisions` (option A each).
+`showroom_catalog` now also returns (migration `20260928140000`):
+
+- **`lead_consent {version, en, ar}`**: the brand-market's current consent text (ADR 0025), i.e.
+  its latest `consent_texts` row with `published_at <= now()`. A row scheduled for later is never
+  served. Null when there is none, and then the page shows no lead CTAs.
+- **`capture_key`**: the brand's **newest unrevoked** key labelled **`web`**, as a bare string. No
+  id, label, dates or other keys. Null when there is none (no lead CTAs either). The key is public by
+  design (ADR 0013) and only admits a request from the brand-market's allowlisted origins, so
+  serving it stays within condition 1 (the page uses it) and adds nothing an attacker can't read
+  from the brand's own page. Revoking it takes effect within the 60 s catalogue cache (ADR 0017).
+
+Both, like everything else, only for a live brand-market. Paired test **0026**: its own brand's
+text and key only, the scheduled text withheld, exact field sets, a revoked, non-`web` or older key
+never served, and fallback then null as keys are revoked. Test 0022's top-level key set now
+includes both. The consumer's Zod accepts both as optional, with the database's own rules for the
+key format and the consent wording.
+
+**Deploy order holds one way only** (code review). An optional key covers "consumer deploy first".
+It does not cover "migration first": the consumer build before this change has a strict top level
+(a leak guard, kept), so it refuses the two new keys with a `CatalogShapeError` (not retried) until
+the new build is live. The same was true of `spec` in slice 5. On merge both land within minutes,
+and today only the demo brand's preview is affected (production has no brand domain). Before a real
+brand is live, a read-path change must ship the consumer's acceptance first, then the migration.

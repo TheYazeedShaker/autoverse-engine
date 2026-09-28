@@ -22,6 +22,12 @@ insert into public.brand_markets (brand_id, market_code, currency, locale, live)
   ('00000000-0000-0000-0000-00000000000a', 'EG', 'EGP', 'ar-EG', true),
   ('00000000-0000-0000-0000-00000000000b', 'EG', 'EGP', 'ar-EG', true);
 
+-- Leads must cite an existing consent version of their brand-market (migration 20260928140000).
+insert into public.consent_texts (brand_id, market_code, version, text_en, text_ar)
+  select brand_id, market_code, 'eg-v1', 'Test consent for {Brand}.', 'موافقة اختبار لـ {Brand}.'
+    from public.brand_markets
+  on conflict (brand_id, market_code, version) do nothing;
+
 create function test_helpers.submission(brand uuid, submission uuid) returns jsonb language sql as $$
   select jsonb_build_object(
     'brand_id', brand, 'market_code', 'EG',
