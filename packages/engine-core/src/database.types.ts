@@ -188,9 +188,23 @@ export interface LeadRow {
   type: LeadType;
   status: LeadStatus;
   score: number | null;
+  /** Must name a consent_texts row of the lead's own brand-market (migration 20260928140000). */
   consent_text_version: string;
   consent_at: string;
   session_id: string | null;
+  created_at: string;
+}
+
+/** The lead form's consent wording, per brand-market. Append-only: rows are never changed. */
+export interface ConsentTextRow {
+  id: string;
+  brand_id: string;
+  market_code: string;
+  version: string;
+  /** May contain `{Brand}`, filled with the brand's name at render time; no other placeholder. */
+  text_en: string;
+  text_ar: string;
+  published_at: string;
   created_at: string;
 }
 

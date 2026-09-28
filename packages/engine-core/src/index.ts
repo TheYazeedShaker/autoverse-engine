@@ -19,6 +19,7 @@ export type {
   TrimPriceRow,
   BrandRow,
   BrandThemeRow,
+  ConsentTextRow,
   EventRow,
   LeadRow,
   LeadStatus,

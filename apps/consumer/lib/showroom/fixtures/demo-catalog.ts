@@ -44,6 +44,15 @@ export const demoCatalog = (): CatalogSnapshot => ({
     logo_dark_asset_ref: null,
     favicon_asset_ref: null,
   },
+  // The owner's EG wording, version eg-v1 (approved 2026-09-28 for the demo and EG, pending legal
+  // review before a real brand). Data, not code: the page reads it from the catalogue.
+  lead_consent: {
+    version: "eg-v1",
+    en: "I agree that {Brand} and its authorised dealers in Egypt may contact me by phone or WhatsApp about this request, and use my details for that purpose only. I can withdraw my consent at any time.",
+    ar: "أوافق على أن تتواصل معي {Brand} ووكلاؤها المعتمدون في مصر عبر الهاتف أو واتساب بخصوص هذا الطلب، وعلى استخدام بياناتي لهذا الغرض فقط. ويمكنني سحب موافقتي في أي وقت.",
+  },
+  // No key in the fixture: a lead needs the real capture path (the local stack or a preview).
+  capture_key: null,
   models: [
     model(DEMO_IDS.suv, "demo-suv", "Demo SUV", "ديمو إس يو في", 0, {
       body_type: "suv",

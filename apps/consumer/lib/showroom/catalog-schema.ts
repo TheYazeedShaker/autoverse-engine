@@ -176,6 +176,21 @@ export const CatalogSpec = z.strictObject({
   rows: z.array(CatalogSpecRow),
 });
 
+// The lead form's consent wording (slice 7), the same rules the database enforces
+// (consent_texts): a short version label, at most 2000 characters (code points, as Postgres counts),
+// at least one non-space character, and {Brand} as the only placeholder.
+const ConsentWording = z
+  .string()
+  .refine((s) => [...s].length <= 2000, "consent text over 2000 characters")
+  .refine((s) => /\S/.test(s), "blank consent text")
+  .refine((s) => !/[{}]/.test(s.replaceAll("{Brand}", "")), "unknown placeholder");
+
+export const CatalogLeadConsent = z.strictObject({
+  version: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,31}$/),
+  en: ConsentWording,
+  ar: ConsentWording,
+});
+
 export const ShowroomCatalog = z.strictObject({
   brand: z.strictObject({ slug: text, name: text }),
   market: CatalogMarket,
@@ -188,6 +203,19 @@ export const ShowroomCatalog = z.strictObject({
   // Optional so the page renders whether the deploy or the migration lands first; absent = no
   // ledger (the drawer shows its "data will be added" state).
   spec: CatalogSpec.optional(),
+  // Slice 7 (migration 20260928140000). Null = no current consent text: the page shows no lead
+  // CTAs. Optional for the same deploy-order reason as `spec`. A row the database accepted but this
+  // refuses (the rules above mirror the database's, but whitespace classes can differ at the edges)
+  // becomes null too: consent rows are append-only, so it must cost the lead CTAs, never the whole
+  // showroom. The page logs a missing consent text (slice 7 UI).
+  lead_consent: CatalogLeadConsent.nullable().optional().catch(null),
+  // The brand's newest unrevoked web publishable key (ADR 0013: public by design). Null = none:
+  // no lead CTAs either.
+  capture_key: z
+    .string()
+    .regex(/^pk_[A-Za-z0-9]{32}$/)
+    .nullable()
+    .optional(),
 });
 
 export type CatalogSnapshot = z.infer<typeof ShowroomCatalog>;
@@ -198,3 +226,4 @@ export type CatalogThemeRow = z.infer<typeof CatalogTheme>;
 export type CatalogSpecRowRow = z.infer<typeof CatalogSpecRow>;
 export type CatalogSpecGroupRow = z.infer<typeof CatalogSpecGroup>;
 export type CatalogSpecTabRow = z.infer<typeof CatalogSpecTab>;
+export type CatalogLeadConsentRow = z.infer<typeof CatalogLeadConsent>;

@@ -44,6 +44,12 @@ insert into public.brands (id, slug, name) values ('$BRAND', 'gate-brand', 'Gate
 insert into public.brand_markets (brand_id, market_code, currency, locale, live)
   values ('$BRAND', 'EG', 'EGP', 'ar-EG', true)
   on conflict (brand_id, market_code) do nothing;
+
+-- Leads must cite an existing consent version of their brand-market (migration 20260928140000).
+insert into public.consent_texts (brand_id, market_code, version, text_en, text_ar)
+  select brand_id, market_code, 'gate-v1', 'Test consent for {Brand}.', 'موافقة اختبار لـ {Brand}.'
+    from public.brand_markets where brand_id = '$BRAND'
+  on conflict (brand_id, market_code, version) do nothing;
 SQL
 
 # ---------------------------------------------------------------------------------------------
