@@ -130,7 +130,11 @@ server-side only (§3). So `showroom_catalog` also returns `spec: { tabs, groups
    - the ledger of the published models it already returns;
    - per-trim values are filtered to **published trims**. `trim_values` is keyed by trim id, so an
      unfiltered row would leak a pre-launch trim's figures and its id.
-   - Each value is rebuilt as exactly `{en, ar}`, so nothing else stored in the jsonb passes through.
+   - Each value is rebuilt as exactly `{en, ar}`, so nothing else stored in the jsonb passes through;
+     a malformed value is dropped rather than breaking the whole read.
+   - A per-trim row with no published trim is left out entirely: its label alone would announce a
+     pre-launch trim (security review). Empty groups of a published model stay; the drawer shows
+     "data to come".
 3. **Paired test 0025:** cross-tenant both ways, unpublished model, unpublished trim, extra jsonb
    keys, exact key sets. Test 0022's top-level key set now includes `spec`.
 4. **This amendment.**
