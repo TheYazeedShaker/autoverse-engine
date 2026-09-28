@@ -24,6 +24,8 @@ export const FLAGS = {
   healthBuildInfo: "health_build_info",
   /** The whole showroom page (PAGE-CONSUMER-SHOWROOM). Distinct id = the brand-market subdomain. */
   pageShowroom: "page_showroom",
+  /** The compare page placeholder (slice 6) until PAGE-CONSUMER-COMPARE ships. Keyed like the page. */
+  pageCompare: "page_compare",
 } as const;
 
 export const FLAG_TIMEOUT_MS = 1500;

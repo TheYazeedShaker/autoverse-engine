@@ -3,6 +3,7 @@
 import {
   ModelCarousel,
   ModelDock,
+  CompareTray,
   SpecDrawer,
   useReducedMotion,
   type HeroModel,
@@ -13,6 +14,8 @@ import type { DrawerContent } from "../lib/showroom/drawer";
 import { createSpyHold, currentSection } from "../lib/showroom/spy";
 import { RangeExplorer, type RangeExplorerProps } from "./range-explorer";
 import { SpecDrawerContext } from "./spec-drawer-trigger";
+import { CompareContext, type CompareApi } from "./compare-controls";
+import { COMPARE_LIMIT, COMPARE_MIN, compareHref, toggleCompare } from "../lib/showroom/compare";
 
 // The showroom's interactive shell (spec §4, §5.3–5.5): the hero carousel, the model dock and the
 // range, sharing ONE active model.
@@ -42,6 +45,10 @@ export interface ShowroomExperienceProps {
   range: Omit<RangeExplorerProps, "onVisibleChange" | "lang" | "locale" | "numberingSystem">;
   /** Per trim id: its drawer content (resolved on the server) and its side-view image element. */
   drawers: Record<string, { content: DrawerContent; image: ReactNode | null }>;
+  /** Per trim id: its name and tray thumbnail, for the compare tray. */
+  compare: Record<string, { name: string; thumbnail: ReactNode | null }>;
+  /** The compare page, or null while its flag is off (Compare stays disabled). */
+  compareBase: string | null;
 }
 
 export function ShowroomExperience({
@@ -53,6 +60,8 @@ export function ShowroomExperience({
   backdrop,
   range,
   drawers,
+  compare,
+  compareBase,
 }: ShowroomExperienceProps) {
   const t = COPY[lang];
   // The spec drawer (slice 5): one at a time, for the trim whose "Technical data" was pressed. The
@@ -71,6 +80,17 @@ export function ShowroomExperience({
     [],
   );
   const drawer = drawerTrim ? drawers[drawerTrim] : undefined;
+  // Compare (slice 6): the trims picked for comparison, in pick order, shared by the cards' checkboxes
+  // and the tray. In memory for the visit.
+  const [compareSelected, setCompareSelected] = useState<string[]>([]);
+  const compareApi = useMemo<CompareApi>(
+    () => ({
+      selected: compareSelected,
+      atLimit: compareSelected.length >= COMPARE_LIMIT,
+      toggle: (trimId, on) => setCompareSelected((s) => toggleCompare(s, trimId, on)),
+    }),
+    [compareSelected],
+  );
   const reduced = useReducedMotion();
   const [activeId, setActiveId] = useState(hero[0]?.id ?? "");
   const [visibleIds, setVisibleIds] = useState<string[]>(() => dock.map((d) => d.id));
@@ -199,17 +219,37 @@ export function ShowroomExperience({
         className="bg-surface-panel px-4 pt-20 pb-36 sm:px-[6.5vw] lg:pt-16"
       >
         <div className="mx-auto max-w-[120rem]">
-          <SpecDrawerContext.Provider value={drawerApi}>
-            <RangeExplorer
-              {...range}
-              lang={lang}
-              locale={locale}
-              numberingSystem={numberingSystem}
-              onVisibleChange={setVisibleIds}
-            />
-          </SpecDrawerContext.Provider>
+          <CompareContext.Provider value={compareApi}>
+            <SpecDrawerContext.Provider value={drawerApi}>
+              <RangeExplorer
+                {...range}
+                lang={lang}
+                locale={locale}
+                numberingSystem={numberingSystem}
+                onVisibleChange={setVisibleIds}
+              />
+            </SpecDrawerContext.Provider>
+          </CompareContext.Provider>
         </div>
       </section>
+      <CompareTray
+        items={compareSelected
+          .map((id) => ({ id, item: compare[id] }))
+          .filter(
+            (x): x is { id: string; item: NonNullable<typeof x.item> } => x.item !== undefined,
+          )
+          .map(({ id, item }) => ({ id, name: item.name, thumbnail: item.thumbnail }))}
+        onRemove={(id) => setCompareSelected((s) => toggleCompare(s, id, false))}
+        href={compareHref(compareBase, compareSelected, lang)}
+        minToCompare={COMPARE_MIN}
+        labels={{
+          region: t.compareRegion,
+          remove: t.removeItem,
+          removeShort: t.remove,
+          compare: (n) => t.compareN(numbers(n, 0)),
+          status: (n) => t.compareStatus(numbers(n, 0), n),
+        }}
+      />
       {drawer ? (
         <SpecDrawer
           open={drawerOpen}

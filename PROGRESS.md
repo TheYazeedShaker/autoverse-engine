@@ -266,7 +266,22 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - The showroom lives at `/` of the preview address.
      - **Probably not the cause of the 404** (code review): Turbo filters the build process, while Vercel functions read runtime variables from the project settings; the `NEXT_PUBLIC_*` values reached the build anyway through Turbo's Next.js inference. The actual reason was not readable here (the Vercel connector can't see the project). The page now also logs `flag_eval_failed` with `reason: no_posthog_key` when the PostHog key is missing, which was the one silent path to a 404. The runbook's table maps the logged `showroom_not_found` reason to its fix.
    - #73 is merged. **The preview works end to end** (owner, 2026-09-26): at `/` it shows the demo brand, 5 models, 7 trims and the correct EGP prices, read live.
-   - **Open: slice 5, spec drawer** (2026-09-28; #79 brand logos merged, and the demo logo is registered). Two PRs, **merge #80 first**:
+   - **Open: slice 6, compare tray** (`feat/showroom-slice-6-compare`, 2026-09-28; #80 and #81 merged; the spec seed is verified: 2 tabs / 26 groups / 10 rows per model).
+     - `packages/ui`:
+       - **CompareToggle**: a native checkbox with its label, token-styled. At the limit it is disabled and says why.
+       - **CompareTray**: dark, fixed at the bottom centre; thumbnail, name and Remove per trim; a polite live count; "Compare N" from 2, and only with a link. Remove keeps focus in the tray.
+     - Consumer: `lib/showroom/compare.ts` (limit 3, min 2, link builder, `?trims=` parser); the shell holds the selection (in memory for the visit); each card's compare slot gets the checkbox.
+     - **Compare route placeholder** `/compare`, behind its own flag **`page_compare`** (default off): the showroom's gates, then that flag. It lists only published trims of this brand-market from `?trims=` (at most 3 uuids), says the comparison is coming, and links back; `noindex`.
+     - **Open (owner, thread posted):** the limit, 3 (spec) or 2 (the approved page). It's one constant.
+     - Code review (CHANGES REQUESTED) applied:
+       - removing the last trim returns focus to its card checkbox;
+       - at the limit the checkbox is `aria-disabled`, so it stays focusable and says why;
+       - "none selected" is announced;
+       - the compare flag is evaluated in parallel;
+       - one shared gate (`app/showroom-gate.ts`) for "/" and "/compare".
+     - Observability: `/compare` is a flagged placeholder. It logs `compare_view` and `compare_not_found`, and its failures page through the shared showroom gate (Sentry, ADR 0017). Its own metric and alert come with PAGE-CONSUMER-COMPARE.
+     - **Smoke finding (owner, 2026-09-28):** "Smoke (post-deploy)" has failed on every production deploy since 2026-09-26. Its home-page step expects 200 at `/`, but the production vercel.app host has no brand, so `/` correctly 404s. Health and the deployed commit were fine; it was not deployment protection. The fix is a replacement `smoke.yml` (health reports the deployed sha; the unknown host must get the brand-neutral 404 with no `data-showroom`), given to the owner because `.github/` is human-gated.
+   - **Slice 5, spec drawer** (#80 + #81, merged; #79 brand logos merged, and the demo logo is registered):
      - **#80, read path** (`feat/showroom-catalog-spec`): `showroom_catalog` returns `spec { tabs, groups, rows }` for published models.
        - Per-trim values: published trims only, well-formed only, `{en, ar}`.
        - A per-trim row with no published trim is left out.

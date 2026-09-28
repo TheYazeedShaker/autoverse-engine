@@ -29,7 +29,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@sentry/nextjs", () => ({ getIsolationScope: () => ({ setTag: state.setTag }) }));
 vi.mock("../lib/flags", () => ({
-  FLAGS: { pageShowroom: "page_showroom" },
+  FLAGS: { pageShowroom: "page_showroom", pageCompare: "page_compare" },
   isFlagEnabled: (...args: unknown[]) => state.flag(...args),
 }));
 // next/image's host checks and loader only exist inside Next; a plain <img> keeps the URL visible.
@@ -199,5 +199,39 @@ describe("showroom page", () => {
   it("errors (not 404) when the catalogue can't be read", async () => {
     state.source = { load: async () => Promise.reject(new Error("db down")) };
     await expect(Page()).rejects.toThrow("showroom_unavailable");
+  });
+});
+
+describe("showroom page: compare (slice 6)", () => {
+  beforeEach(() => {
+    vi.stubEnv("CONSUMER_ROOT_DOMAIN", "example.test");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    state.host = "demo.example.test";
+    state.source = { load: async (s) => (s === "demo" ? demoCatalog() : null) };
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("puts a Compare checkbox on every card, and asks page_compare for this subdomain", async () => {
+    state.flag.mockImplementation(async () => true);
+    state.flag.mockClear();
+    const html = renderToStaticMarkup(await Page());
+    expect(html.match(/type="checkbox"/g)?.length).toBe(3); // one per trim in the fixture
+    expect(state.flag).toHaveBeenCalledWith(
+      "page_compare",
+      "demo",
+      undefined,
+      undefined,
+      expect.any(String),
+    );
+  });
+
+  it("still renders when page_compare is off (the tray works; Compare stays disabled)", async () => {
+    state.flag.mockImplementation(async (flag) => flag === "page_showroom");
+    const html = renderToStaticMarkup(await Page());
+    expect(html).toContain('type="checkbox"');
   });
 });

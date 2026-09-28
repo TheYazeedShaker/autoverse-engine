@@ -51,6 +51,12 @@ export type {
 } from "./components/ModelCarousel";
 export { ModelDock } from "./components/ModelDock";
 export { TopBar } from "./components/TopBar";
+export { CompareTray, CompareToggle } from "./components/CompareTray";
+export type {
+  CompareTrayProps,
+  CompareTrayItem,
+  CompareToggleProps,
+} from "./components/CompareTray";
 export { SpecDrawer, SpecDrawerTrigger } from "./components/SpecDrawer";
 export type {
   SpecDrawerProps,
