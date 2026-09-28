@@ -1,8 +1,14 @@
-import { resolveTrimStats, type EfficiencyIconKind } from "@autoverse/engine-core";
+import {
+  resolveTrimStats,
+  type EfficiencyIconKind,
+  type LedgerRowFields,
+} from "@autoverse/engine-core";
 import type { Logger } from "../log";
 import type {
   CatalogAssetRow,
   CatalogModelRow,
+  CatalogSpecGroupRow,
+  CatalogSpecTabRow,
   CatalogSnapshot,
   CatalogTrimRow,
 } from "./catalog-schema";
@@ -72,6 +78,26 @@ export interface ShowroomModel {
   /** The lowest priced trim, or on request when none has a price. */
   fromPrice: Price;
   trims: ShowroomTrim[];
+  /** The spec ledger (slice 5): tabs → groups → rows, in order. Rows are resolved per trim. */
+  spec: SpecTab[];
+}
+
+export interface SpecRow {
+  key: Bilingual;
+  /** What resolveLedgerRow reads: the shared value, or the per-trim values. */
+  ledger: LedgerRowFields;
+}
+
+export interface SpecGroup {
+  title: Bilingual;
+  note: Bilingual | null;
+  rows: SpecRow[];
+}
+
+export interface SpecTab {
+  key: string;
+  title: Bilingual;
+  groups: SpecGroup[];
 }
 
 export interface FacetOption {
@@ -116,6 +142,8 @@ export function buildShowroom(snapshot: CatalogSnapshot, log: Logger): Showroom 
     return false;
   });
 
+  const spec = specOf(snapshot, modelIds, log, brand.slug);
+
   const models: ShowroomModel[] = [];
   const ordered = [...snapshot.models].sort(
     (a, b) => a.order_index - b.order_index || a.slug.localeCompare(b.slug),
@@ -145,6 +173,7 @@ export function buildShowroom(snapshot: CatalogSnapshot, log: Logger): Showroom 
       efficiency: efficiencyOf(model),
       fromPrice: lowestPrice(built.map((t) => t.price)),
       trims: built,
+      spec: spec(model.id),
     });
   }
 
@@ -170,6 +199,71 @@ export function buildShowroom(snapshot: CatalogSnapshot, log: Logger): Showroom 
       ),
     },
   };
+}
+
+/**
+ * The ledger nested per model: tabs → groups → rows, each sorted by order_index. A group whose tab,
+ * or a row whose group, isn't in the payload (or belongs to another model) is dropped and logged,
+ * like any other orphan. No ledger at all is a real state: the drawer shows its "data to come" note.
+ */
+function specOf(
+  snapshot: CatalogSnapshot,
+  modelIds: Set<string>,
+  log: Logger,
+  brandSlug: string,
+): (modelId: string) => SpecTab[] {
+  const ledger = snapshot.spec ?? { tabs: [], groups: [], rows: [] };
+  const byOrder = <T extends { order_index: number }>(a: T, b: T) => a.order_index - b.order_index;
+  const tabs = new Map<string, CatalogSpecTabRow>();
+  for (const t of ledger.tabs) {
+    if (modelIds.has(t.model_id)) tabs.set(t.id, t);
+    else log("warn", "showroom_payload_orphan", { brand: brandSlug, kind: "spec_tab" });
+  }
+  const groupsByTab = new Map<string, CatalogSpecGroupRow[]>();
+  // Only groups ACCEPTED here can hold rows: a row is checked against this, not the raw payload.
+  const acceptedGroups = new Map<string, CatalogSpecGroupRow>();
+  for (const g of [...ledger.groups].sort(byOrder)) {
+    const tab = tabs.get(g.tab_id);
+    if (!tab || tab.model_id !== g.model_id) {
+      log("warn", "showroom_payload_orphan", { brand: brandSlug, kind: "spec_group" });
+      continue;
+    }
+    groupsByTab.set(g.tab_id, [...(groupsByTab.get(g.tab_id) ?? []), g]);
+    acceptedGroups.set(g.id, g);
+  }
+  const rowsByGroup = new Map<string, SpecRow[]>();
+  for (const r of [...ledger.rows].sort(byOrder)) {
+    const group = acceptedGroups.get(r.group_id);
+    if (!group || group.model_id !== r.model_id) {
+      log("warn", "showroom_payload_orphan", { brand: brandSlug, kind: "spec_row" });
+      continue;
+    }
+    rowsByGroup.set(r.group_id, [
+      ...(rowsByGroup.get(r.group_id) ?? []),
+      {
+        key: { en: r.key_en, ar: r.key_ar },
+        ledger: {
+          scope: r.scope,
+          value_en: r.value_en,
+          value_ar: r.value_ar,
+          trim_values: r.trim_values,
+        },
+      },
+    ]);
+  }
+  return (modelId) =>
+    [...tabs.values()]
+      .filter((t) => t.model_id === modelId)
+      .sort(byOrder)
+      .map((t) => ({
+        key: t.key,
+        title: { en: t.title_en, ar: t.title_ar },
+        groups: (groupsByTab.get(t.id) ?? []).map((g) => ({
+          title: { en: g.title_en, ar: g.title_ar },
+          note: g.note_en !== null && g.note_ar !== null ? { en: g.note_en, ar: g.note_ar } : null,
+          rows: rowsByGroup.get(g.id) ?? [],
+        })),
+      }));
 }
 
 type VocabLookup = (key: string | null, kind: VocabKind) => VocabLabel | null;

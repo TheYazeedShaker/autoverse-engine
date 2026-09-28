@@ -1,10 +1,18 @@
 "use client";
 
-import { ModelCarousel, ModelDock, useReducedMotion, type HeroModel } from "@autoverse/ui";
+import {
+  ModelCarousel,
+  ModelDock,
+  SpecDrawer,
+  useReducedMotion,
+  type HeroModel,
+} from "@autoverse/ui";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { COPY, type Lang } from "../lib/showroom/copy";
+import type { DrawerContent } from "../lib/showroom/drawer";
 import { createSpyHold, currentSection } from "../lib/showroom/spy";
 import { RangeExplorer, type RangeExplorerProps } from "./range-explorer";
+import { SpecDrawerContext } from "./spec-drawer-trigger";
 
 // The showroom's interactive shell (spec §4, §5.3–5.5): the hero carousel, the model dock and the
 // range, sharing ONE active model.
@@ -32,6 +40,8 @@ export interface ShowroomExperienceProps {
   dock: DockEntry[];
   backdrop?: ReactNode;
   range: Omit<RangeExplorerProps, "onVisibleChange" | "lang" | "locale" | "numberingSystem">;
+  /** Per trim id: its drawer content (resolved on the server) and its side-view image element. */
+  drawers: Record<string, { content: DrawerContent; image: ReactNode | null }>;
 }
 
 export function ShowroomExperience({
@@ -42,8 +52,25 @@ export function ShowroomExperience({
   dock,
   backdrop,
   range,
+  drawers,
 }: ShowroomExperienceProps) {
   const t = COPY[lang];
+  // The spec drawer (slice 5): one at a time, for the trim whose "Technical data" was pressed. The
+  // last trim stays mounted while closed, so nothing jumps as it closes.
+  const [drawerTrim, setDrawerTrim] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null);
+  const drawerApi = useMemo(
+    () => ({
+      open: (trimId: string, trigger: HTMLElement | null) => {
+        setDrawerTrigger(trigger);
+        setDrawerTrim(trimId);
+        setDrawerOpen(true);
+      },
+    }),
+    [],
+  );
+  const drawer = drawerTrim ? drawers[drawerTrim] : undefined;
   const reduced = useReducedMotion();
   const [activeId, setActiveId] = useState(hero[0]?.id ?? "");
   const [visibleIds, setVisibleIds] = useState<string[]>(() => dock.map((d) => d.id));
@@ -172,15 +199,30 @@ export function ShowroomExperience({
         className="bg-surface-panel px-4 pt-20 pb-36 sm:px-[6.5vw] lg:pt-16"
       >
         <div className="mx-auto max-w-[120rem]">
-          <RangeExplorer
-            {...range}
-            lang={lang}
-            locale={locale}
-            numberingSystem={numberingSystem}
-            onVisibleChange={setVisibleIds}
-          />
+          <SpecDrawerContext.Provider value={drawerApi}>
+            <RangeExplorer
+              {...range}
+              lang={lang}
+              locale={locale}
+              numberingSystem={numberingSystem}
+              onVisibleChange={setVisibleIds}
+            />
+          </SpecDrawerContext.Provider>
         </div>
       </section>
+      {drawer ? (
+        <SpecDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          title={t.modelDetails}
+          {...drawer.content}
+          image={drawer.image}
+          imagePlaceholderLabel={t.imageComingSoon}
+          labels={{ close: t.close, configure: t.configure }}
+          returnFocusTo={drawerTrigger}
+          dir={lang === "ar" ? "rtl" : "ltr"}
+        />
+      ) : null}
     </>
   );
 }

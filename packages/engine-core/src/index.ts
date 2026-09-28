@@ -41,4 +41,10 @@ export {
   resolveTrimStats,
   rowDiffers,
 } from "./repositories";
-export type { EventInput, LeadInput, LedgerValue, ResolvedTrimStats } from "./repositories";
+export type {
+  EventInput,
+  LeadInput,
+  LedgerRowFields,
+  LedgerValue,
+  ResolvedTrimStats,
+} from "./repositories";

@@ -245,6 +245,9 @@ export class EventRepository extends BrandScopedRepository {
 // Spec ledger helpers
 // ---------------------------------------------------------------------------------------------
 
+/** The fields the ledger helpers read: a full `spec_rows` row, or the showroom read's projection of one. */
+export type LedgerRowFields = Pick<SpecRowRow, "scope" | "value_en" | "value_ar" | "trim_values">;
+
 export interface LedgerValue {
   en: string;
   ar: string;
@@ -255,7 +258,7 @@ export interface LedgerValue {
  * own entry for a per-trim one. Returns null when a per-trim row has nothing for this trim, which
  * is a real state (a spec that simply does not apply) rather than an error.
  */
-export function resolveLedgerRow(row: SpecRowRow, trimId: string): LedgerValue | null {
+export function resolveLedgerRow(row: LedgerRowFields, trimId: string): LedgerValue | null {
   if (row.scope === "all_trims") {
     return row.value_en !== null && row.value_ar !== null
       ? { en: row.value_en, ar: row.value_ar }
@@ -269,7 +272,7 @@ export function resolveLedgerRow(row: SpecRowRow, trimId: string): LedgerValue |
  * and a per-trim row differs only if its values are not all identical — two trims quoting the same
  * figure is not a difference worth showing a reader.
  */
-export function rowDiffers(row: SpecRowRow): boolean {
+export function rowDiffers(row: LedgerRowFields): boolean {
   if (row.scope === "all_trims") return false;
   const values = Object.values(row.trim_values ?? {});
   if (values.length < 2) return false;
