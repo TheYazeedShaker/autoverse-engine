@@ -135,6 +135,9 @@ export const carFrame = { sideFill: 0.8, heroFill: 0.8 } as const;
 // §5.3). Below `md` a slide is full width.
 export const heroCarousel = { slide: 0.92 } as const;
 
+// The showroom top bar's height (px). The hero fills the screen below it.
+export const topBar = { height: 64 } as const;
+
 // Border width. One hairline, used with --av-border for every divider and outline.
 export const borderWidth = { hairline: 1 } as const;
 

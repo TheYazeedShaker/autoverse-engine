@@ -50,6 +50,8 @@ export type {
   CountUpProps,
 } from "./components/ModelCarousel";
 export { ModelDock } from "./components/ModelDock";
+export { TopBar } from "./components/TopBar";
+export type { TopBarProps, TopBarLanguage } from "./components/TopBar";
 export type { ModelDockProps, DockModel } from "./components/ModelDock";
 export { semanticMotion } from "./motion";
 export { useReducedMotion } from "motion/react";

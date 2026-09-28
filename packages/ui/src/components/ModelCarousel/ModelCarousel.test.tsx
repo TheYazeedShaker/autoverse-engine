@@ -133,6 +133,28 @@ describe("ModelCarousel", () => {
     await waitFor(() => expect(current()).toHaveTextContent("Vela"));
   });
 
+  it("arrow keys work with nothing focused while the hero fills the screen, and not otherwise", async () => {
+    render(<Hero />);
+    const box = (top: number, bottom: number) =>
+      vi.spyOn(region(), "getBoundingClientRect").mockReturnValue({ top, bottom } as DOMRect);
+    (document.activeElement as HTMLElement | null)?.blur();
+    box(0, window.innerHeight);
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(current()).toHaveTextContent("Vela"));
+    // Scrolled away: the range owns the keys.
+    box(-2000, -1000);
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(current()).toHaveTextContent("Vela");
+    // A focused control (e.g. the search field) keeps its keys.
+    box(0, window.innerHeight);
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.focus();
+    fireEvent.keyDown(input, { key: "ArrowRight" });
+    expect(current()).toHaveTextContent("Vela");
+    input.remove();
+  });
+
   it("arrow keys inside the trim pill switch trims, not models", async () => {
     render(<Hero />);
     screen.getByRole("radio", { name: "Long Range" }).focus();

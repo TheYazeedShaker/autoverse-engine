@@ -199,20 +199,44 @@ export function ModelCarousel({
     else api?.scrollPrev(Boolean(reduced));
   };
 
+  /** Handles a key for the carousel; true when it was used. */
+  const handleKey = (key: string): boolean => {
+    if (key === "Escape") {
+      if (state === "trims") setState("focus");
+      else if (state === "focus") setState("browse");
+      return state !== "browse";
+    }
+    if (sparse || (key !== "ArrowLeft" && key !== "ArrowRight")) return false;
+    // Arrow keys follow the reading direction: in RTL the next model is to the left.
+    step((key === "ArrowRight") === (dir === "ltr") ? 1 : -1);
+    return true;
+  };
   const onKeyDown = (e: KeyboardEvent) => {
     // Keys a control inside the hero already handled (the trim pill's roving arrows) stay its own.
     if (e.defaultPrevented || (e.target as Element).closest?.("[role=radiogroup]")) return;
-    if (e.key === "Escape") {
-      if (state === "trims") setState("focus");
-      else if (state === "focus") setState("browse");
-      return;
-    }
-    if (sparse || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
-    // Arrow keys follow the reading direction: in RTL the next model is to the left.
-    const forward = (e.key === "ArrowRight") === (dir === "ltr");
-    e.preventDefault();
-    step(forward ? 1 : -1);
+    if (handleKey(e.key) && e.key !== "Escape") e.preventDefault();
   };
+
+  // Arrow keys also work when nothing is focused (the visitor clicked the car, or just arrived) and
+  // the hero fills the middle of the screen. Keys aimed at any focused control stay that control's.
+  // Assumes one hero per page (each mounted carousel listens; only one can span the middle).
+  const sectionRef = useRef<HTMLElement>(null);
+  const handleKeyRef = useRef(handleKey);
+  handleKeyRef.current = handleKey;
+  useEffect(() => {
+    const onWindowKey = (e: globalThis.KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const focused = document.activeElement;
+      if (focused && focused !== document.body) return;
+      const box = sectionRef.current?.getBoundingClientRect();
+      const middle = window.innerHeight / 2;
+      if (!box || box.top > middle || box.bottom < middle) return;
+      if (handleKeyRef.current(e.key)) e.preventDefault();
+    };
+    window.addEventListener("keydown", onWindowKey);
+    return () => window.removeEventListener("keydown", onWindowKey);
+  }, []);
 
   const active = models[activeIndex]!;
   const trimId = trimOf[active.id] ?? active.trims[0]?.id;
@@ -224,6 +248,7 @@ export function ModelCarousel({
 
   return (
     <section
+      ref={sectionRef}
       aria-roledescription="carousel"
       aria-label={labels.region}
       onKeyDown={onKeyDown}

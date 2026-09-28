@@ -125,6 +125,16 @@ describe("showroom page", () => {
     expect(warnings).toHaveLength(1);
   });
 
+  it("has the TopBar: wordmark, market chip, EN/AR links, and Book a test drive disabled", async () => {
+    const html = renderToStaticMarkup(await Page());
+    expect(html).toMatch(/<header[^>]*h-\(--av-topbar-height\)/);
+    expect(html).toContain("Demo Motors");
+    expect(html).toContain("EG · EGP");
+    expect(html).toMatch(/<a[^>]*href="\?lang=en"[^>]*aria-current="true"/);
+    expect(html).toMatch(/<a[^>]*href="\?lang=ar"/);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Book a Test Drive<\/button>/);
+  });
+
   it("renders Arabic, right-to-left, with ?lang=ar", async () => {
     const html = renderToStaticMarkup(
       await Page({ searchParams: Promise.resolve({ lang: "ar" }) }),

@@ -137,6 +137,7 @@
   --av-car-fill-side: 80%;
   --av-car-fill-hero: 80%;
   --av-hero-slide: 92%; /* the hero carousel slide from md: a 4% neighbour peek each side */
+  --av-topbar-height: 64px; /* the showroom top bar; the hero fills the screen below it */
 
   /* --- border width --- */
   --av-border-width: 1px; /* hairline — pair with --av-border */
