@@ -4,8 +4,10 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-26
-**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (#66) and the migrations #67 (price_amount), #68 (presentation fields) and #69 (attribute vocabulary) are **merged**. All five Tier B decisions are answered. The read path (#70, `showroom_catalog`, ADR 0018) is **merged** too. The wiring PR (slice 1b: the page reads `showroom_catalog`, plus the Vercel preview demo path) **waits for the owner’s merge**; slice 2 follows.
+**Last updated:** 2026-09-28
+**Last session:** **Interactive local session, runner OFF.** `PAGE-CONSUMER-SHOWROOM` slice 7 (LeadModal + capture contract) started: slices 1–6 are merged (#82 last). PR 1 of 3, `fix/capture-lead-cors`, **waits for the owner's merge**; three Tier B threads are open in `#build-decisions` (consent text source, publishable key delivery, openers). See _Next Session_ §0.
+
+**Earlier (2026-09-26):** `PAGE-CONSUMER-SHOWROOM` started. Access checks passed: the three approved copies in `design-approved/showroom/` and their `assets/`/`uploads/` images read fine, and `design/` was refused. Slice 1 (#66) and the migrations #67 (price_amount), #68 (presentation fields) and #69 (attribute vocabulary) are **merged**. All five Tier B decisions are answered. The read path (#70, `showroom_catalog`, ADR 0018) is **merged** too. The wiring PR (slice 1b: the page reads `showroom_catalog`, plus the Vercel preview demo path) **waits for the owner’s merge**; slice 2 follows.
 
 ---
 
@@ -266,7 +268,30 @@ found no path for an end user, anon or another brand to reach lead data. The pro
      - The showroom lives at `/` of the preview address.
      - **Probably not the cause of the 404** (code review): Turbo filters the build process, while Vercel functions read runtime variables from the project settings; the `NEXT_PUBLIC_*` values reached the build anyway through Turbo's Next.js inference. The actual reason was not readable here (the Vercel connector can't see the project). The page now also logs `flag_eval_failed` with `reason: no_posthog_key` when the PostHog key is missing, which was the one silent path to a 404. The runbook's table maps the logged `showroom_not_found` reason to its fix.
    - #73 is merged. **The preview works end to end** (owner, 2026-09-26): at `/` it shows the demo brand, 5 models, 7 trims and the correct EGP prices, read live.
-   - **Open: slice 6, compare tray** (`feat/showroom-slice-6-compare`, 2026-09-28; #80 and #81 merged; the spec seed is verified: 2 tabs / 26 groups / 10 rows per model).
+   - **Open: slice 7, LeadModal + capture contract** (2026-09-28). Three PRs, each against `main`, stop after each:
+     1. **`fix/capture-lead-cors` (open, waits for merge).** Finding: `capture-lead` and `ingest-event` answered the browser's CORS preflight with 405 and no CORS headers, so no page could ever submit (the contract's custom headers force a preflight).
+        - Now: `OPTIONS` → 204 first thing (`services/shared/cors.ts`: `*`, no credentials, the four contract headers, max-age 600); every answer carries the CORS header and `nosniff`.
+        - A top-level try/catch turns any throw into a logged 503 (`lead_unhandled_error` pages).
+        - `Origin: null` is refused as no caller.
+        - `X-Trace-Id` is kept only if `^[A-Za-z0-9-]{8,64}$`.
+        - ADR 0013 amended (why `*`, why no proxy), runbook verify step with a `curl`.
+        - Reviews: security APPROVE; code review CHANGES REQUESTED, all applied (unhandled-throw path, the tests type-checked, a `requireEnv` anchor).
+        - **Owner after merge:** redeploy both functions.
+        - Follow-up (security review, predates it): Turnstile is called before any rate limit, so a cheap per-address limit ahead of it is owed.
+        - Info: two brands could list the same origin; add a rule before any shared hosting.
+     2. **Read path (waits for Tier B 1 + 2):** consent text + version, and the publishable key, returned by `showroom_catalog`.
+     3. **Slice 7 UI:**
+        - TextField / Select / Checkbox / LeadModal in `packages/ui`;
+        - the capture client (one `submission_id` per submit, a fresh Turnstile token per attempt, backoff on 503/network, the six outcome states);
+        - EG phone normalisation to `+20`;
+        - the WhatsApp success state;
+        - openers behind the new flag `showroom_lead_capture` (default off).
+     - **Tier B open in `#build-decisions` (2026-09-28):**
+       - (1) **consent text source**: no column holds the lead consent text or its version; recommended A, an append-only `consent_texts` table. The EG wording is the owner's.
+       - (2) **publishable key delivery**: anon can't read `brand_publishable_keys`; recommended A, `showroom_catalog` returns `capture_key`.
+       - (3) **openers the design lacks**: the design has only the TopBar and footer; recommended A, hero / section header / drawer, not the card.
+     - Found: `packages/ui` has no TextField, Select or Checkbox yet (Tier 1 had nine other primitives); they come with PR 3.
+   - **Slice 6, compare tray: merged as #82** (`feat/showroom-slice-6-compare`, 2026-09-28; #80 and #81 merged; the spec seed is verified: 2 tabs / 26 groups / 10 rows per model).
      - `packages/ui`:
        - **CompareToggle**: a native checkbox with its label, token-styled. At the limit it is disabled and says why.
        - **CompareTray**: dark, fixed at the bottom centre; thumbnail, name and Remove per trim; a polite live count; "Compare N" from 2, and only with a link. Remove keeps focus in the tray.

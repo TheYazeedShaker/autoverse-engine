@@ -1,10 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": { "noEmit": true, "types": ["node"] },
   "include": [
     "lead.ts",
     "lead.test.ts",
     "public.test.ts",
+    "cors.test.ts",
+    "../shared/cors.ts",
     "../shared/public-caller.ts",
     "../shared/turnstile.ts"
   ]

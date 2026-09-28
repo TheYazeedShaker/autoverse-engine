@@ -64,3 +64,38 @@ learns which check failed. An anonymous caller is never handed a lead id.
   on id, leads on `submission_id`).
 - Two new edge secrets (`CAPTURE_GATEWAY_SECRET`, `CLIENT_HASH_SECRET`), one Vault entry
   (`capture_gateway_secret`, the same value as the gateway secret), and `TURNSTILE_SECRET_KEY`.
+
+## Amendment — CORS (2026-09-28, slice 7 of `PAGE-CONSUMER-SHOWROOM`)
+
+A brand page calls `capture-lead` (and, from slice 9, `ingest-event`) straight from the browser.
+The contract's custom headers make the browser send a preflight `OPTIONS` first; both functions
+answered it with 405 and no CORS headers, so no browser could ever submit.
+
+Both now answer the preflight with 204 (methods `POST, OPTIONS`; headers `content-type`,
+`x-autoverse-key`, `x-autoverse-market`, `x-trace-id`; max-age 600 s) and put
+`access-control-allow-origin: *` on every answer (`services/shared/cors.ts`).
+
+- **`*`, not a reflected origin.** CORS is not the access control here: the database admits a
+  caller only when key, `Origin` and market match a live brand-market's allowlist, and a
+  non-browser client ignores CORS anyway. The function can't know the allowlist without a database
+  call, and a preflight must not make one.
+- **No credentials.** Neither function reads cookies, so `allow-credentials` is never sent (it is
+  invalid with `*` in any case).
+- **Every answer means every answer.** Each function's handler runs inside one try/catch, so an
+  unexpected throw leaves as a logged 503 (`lead_unhandled_error` pages; `events_unhandled_error`)
+  with the CORS header, never as the runtime's bare 500 the page can't read. `Origin: null`, the
+  one throw a browser could trigger (sandboxed frames, some redirects), is now refused as no
+  caller (403) before anything parses it.
+- **The trace id is checked.** `X-Trace-Id` is caller-controlled and goes into every log line and
+  the response, so it is kept only if it matches `^[A-Za-z0-9-]{8,64}$`; otherwise a fresh UUID is
+  minted (no free text, PII or huge values in logs). Answers also carry `nosniff`.
+- **Preflights are not logged.** They carry no body and do nothing, and max-age 600 s keeps them
+  rare per visitor, so a line per preflight would be noise. A CORS break shows up as missing
+  `lead_captured` lines and the consumer's own client-side failure report (slice 7).
+- **Follow-up (security review, predates this change):** capture-lead calls Turnstile before the
+  database admits the caller, so any request with well-formed headers costs one outbound Turnstile
+  call. With `*`, any site can make its visitors' browsers do that. No data is exposed; the cost is
+  load and Turnstile quota. A cheap per-address limit ahead of the Turnstile call is the fix.
+- **Rejected: a same-origin proxy in the consumer app.** The function would then see the app
+  server's address, not the visitor's, which breaks the per-visitor rate limit and Turnstile's
+  `remoteip`, and the `Origin` check would be vouched for by our own server instead of the browser.

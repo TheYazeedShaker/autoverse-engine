@@ -36,6 +36,12 @@ it's the owner's to run.)
 
 ## 4. Verify
 
+- A preflight (`OPTIONS`, any origin) gets 204 with `access-control-allow-origin: *` and the
+  allowed headers `content-type, x-autoverse-key, x-autoverse-market, x-trace-id`. Without it a
+  browser never sends the POST. CORS is not the access control: the database checks the origin.
+  Check it with (replace the project ref; nothing secret is sent):
+  `curl -si -X OPTIONS https://<project-ref>.supabase.co/functions/v1/capture-lead -H "Origin: https://example.com" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type,x-autoverse-key,x-autoverse-market"`
+  → `HTTP/2 204` with the three `access-control-allow-*` headers. The same for `ingest-event`.
 - A request with no `X-Autoverse-Key` gets 403, and `lead_refused_no_caller` is logged.
 - A lead from the brand's page (valid Turnstile token, headers `X-Autoverse-Key` and
   `X-Autoverse-Market`) gets 201 `{status: "received"}`, and the lead appears for that brand.
@@ -44,7 +50,9 @@ it's the owner's to run.)
 
 ## Page contract (for the consumer app)
 
-- Headers: `X-Autoverse-Key: pk_…`, `X-Autoverse-Market: EG`. The browser sets `Origin`.
+- Headers: `X-Autoverse-Key: pk_…`, `X-Autoverse-Market: EG`. The browser sets `Origin`. The
+  page may also send `X-Trace-Id` and `Content-Type`; no other request header passes the
+  preflight, and no credentials (cookies) are sent or needed.
 - Lead body: the form fields, a `submission_id` minted once per submit and **reused on retry**,
   and `turnstile_token`. A Turnstile token is single-use, so a retry needs a fresh one.
 - Answers: 201 received · 403 not authorized / verification failed · 409 submission id reused ·

@@ -11,11 +11,13 @@
 // can't store. Events that fail the schema here are passed along as rejects, so they're
 // dead-lettered rather than lost. This function no longer holds a key that could write event_dlq.
 import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, preflightResponse } from "../shared/cors.ts";
 import { logger, requireEnv } from "../shared/log.ts";
 import {
   clientAddress,
   clientId,
   readPublicCaller,
+  readTraceId,
   refusalStatus,
 } from "../shared/public-caller.ts";
 import {
@@ -39,12 +41,34 @@ const DB_TIMEOUT_MS = 10_000;
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      ...corsHeaders(),
+    },
   });
 
 Deno.serve(async (request: Request) => {
+  // The browser's preflight for the page contract's custom headers (shared/cors.ts).
+  if (request.method === "OPTIONS") return preflightResponse();
+  const traceId = readTraceId(request.headers);
+  try {
+    return await handle(request, traceId);
+  } catch (error) {
+    // Nothing in handle() should throw (a client abort mid-body can). The page still gets an
+    // answer it can read (CORS included) and retries; events are idempotent on id. The error's
+    // name only: a message can quote request content.
+    log("error", "events_unhandled_error", {
+      trace_id: traceId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return json({ error: "Could not accept events.", trace_id: traceId }, 503);
+  }
+});
+
+async function handle(request: Request, traceId: string): Promise<Response> {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
-  const traceId = request.headers.get("x-trace-id") ?? crypto.randomUUID();
 
   const env = requireEnv((name) => Deno.env.get(name), REQUIRED);
   if (!env.ok) {
@@ -136,4 +160,4 @@ Deno.serve(async (request: Request) => {
   if (result.refused === "payload_too_large") return tooLarge("payload_db", payloadTooLarge);
   log("info", "events_ingested", { trace_id: traceId, market: caller.market, ...result });
   return json({ ...result, trace_id: traceId }, 202);
-});
+}
