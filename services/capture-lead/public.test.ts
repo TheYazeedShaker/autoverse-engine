@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clientAddress, clientId, readPublicCaller, refusalStatus } from "../shared/public-caller";
+import {
+  clientAddress,
+  clientId,
+  readPublicCaller,
+  readTraceId,
+  refusalStatus,
+} from "../shared/public-caller";
 import { TURNSTILE_VERIFY_URL, verifyTurnstile } from "../shared/turnstile";
 
 const KEY = "pk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -39,6 +45,39 @@ describe("readPublicCaller", () => {
         }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("readPublicCaller: the origin", () => {
+  const withOrigin = (origin: string) =>
+    readPublicCaller(new Headers({ "x-autoverse-key": KEY, origin, "x-autoverse-market": "EG" }));
+
+  it("refuses `Origin: null` and anything that isn't a bare http(s) origin", () => {
+    expect(withOrigin("null")).toBeNull();
+    expect(withOrigin("file://")).toBeNull();
+    expect(withOrigin("https://a.example.com/path")).toBeNull();
+    expect(withOrigin("not a url")).toBeNull();
+  });
+
+  it("accepts a browser origin, port included", () => {
+    expect(withOrigin("https://a.example.com")?.origin).toBe("https://a.example.com");
+    expect(withOrigin("http://localhost:3000")?.origin).toBe("http://localhost:3000");
+  });
+});
+
+describe("readTraceId", () => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  it("keeps a well-formed trace id", () => {
+    const id = "3f2b8c1e-9d4a-4e7b-8a61-0c5d2e9f1a7b";
+    expect(readTraceId(new Headers({ "x-trace-id": id }))).toBe(id);
+  });
+
+  it("replaces a missing, free-text or oversized one with a fresh UUID", () => {
+    expect(readTraceId(new Headers())).toMatch(UUID);
+    expect(readTraceId(new Headers({ "x-trace-id": "call me on +20 100 000 0000" }))).toMatch(UUID);
+    expect(readTraceId(new Headers({ "x-trace-id": "a".repeat(65) }))).toMatch(UUID);
+    expect(readTraceId(new Headers({ "x-trace-id": "short" }))).toMatch(UUID);
   });
 });
 

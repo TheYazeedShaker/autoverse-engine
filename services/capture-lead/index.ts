@@ -12,11 +12,13 @@
 // Before that call, this function does the one thing the database can't: the Turnstile bot check.
 // It then passes the gateway secret that proves the call came through here.
 import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, preflightResponse } from "../shared/cors.ts";
 import { logger, requireEnv } from "../shared/log.ts";
 import {
   clientAddress,
   clientId,
   readPublicCaller,
+  readTraceId,
   refusalStatus,
 } from "../shared/public-caller.ts";
 import { verifyTurnstile } from "../shared/turnstile.ts";
@@ -38,12 +40,34 @@ const SUBMISSION_REUSED = "23505";
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      ...corsHeaders(),
+    },
   });
 
 Deno.serve(async (request: Request) => {
+  // The browser's preflight for the page contract's custom headers (shared/cors.ts).
+  if (request.method === "OPTIONS") return preflightResponse();
+  const traceId = readTraceId(request.headers);
+  try {
+    return await handle(request, traceId);
+  } catch (error) {
+    // Nothing in handle() should throw. If something does, the visitor still gets an answer the
+    // page can read (CORS included) and can retry, and it pages: a lead is never lost silently.
+    // The error's name only: a message can quote request content.
+    log("error", "lead_unhandled_error", {
+      trace_id: traceId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return json({ error: "Could not capture the lead. Please try again.", trace_id: traceId }, 503);
+  }
+});
+
+async function handle(request: Request, traceId: string): Promise<Response> {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
-  const traceId = request.headers.get("x-trace-id") ?? crypto.randomUUID();
 
   const env = requireEnv((name) => Deno.env.get(name), REQUIRED);
   if (!env.ok) {
@@ -143,4 +167,4 @@ Deno.serve(async (request: Request) => {
         503,
       );
   }
-});
+}

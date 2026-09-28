@@ -17,8 +17,33 @@ export function readPublicCaller(headers: Headers): PublicCaller | null {
   const key = headers.get("x-autoverse-key")?.trim() ?? "";
   const origin = headers.get("origin")?.trim() ?? "";
   const market = headers.get("x-autoverse-market")?.trim().toUpperCase() ?? "";
-  if (!/^pk_[A-Za-z0-9]{32}$/.test(key) || !origin || !/^[A-Z]{2}$/.test(market)) return null;
+  if (!/^pk_[A-Za-z0-9]{32}$/.test(key) || !isWebOrigin(origin) || !/^[A-Z]{2}$/.test(market)) {
+    return null;
+  }
   return { key, origin, market };
+}
+
+/**
+ * An http(s) origin, as a browser sends it. `Origin: null` (sandboxed frames, some redirects) is
+ * no origin at all: no allowlist can name it, and later steps parse the origin as a URL.
+ */
+function isWebOrigin(origin: string): boolean {
+  if (!/^https?:\/\//i.test(origin)) return false;
+  try {
+    return new URL(origin).origin === origin.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The caller's trace id, if it looks like one (a UUID or similar: 8–64 letters, digits, dashes);
+ * otherwise a fresh one. The header is caller-controlled and goes into every log line and the
+ * response, so free text (PII included) or a huge value never gets through.
+ */
+export function readTraceId(headers: Headers): string {
+  const claimed = headers.get("x-trace-id")?.trim() ?? "";
+  return /^[A-Za-z0-9-]{8,64}$/.test(claimed) ? claimed : crypto.randomUUID();
 }
 
 /**
