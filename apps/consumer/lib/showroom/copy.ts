@@ -56,6 +56,20 @@ export const COPY = {
     modelDetails: "Model details",
     close: "Close",
     specPending: (brand: string) => `Data will be added once provided by ${brand}.`,
+    // Compare (slice 6, spec §5.9). `n` is the formatted number, `count` the number itself.
+    compare: "Compare",
+    compareRegion: "Comparison",
+    remove: "Remove",
+    removeItem: (name: string) => `Remove ${name}`,
+    compareN: (n: string) => `Compare ${n}`,
+    compareStatus: (n: string, count = Number.NaN) =>
+      count === 0
+        ? "No trims selected for comparison"
+        : `${n} ${count === 1 ? "trim" : "trims"} selected for comparison`,
+    compareLimit: "Two trims are compared at a time. Remove one to pick another.",
+    compareTitle: "Compare models",
+    compareSoon: "The side-by-side comparison is coming soon.",
+    backToRange: "Back to the range",
     previousModel: "Previous model",
     nextModel: "Next model",
     trim: "Trim",
@@ -159,6 +173,30 @@ export const COPY = {
     modelDetails: "تفاصيل الطراز",
     close: "إغلاق",
     specPending: (brand: string) => `ستُضاف البيانات فور توفرها من ${brand}.`,
+    compare: "قارن",
+    compareRegion: "المقارنة",
+    remove: "إزالة",
+    removeItem: (name: string) => `إزالة ${name}`,
+    compareN: (n: string) => `قارن ${n}`,
+    // Arabic plural forms (Intl.PluralRules "ar"): one, two, few (3–10), many (11–99), other.
+    compareStatus: (n: string, count = Number.NaN) => {
+      switch (new Intl.PluralRules("ar").select(count)) {
+        case "zero":
+          return "لا توجد فئات محددة للمقارنة";
+        case "one":
+          return "فئة واحدة محددة للمقارنة";
+        case "two":
+          return "فئتان محددتان للمقارنة";
+        case "few":
+          return `${n} فئات محددة للمقارنة`;
+        default:
+          return `${n} فئة محددة للمقارنة`;
+      }
+    },
+    compareLimit: "تتم المقارنة بين فئتين فقط. أزِل إحداهما لاختيار أخرى.",
+    compareTitle: "قارن الطرازات",
+    compareSoon: "المقارنة جنبًا إلى جنب قريبًا.",
+    backToRange: "العودة إلى التشكيلة",
     previousModel: "الطراز السابق",
     nextModel: "الطراز التالي",
     trim: "الفئة",

@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { ModelFacts } from "../lib/showroom/range";
 import { ShowroomExperience } from "./showroom-experience";
 import { TechnicalDataButton } from "./spec-drawer-trigger";
+import { CompareCheckbox } from "./compare-controls";
 
 // The shared shell: the dock shows only the models the filters leave visible, in their order, and
 // disappears below 2; the hero and the dock share one active model.
@@ -67,6 +68,10 @@ function shell() {
         ],
       }))}
       dock={MODELS.map((m) => ({ id: m.id, name: m.id, slug: m.id.toLowerCase() }))}
+      compareBase="/compare"
+      compare={Object.fromEntries(
+        MODELS.map((m) => [`${m.id}-t`, { name: `${m.id} Base`, thumbnail: null }]),
+      )}
       drawers={Object.fromEntries(
         MODELS.map((m) => [
           `${m.id}-t`,
@@ -115,6 +120,11 @@ function shell() {
                 trimId={`${m.id}-t`}
                 label={`Technical data ${m.id}`}
                 dir="ltr"
+              />
+              <CompareCheckbox
+                trimId={`${m.id}-t`}
+                label={`Compare ${m.id}`}
+                limitNote="Two trims are compared at a time."
               />
             </section>
           ),
@@ -177,5 +187,29 @@ describe("ShowroomExperience: the spec drawer", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe("ShowroomExperience: compare", () => {
+  it("a pair: Compare links at exactly 2, a third pick is refused, Remove unpicks the card", async () => {
+    shell();
+    expect(screen.queryByRole("region", { name: "Comparison" })).toBeNull();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Compare Zeta" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Compare Mid" }));
+    const tray = screen.getByRole("region", { name: "Comparison" });
+    expect(within(tray).getByText("Zeta Base")).toBeTruthy();
+    expect(within(tray).getByRole("link", { name: "Compare 2" }).getAttribute("href")).toBe(
+      "/compare?trims=Zeta-t,Mid-t",
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: "Compare Alpha" }));
+    // A third pick is refused: the pair is the limit (aria-disabled, so it stays focusable).
+    const third = screen.getByRole("checkbox", { name: "Compare Alpha" }) as HTMLInputElement;
+    expect(third.checked).toBe(false);
+    expect(third.getAttribute("aria-disabled")).toBe("true");
+    expect(within(tray).queryByText("Alpha Base")).toBeNull();
+    await userEvent.click(within(tray).getByRole("button", { name: "Remove Zeta Base" }));
+    expect(
+      (screen.getByRole("checkbox", { name: "Compare Zeta" }) as HTMLInputElement).checked,
+    ).toBe(false);
   });
 });

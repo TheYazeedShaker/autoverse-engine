@@ -1,21 +1,17 @@
 import { ModelSection, TopBar, VehicleCard } from "@autoverse/ui";
-import * as Sentry from "@sentry/nextjs";
-import { headers } from "next/headers";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { FLAGS, isFlagEnabled } from "../lib/flags";
-import { logger, traceIdFrom } from "../lib/log";
 import { cardProps, sectionProps } from "../lib/showroom/cards";
 import { COPY, type Lang } from "../lib/showroom/copy";
-import { previewSubdomain } from "../lib/showroom/host";
 import { assetBase, assetUrl } from "../lib/showroom/images";
-import { loadShowroomPage } from "../lib/showroom/load";
 import { facetGroups, modelFacts } from "../lib/showroom/range";
 import { ShowroomExperience } from "./showroom-experience";
+import { loadGatedShowroom } from "./showroom-gate";
 import { TechnicalDataButton } from "./spec-drawer-trigger";
+import { CompareCheckbox } from "./compare-controls";
 import { drawerContent } from "../lib/showroom/drawer";
 import { dirOf, langFrom } from "../lib/showroom/lang";
-import { configuredCatalogSource } from "../lib/showroom/source";
 import { breakpoints, carFrame, heroCarousel } from "@autoverse/tokens";
 
 // A missing ASSET_BASE_URL is logged once per server instance, not on every request.
@@ -55,21 +51,7 @@ export default async function Page({
 }: {
   searchParams?: Promise<{ lang?: string | string[] }>;
 } = {}) {
-  const h = await headers();
-  const traceId = traceIdFrom(h);
-  // One trace id end to end: our log lines, the flag's failure log, and any Sentry report.
-  Sentry.getIsolationScope().setTag("trace_id", traceId);
-  const log = logger("consumer-showroom", traceId);
-  const outcome = await loadShowroomPage({
-    host: h.get("host"),
-    rootDomain: process.env.CONSUMER_ROOT_DOMAIN,
-    previewSubdomain: previewSubdomain(process.env),
-    isEnabled: (subdomain) =>
-      isFlagEnabled(FLAGS.pageShowroom, subdomain, undefined, undefined, traceId),
-    source: await configuredCatalogSource(),
-    log,
-    traceId,
-  });
+  const { outcome, traceId, log } = await loadGatedShowroom("consumer-showroom");
 
   if (outcome.kind === "not_found") notFound();
   if (outcome.kind === "unavailable") {
@@ -78,11 +60,17 @@ export default async function Page({
     throw new Error("showroom_unavailable");
   }
 
-  const { showroom, themeCss, logos } = outcome;
+  const { showroom, themeCss, logos, subdomain } = outcome;
+  // The compare page placeholder has its own flag (slice 6), evaluated per request like the page's.
+  // Off, the tray still works and "Compare N" is disabled.
+  const [compareOn, params] = await Promise.all([
+    isFlagEnabled(FLAGS.pageCompare, subdomain, undefined, undefined, traceId),
+    searchParams,
+  ]);
   const logoSrc = logos.dark ? assetUrl(logos.dark, assetBase(process.env.ASSET_BASE_URL)) : null;
   // EN by default; `?lang=ar` renders Arabic/RTL. The TopBar's EN/AR switch links to the two; the
   // proxy passes the same choice to the layout for `<html lang dir>`.
-  const lang: Lang = langFrom((await searchParams)?.lang);
+  const lang: Lang = langFrom(params?.lang);
   const t = COPY[lang];
   const base = assetBase(process.env.ASSET_BASE_URL);
   if (
@@ -162,6 +150,33 @@ export default async function Page({
             }),
           }))}
           dock={showroom.models.map((m) => ({ id: m.id, name: m.name[lang], slug: m.slug }))}
+          // Compare (slice 6): the compare page only while its flag is on; per trim, its name and tray
+          // thumbnail.
+          compareBase={compareOn ? "/compare" : null}
+          compare={Object.fromEntries(
+            showroom.models.flatMap((model) =>
+              model.trims.map((trim) => {
+                const name = cardProps(model, trim, lang, showroom.market, t).title;
+                const src = trim.cardImage ? assetUrl(trim.cardImage.publicPath, base) : null;
+                return [
+                  trim.id,
+                  {
+                    name,
+                    thumbnail: src ? (
+                      <Image
+                        src={src}
+                        alt={t.sideView(name)}
+                        fill
+                        sizes="5rem"
+                        loading="lazy"
+                        className="object-contain"
+                      />
+                    ) : null,
+                  },
+                ];
+              }),
+            ),
+          )}
           // The spec drawer per trim (slice 5): the ledger resolved on the server for that trim, and
           // its side-view image (the same master as its card; ADR 0022).
           drawers={Object.fromEntries(
@@ -238,6 +253,13 @@ export default async function Page({
                                 className="object-contain object-bottom"
                               />
                             ) : null
+                          }
+                          compareSlot={
+                            <CompareCheckbox
+                              trimId={trim.id}
+                              label={t.compare}
+                              limitNote={t.compareLimit}
+                            />
                           }
                           technicalDataSlot={
                             <TechnicalDataButton

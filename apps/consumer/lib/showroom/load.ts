@@ -24,7 +24,7 @@ export type NotFoundReason =
   "host_unresolved" | "flag_off" | "source_unconfigured" | "unknown_subdomain";
 
 export type LoadOutcome =
-  | { kind: "ok"; showroom: Showroom; themeCss: string | null; logos: Logos }
+  | { kind: "ok"; showroom: Showroom; themeCss: string | null; logos: Logos; subdomain: string }
   | { kind: "not_found"; reason: NotFoundReason }
   | { kind: "unavailable" };
 
@@ -123,7 +123,7 @@ export async function loadShowroomPage(deps: LoadDeps): Promise<LoadOutcome> {
     models: showroom.models.length,
     duration_ms: now() - started,
   });
-  return { kind: "ok", showroom, themeCss: css, logos };
+  return { kind: "ok", showroom, themeCss: css, logos, subdomain };
 }
 
 /**
