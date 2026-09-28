@@ -55,7 +55,10 @@ begin
   msg := test_helpers.try(format(set_a, $v$logo_light_asset_ref = 'brand-a/_brand/logo-dark.a1b2c3d4.svg'$v$));
   if msg not like '%brand_themes_logo_light_format%' then raise exception 'FAIL: the dark mark was stored as the light one (%)', msg; end if;
   msg := test_helpers.try(format(set_a, $v$logo_dark_asset_ref = 'https://evil.example/logo-dark.a1b2c3d4.svg'$v$));
-  if msg not like '%brand_themes_logo_dark_format%' then raise exception 'FAIL: a URL was stored as a logo (%)', msg; end if;
+  -- Refused either way: the brand-folder trigger runs before the CHECK, so either may report it.
+  if msg not like '%brand_themes_logo_dark_format%' and msg not like '%brand_theme_logo_other_brand%' then
+    raise exception 'FAIL: a URL was stored as a logo (%)', msg;
+  end if;
   msg := test_helpers.try(format(set_a, $v$logo_dark_asset_ref = 'brand-a/models/logo-dark.a1b2c3d4.svg'$v$));
   if msg not like '%brand_themes_logo_dark_format%' then raise exception 'FAIL: a logo outside _brand/ was stored (%)', msg; end if;
 
