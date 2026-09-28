@@ -13,7 +13,9 @@
 --      figures, and its id).
 --   4. ADR 0018 amendment.
 --
--- Per-trim values are rebuilt as {en, ar} only, so nothing else stored in the jsonb can pass through.
+-- Per-trim values are rebuilt as {en, ar} only, so nothing else stored in the jsonb can pass through;
+-- a malformed value is dropped (not the whole read), and a per-trim row with no published trim is
+-- left out entirely, so its label can't announce a pre-launch trim (security review).
 -- The function body is otherwise unchanged from 20260926170000; grants and comment are re-stated.
 
 create or replace function public.showroom_catalog(p_subdomain text)
@@ -55,9 +57,26 @@ as $fn$
     select g.* from public.spec_groups g
       join st on g.tab_id = st.id and g.model_id = st.model_id and g.brand_id = st.brand_id
   ),
+  -- A per-trim value the page may show: a PUBLISHED trim of this model, and exactly two strings.
+  -- (The database doesn't enforce the {en, ar} shape at write time, so a malformed entry is dropped
+  -- here rather than breaking the whole catalogue's parse on the page.)
+  tv as (
+    select r.id as row_id, e.key, e.value
+      from public.spec_rows r
+      join sg on r.group_id = sg.id and r.model_id = sg.model_id and r.brand_id = sg.brand_id
+      cross join lateral jsonb_each(r.trim_values) e
+     where r.scope = 'per_trim'
+       and jsonb_typeof(e.value) = 'object'
+       and jsonb_typeof(e.value -> 'en') = 'string'
+       and jsonb_typeof(e.value -> 'ar') = 'string'
+       and exists (select 1 from t where t.id::text = e.key and t.model_id = r.model_id)
+  ),
+  -- A per-trim row with nothing for any published trim is left out entirely: its label alone
+  -- ("Launch Edition carbon pack") would announce a pre-launch trim.
   sr as (
     select r.* from public.spec_rows r
       join sg on r.group_id = sg.id and r.model_id = sg.model_id and r.brand_id = sg.brand_id
+     where r.scope = 'all_trims' or exists (select 1 from tv where tv.row_id = r.id)
   )
   select jsonb_build_object(
     'brand', (
@@ -152,12 +171,12 @@ as $fn$
           'id', sr.id, 'group_id', sr.group_id, 'model_id', sr.model_id,
           'key_en', sr.key_en, 'key_ar', sr.key_ar, 'scope', sr.scope,
           'value_en', sr.value_en, 'value_ar', sr.value_ar,
-          -- Per-trim values of PUBLISHED trims only, rebuilt as {en, ar}.
-          'trim_values', case when sr.scope = 'per_trim' then coalesce((
-              select jsonb_object_agg(e.key, jsonb_build_object('en', e.value ->> 'en', 'ar', e.value ->> 'ar'))
-                from jsonb_each(sr.trim_values) e
-               where e.key in (select t.id::text from t where t.model_id = sr.model_id)
-            ), '{}'::jsonb) end,
+          -- Per-trim values of PUBLISHED trims only, well-formed only, rebuilt as {en, ar}. Never
+          -- empty: a per-trim row with none is left out above.
+          'trim_values', case when sr.scope = 'per_trim' then (
+              select jsonb_object_agg(tv.key, jsonb_build_object('en', tv.value ->> 'en', 'ar', tv.value ->> 'ar'))
+                from tv where tv.row_id = sr.id
+            ) end,
           'order_index', sr.order_index)
           order by sr.model_id, sr.group_id, sr.order_index, sr.id)
           from sr), '[]'::jsonb)

@@ -4,7 +4,8 @@
 --   * brand A's subdomain never returns brand B's ledger (not even its ids), and vice versa;
 --   * an unpublished model's ledger never appears;
 --   * a per-trim value keyed to an UNPUBLISHED trim is stripped (no pre-launch figures, no trim id);
---   * per-trim values come back as {en, ar} only, whatever else the stored jsonb holds;
+--   * per-trim values come back as {en, ar} only, whatever else the stored jsonb holds; a malformed
+--     value is dropped (not the read), and a per-trim row with no published trim is absent entirely;
 --   * only the page-rendered keys (exact key sets for tabs, groups, rows).
 -- A violation RAISES EXCEPTION. Rolls back, so no fixture data persists.
 
@@ -45,7 +46,15 @@ insert into public.spec_rows (id, brand_id, model_id, group_id, key_en, key_ar, 
   ('00000000-0000-0000-0000-00000025a0c3', '00000000-0000-0000-0000-0000000025aa', '00000000-0000-0000-0000-00000025a002', '00000000-0000-0000-0000-00000025a0b2',
    'Draft row', 'مسودة', 'all_trims', 'hidden', 'hidden', null, 1),
   ('00000000-0000-0000-0000-00000025b0c1', '00000000-0000-0000-0000-0000000025bb', '00000000-0000-0000-0000-00000025b001', '00000000-0000-0000-0000-00000025b0b1',
-   'B row', 'ب', 'all_trims', 'b-value', 'b-value', null, 1);
+   'B row', 'ب', 'all_trims', 'b-value', 'b-value', null, 1),
+  -- A per-trim row for the DRAFT trim only: its label must not appear at all.
+  ('00000000-0000-0000-0000-00000025a0c4', '00000000-0000-0000-0000-0000000025aa', '00000000-0000-0000-0000-00000025a001', '00000000-0000-0000-0000-00000025a0b1',
+   'Launch pack', 'باقة الإطلاق', 'per_trim', null, null,
+   jsonb_build_object('00000000-0000-0000-0000-00000025a102', jsonb_build_object('en', 'Carbon', 'ar', 'كربون')), 3),
+  -- A malformed per-trim value (no "ar") for the published trim: dropped, not the whole read.
+  ('00000000-0000-0000-0000-00000025a0c5', '00000000-0000-0000-0000-0000000025aa', '00000000-0000-0000-0000-00000025a001', '00000000-0000-0000-0000-00000025a0b1',
+   'Malformed', 'مشوه', 'per_trim', null, null,
+   jsonb_build_object('00000000-0000-0000-0000-00000025a101', jsonb_build_object('en', 'only-en')), 4);
 
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
@@ -89,6 +98,17 @@ begin
   end if;
   if power::text like '%cost-sheet%' then
     raise exception 'FAIL: an extra key in trim_values passed through: %', power;
+  end if;
+
+  -- ---- a per-trim row with no published trim is absent, label and all ----
+  if (a -> 'spec')::text like '%Launch pack%' or (a -> 'spec')::text like '%باقة الإطلاق%'
+     or (a -> 'spec')::text like '%Carbon%' then
+    raise exception 'FAIL: a draft-trim-only row''s label leaked: %', a -> 'spec' -> 'rows';
+  end if;
+
+  -- ---- a malformed value is dropped without breaking the read ----
+  if (a -> 'spec')::text like '%only-en%' or (a -> 'spec')::text like '%Malformed%' then
+    raise exception 'FAIL: a malformed per-trim value (or its now-empty row) was returned: %', a -> 'spec' -> 'rows';
   end if;
 
   -- ---- exact key sets ----
