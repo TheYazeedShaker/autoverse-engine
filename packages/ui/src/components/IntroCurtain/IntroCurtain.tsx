@@ -133,7 +133,12 @@ export function IntroCurtain({
       data-intro-curtain
       aria-hidden="true"
       initial={false}
-      animate={{ y: phase === "lifting" ? semanticMotion.curtainLift.offstage : "0%" }}
+      animate={{
+        transform:
+          phase === "lifting"
+            ? semanticMotion.curtainLift.offstage
+            : semanticMotion.curtainLift.onstage,
+      }}
       transition={fast ? semanticMotion.curtainSkip : semanticMotion.curtainLift}
       onAnimationComplete={() => {
         if (phase === "lifting") setPhase("gone");

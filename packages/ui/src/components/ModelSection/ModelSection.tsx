@@ -77,7 +77,7 @@ export function ModelSection({
                   <Icon
                     icon={ChevronDown}
                     size="sm"
-                    className="transition-transform duration-(--av-dur) ease-(--av-ease) group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+                    className="transition-transform duration-(--av-dur-move) ease-(--av-ease-move) group-data-[state=open]:rotate-180 motion-reduce:transition-none"
                   />
                 </span>
               </span>

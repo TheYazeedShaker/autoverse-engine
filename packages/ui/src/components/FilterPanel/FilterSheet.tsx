@@ -15,7 +15,7 @@ import { FilterPanel, type FilterPanelProps } from "./FilterPanel";
 // and focus return to the trigger are Radix's, not hand-rolled. The sheet's own button ("Show 4
 // models") closes it; filters apply live, so there is nothing to confirm.
 //
-// Slice 8: it slides up from the bottom over a fading scrim (overlayIn/overlayOut; instant under
+// Slice 8: it slides up from the bottom over a fading scrim (the overlay motion pair; instant under
 // reduced motion), and it closes itself when the window grows to the sidebar's breakpoint (lg), where
 // the sheet's trigger is no longer shown.
 
@@ -85,7 +85,7 @@ export function FilterSheet({
             <Dialog.Overlay asChild forceMount>
               <motion.div
                 className="bg-surface-dark/45 fixed inset-0 z-30"
-                {...overlayScrim(reduced)}
+                {...overlayScrim(reduced, "sheet")}
               />
             </Dialog.Overlay>
             <Dialog.Content

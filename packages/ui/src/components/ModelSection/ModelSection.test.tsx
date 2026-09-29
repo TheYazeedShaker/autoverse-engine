@@ -71,7 +71,7 @@ describe("ModelSection", () => {
   it("uses the motion tokens, and never letter-spaces Arabic", () => {
     const c = section();
     const chevron = c.querySelector("svg")!;
-    expect(chevron).toHaveClass("duration-(--av-dur)", "motion-reduce:transition-none");
+    expect(chevron).toHaveClass("duration-(--av-dur-move)", "motion-reduce:transition-none");
     expect(within(c).getByText("Aurora GT")).toHaveClass("rtl:tracking-normal");
   });
 

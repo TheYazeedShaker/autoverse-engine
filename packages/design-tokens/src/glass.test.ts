@@ -51,26 +51,74 @@ describe("glass: foregrounds meet AA over any backdrop (ADR 0026)", () => {
   });
 });
 
-describe("motion tokens: TS and CSS agree", () => {
+describe("motion tokens: TS and CSS agree, and they are the only ones (ADR 0026)", () => {
   const css = readFileSync(new URL("./tokens.css", import.meta.url), "utf8");
-  it.each([
+  const pairs: [string, string][] = [
     ["--av-dur-overlay", `${motion.durationOverlay}ms`],
+    ["--av-ease-overlay", motion.easingOverlay],
+    ["--av-dur-modal", `${motion.durationModal}ms`],
+    ["--av-ease-modal", motion.easingModal],
+    ["--av-dur-move", `${motion.durationMove}ms`],
+    ["--av-ease-move", motion.easingMove],
     ["--av-dur-reveal", `${motion.durationReveal}ms`],
-    ["--av-dur-curtain", `${motion.durationCurtain}ms`],
-    ["--av-dur-entrance", `${motion.durationEntrance}ms`],
-    ["--av-dur-count", `${motion.durationCount}ms`],
+    ["--av-ease-reveal", motion.easingReveal],
     ["--av-stagger-reveal", `${motion.staggerReveal}ms`],
-    ["--av-delay-entrance", `${motion.delayEntrance}ms`],
-    ["--av-dur-overlay-out", `${motion.durationOverlayOut}ms`],
+    ["--av-dur-curtain", `${motion.durationCurtain}ms`],
     ["--av-dur-curtain-hold", `${motion.durationCurtainHold}ms`],
     ["--av-dur-curtain-hold-max", `${motion.durationCurtainHoldMax}ms`],
-    ["--av-ease-gentle", motion.easingGentle],
     ["--av-delay-curtain-failsafe", `${motion.delayCurtainFailsafe}ms`],
-    ["--av-ease-reveal", motion.easingReveal],
-    ["--av-ease-curtain", motion.easingCurtain],
-    ["--av-ease-entrance", motion.easingEntrance],
-    ["--av-ease-decelerate", motion.easingDecelerate],
-  ])("%s", (name, value) => {
+  ];
+  it.each(pairs)("%s", (name, value) => {
     expect(css).toContain(`${name}: ${value};`);
+  });
+
+  it("the TS motion object holds exactly the standard's keys", () => {
+    expect(Object.keys(motion).sort()).toEqual(
+      [
+        "durationOverlay",
+        "easingOverlay",
+        "durationModal",
+        "easingModal",
+        "durationMove",
+        "easingMove",
+        "durationReveal",
+        "easingReveal",
+        "staggerReveal",
+        "durationCurtain",
+        "durationCurtainHold",
+        "durationCurtainHoldMax",
+        "delayCurtainFailsafe",
+        "distanceEntrance",
+        "distanceOverlay",
+      ].sort(),
+    );
+  });
+
+  it("no other duration or easing token exists", () => {
+    const declared = [...css.matchAll(/(--av-(?:dur|ease|stagger|delay)[a-z-]*)[ ]*:/g)].map(
+      (m) => m[1],
+    );
+    expect(new Set(declared)).toEqual(new Set(pairs.map(([n]) => n)));
+  });
+
+  it("never ease-in: every curve starts at full speed or eases in and out", () => {
+    for (const curve of [
+      motion.easingOverlay,
+      motion.easingModal,
+      motion.easingMove,
+      motion.easingReveal,
+    ]) {
+      const [x1, y1] = curve.slice(13, -1).split(",").map(Number) as [number, number];
+      // An ease-in curve starts slow: its first control point lies under the diagonal (y1 < x1).
+      // The move curve is ease-in-out (symmetric), allowed for on-screen movement.
+      if (curve !== motion.easingMove) expect(y1, curve).toBeGreaterThanOrEqual(x1);
+    }
+  });
+
+  it("the curtain holds at least 1.2 s and the failsafe is above hold max + lift", () => {
+    expect(motion.durationCurtainHold).toBe(1200);
+    expect(motion.delayCurtainFailsafe).toBeGreaterThan(
+      motion.durationCurtainHoldMax + motion.durationCurtain,
+    );
   });
 });

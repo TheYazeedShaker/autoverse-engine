@@ -45,7 +45,7 @@ export function ModelDock({ models, activeId, onPick, label, shown, className }:
       inert={!shown}
       data-shown={shown}
       className={cn(
-        "pointer-events-none sticky top-3.5 z-20 flex h-0 justify-center transition-[opacity,transform] duration-(--av-dur-slow) ease-(--av-ease) motion-reduce:transition-none",
+        "pointer-events-none sticky top-3.5 z-20 flex h-0 justify-center transition-[opacity,transform] duration-(--av-dur-modal) ease-(--av-ease-modal) motion-reduce:transition-none",
         shown ? "translate-y-0 opacity-100" : "-translate-y-3.5 opacity-0",
         className,
       )}
@@ -76,7 +76,7 @@ export function ModelDock({ models, activeId, onPick, label, shown, className }:
                       onPick(m.id);
                     }}
                     className={cn(
-                      "focus-visible:ring-focus-ring relative block rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none lg:px-4 lg:py-2.5 lg:text-base",
+                      "focus-visible:ring-focus-ring relative block rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none lg:px-4 lg:py-2.5 lg:text-base",
                       on ? "text-on-dark" : "text-on-surface",
                     )}
                   >

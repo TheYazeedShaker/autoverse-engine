@@ -151,7 +151,7 @@ export function LeadModal({
             <Dialog.Overlay asChild forceMount>
               <motion.div
                 className="bg-surface-dark/45 fixed inset-0 z-40 backdrop-blur-xs"
-                {...overlayScrim(reduced)}
+                {...overlayScrim(reduced, "modal")}
               />
             </Dialog.Overlay>
             <Dialog.Content

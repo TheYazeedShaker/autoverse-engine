@@ -60,7 +60,7 @@ export function CompareToggle({
         <span
           aria-hidden="true"
           className={cn(
-            "grid size-4.5 shrink-0 place-items-center rounded-sm border transition-colors duration-(--av-dur-fast) ease-(--av-ease) motion-reduce:transition-none",
+            "grid size-4.5 shrink-0 place-items-center rounded-sm border transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) motion-reduce:transition-none",
             checked ? "bg-accent border-accent text-on-accent" : "border-fg/35 bg-transparent",
           )}
         >

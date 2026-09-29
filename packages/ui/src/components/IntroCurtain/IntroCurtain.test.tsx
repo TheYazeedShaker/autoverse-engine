@@ -97,7 +97,7 @@ describe("IntroCurtain: never covers the page for good (code review)", () => {
     const css = readFileSync(join(__dirname, "..", "..", "styles", "tailwind.css"), "utf8");
     expect(css).toContain("@keyframes av-curtain-failsafe");
     expect(css).toContain(
-      "animation: av-curtain-failsafe var(--av-dur-fast) linear var(--av-delay-curtain-failsafe) forwards;",
+      "animation: av-curtain-failsafe var(--av-dur-move) linear var(--av-delay-curtain-failsafe) forwards;",
     );
   });
 

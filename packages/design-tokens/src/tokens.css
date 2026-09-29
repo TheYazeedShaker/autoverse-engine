@@ -147,28 +147,20 @@
   --av-shadow-md: 0 4px 12px rgba(8, 9, 10, 0.08);
   --av-shadow-lg: 0 12px 32px rgba(8, 9, 10, 0.12);
 
-  /* --- motion (the Framer-Motion contract) --- */
-  --av-dur-fast: 150ms;
-  --av-dur: 220ms;
-  --av-dur-slow: 600ms;
-  --av-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  /* the approved showroom's timings (slice 8, ADR 0026) */
-  --av-dur-overlay: 700ms;
-  --av-dur-reveal: 650ms;
-  --av-dur-curtain: 800ms;
-  --av-dur-entrance: 1600ms;
-  --av-dur-count: 1750ms;
+  /* --- motion: the showroom motion standard (ADR 0026), the ONLY motion tokens --- */
+  --av-dur-overlay: 500ms; /* drawer, filter sheet, their backdrop; enter = exit */
+  --av-ease-overlay: cubic-bezier(0.32, 0.72, 0, 1);
+  --av-dur-modal: 300ms; /* lead modal and backdrop (enter = exit); hovers, state, the dock appearing */
+  --av-ease-modal: cubic-bezier(0.23, 1, 0.32, 1);
+  --av-dur-move: 250ms; /* on-screen movement */
+  --av-ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+  --av-dur-reveal: 500ms; /* scroll reveals, car entrance, count-ups */
+  --av-ease-reveal: cubic-bezier(0.23, 1, 0.32, 1);
   --av-stagger-reveal: 120ms;
-  --av-dur-overlay-out: 480ms;
+  --av-dur-curtain: 800ms; /* the curtain's lift, on --av-ease-overlay */
   --av-dur-curtain-hold: 1200ms;
   --av-dur-curtain-hold-max: 1800ms;
-  --av-delay-entrance: 75ms;
   --av-delay-curtain-failsafe: 3200ms;
-  --av-ease-reveal: cubic-bezier(0.2, 0.6, 0.2, 1);
-  --av-ease-curtain: cubic-bezier(0.65, 0, 0.35, 1);
-  --av-ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
-  --av-ease-gentle: cubic-bezier(0.16, 1, 0.3, 1);
-  --av-ease-decelerate: cubic-bezier(0.33, 1, 0.68, 1);
 
   /* --- glass: a tinted panel over moving content (the dock); AA over any backdrop (ADR 0026) --- */
   --av-glass-light-alpha: 55%;

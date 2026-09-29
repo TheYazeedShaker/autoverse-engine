@@ -78,7 +78,7 @@ export function TopBar({
                   lang={l.code}
                   aria-current={l.current ? "true" : undefined}
                   className={cn(
-                    "focus-visible:ring-focus-ring block rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
+                    "focus-visible:ring-focus-ring block rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
                     l.current
                       ? "bg-surface text-on-surface"
                       : "text-on-dark-soft hover:text-on-dark",

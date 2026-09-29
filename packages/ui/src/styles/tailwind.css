@@ -6,6 +6,11 @@
    so surface theming keeps working. The --av-* vars themselves come from tokens.css, imported
    alongside this file by the consumer (Storybook preview / the app). */
 @theme inline {
+  /* Every bare transition utility (transition, transition-colors, …) is hover or state feedback:
+     it uses the modal pair, the quick ease-out, so nothing falls back to Tailwind's own 150 ms
+     default (ADR 0026, the motion standard). */
+  --default-transition-duration: var(--av-dur-modal);
+  --default-transition-timing-function: var(--av-ease-modal);
   /* surfaces + foregrounds (the §4.2 pairs) */
   --color-surface: var(--av-surface);
   --color-surface-panel: var(--av-surface-panel);
@@ -105,7 +110,7 @@
   }
 }
 .av-curtain-failsafe {
-  animation: av-curtain-failsafe var(--av-dur-fast) linear var(--av-delay-curtain-failsafe) forwards;
+  animation: av-curtain-failsafe var(--av-dur-move) linear var(--av-delay-curtain-failsafe) forwards;
 }
 /* Reduced motion: the curtain is never shown (motion-reduce:hidden), so no failsafe runs. */
 @media (prefers-reduced-motion: reduce) {

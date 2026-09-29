@@ -24,7 +24,7 @@ import { Icon } from "../Icon";
 //
 // Data-free: the app resolves the ledger for the trim (resolveLedgerRow) and passes strings. The car
 // is the app's image element, drawn in the side-view frame (the same box as the cards; ADR 0022).
-// Slice 8: it slides in from the inline end over a fading scrim and back out (overlayIn/overlayOut,
+// Slice 8: it slides in from the inline end over a fading scrim and back out (the overlay motion pair,
 // src/overlay-motion.ts); instant under reduced motion.
 
 export interface SpecDrawerRow {
@@ -113,7 +113,7 @@ export function SpecDrawer({
             <Dialog.Overlay asChild forceMount>
               <motion.div
                 className="bg-surface-dark/45 fixed inset-0 z-40 backdrop-blur-xs"
-                {...overlayScrim(reduced)}
+                {...overlayScrim(reduced, "side")}
               />
             </Dialog.Overlay>
             <Dialog.Content
@@ -177,7 +177,7 @@ export function SpecDrawer({
                           <Tabs.Trigger
                             key={tab.key}
                             value={tab.key}
-                            className="text-fg-muted data-[state=active]:text-fg data-[state=active]:border-accent focus-visible:ring-focus-ring -mb-px border-b-2 border-transparent px-0.5 py-3 text-sm tracking-[0.08em] uppercase transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 data-[state=active]:font-semibold motion-reduce:transition-none rtl:tracking-normal"
+                            className="text-fg-muted data-[state=active]:text-fg data-[state=active]:border-accent focus-visible:ring-focus-ring -mb-px border-b-2 border-transparent px-0.5 py-3 text-sm tracking-[0.08em] uppercase transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 data-[state=active]:font-semibold motion-reduce:transition-none rtl:tracking-normal"
                           >
                             {tab.label}
                           </Tabs.Trigger>
@@ -240,7 +240,7 @@ function TabBody({ tab }: { tab: SpecDrawerTab }) {
                 <Icon
                   icon={ChevronDown}
                   size="sm"
-                  className="transition-transform duration-(--av-dur) ease-(--av-ease) group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+                  className="transition-transform duration-(--av-dur-move) ease-(--av-ease-move) group-data-[state=open]:rotate-180 motion-reduce:transition-none"
                 />
               </span>
             </Collapsible.Trigger>

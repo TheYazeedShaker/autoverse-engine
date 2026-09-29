@@ -295,7 +295,7 @@ export function ModelCarousel({
                     aria-current={on ? "true" : undefined}
                     onClick={() => go(i)}
                     className={cn(
-                      "focus-visible:ring-focus-ring rounded-sm p-0.5 whitespace-nowrap transition-colors duration-(--av-dur) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
+                      "focus-visible:ring-focus-ring rounded-sm p-0.5 whitespace-nowrap transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
                       on
                         ? "text-on-dark text-xl font-semibold lg:text-3xl"
                         : "text-on-dark-muted hover:text-on-dark text-sm lg:text-xl",
@@ -350,7 +350,7 @@ export function ModelCarousel({
                 >
                   <div
                     className={cn(
-                      "relative w-[min(100cqw,calc(100cqh*16/9))] transition-opacity duration-(--av-dur-slow) ease-(--av-ease) motion-reduce:transition-none",
+                      "relative w-[min(100cqw,calc(100cqh*16/9))] transition-opacity duration-(--av-dur-move) ease-(--av-ease-move) motion-reduce:transition-none",
                       on ? "opacity-100" : "opacity-40",
                     )}
                   >

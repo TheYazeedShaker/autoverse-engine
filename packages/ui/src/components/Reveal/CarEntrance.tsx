@@ -25,7 +25,12 @@ export function CarEntrance({ children, className }: { children: ReactNode; clas
       data-car-image
       className={className}
       initial={false}
-      animate={waiting ? { opacity: 0, x: `-${distance}` } : { opacity: 1, x: 0 }}
+      // The transform property itself, with matching units: it runs on the compositor.
+      animate={
+        waiting
+          ? { opacity: 0, transform: `translate(-${distance}, 0rem)` }
+          : { opacity: 1, transform: "translate(0rem, 0rem)" }
+      }
       transition={animate && !reduced ? { duration, ease, delay } : { duration: 0 }}
     >
       {children}

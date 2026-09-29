@@ -14,25 +14,60 @@ names the semantic layer this grows.
 
 ## Decision
 
-1. **The approved timings become tokens** (`design-tokens` `motion`, mirrored in `tokens.css`,
-   tested for TS↔CSS parity):
+1. **The motion standard** (owner, 2026-09-29; research-based; it supersedes the earlier rounds'
+   timings). These are the **only** motion tokens (the tokens package's `motion`, mirrored in
+   `tokens.css`; a test fails if any other duration or easing token exists):
 
-   | Token                 | Value                                                          | Used by                                       |
-   | --------------------- | -------------------------------------------------------------- | --------------------------------------------- |
-   | `durationOverlay`     | 700 ms in, 480 ms out (`durationOverlayOut`), `easingGentle`   | drawer, sheet, modal, and their scrim in sync |
-   | `durationCurtainHold` | 1200 ms from navigation start (max wait for the image 1800 ms) | the curtain's least time on screen            |
-   | `durationReveal`      | 650 ms, `easingReveal`                                         | section and card reveals                      |
-   | `staggerReveal`       | 120 ms                                                         | header → cards                                |
-   | `durationCurtain`     | 800 ms, `easingCurtain`                                        | the intro curtain lifting                     |
-   | `durationEntrance`    | 1600 ms, `easingEntrance`                                      | a card's car driving in                       |
-   | `durationCount`       | 1750 ms, `easingDecelerate`                                    | a card's figures counting up                  |
-   | `distanceEntrance`    | 2.5rem                                                         | the car's travel                              |
-   | `distanceOverlay`     | 1.5rem                                                         | the modal's rise                              |
+   | Pair    | Duration | Curve                             | Used by                                                                                                                  |
+   | ------- | -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+   | overlay | 500 ms   | `cubic-bezier(0.32, 0.72, 0, 1)`  | spec drawer, filter sheet and their backdrop; enter = exit; transform only                                               |
+   | modal   | 300 ms   | `cubic-bezier(0.23, 1, 0.32, 1)`  | lead modal and its backdrop (enter = exit); the curtain's skip; hovers, state changes and the dock appearing (see below) |
+   | move    | 250 ms   | `cubic-bezier(0.77, 0, 0.175, 1)` | dock marker, carousel settle, trim crossfade, a chevron turning                                                          |
+   | reveal  | 500 ms   | `cubic-bezier(0.23, 1, 0.32, 1)`  | scroll reveals, a card's car entrance, count-ups; stagger 120 ms (unchanged)                                             |
+   | curtain | 800 ms   | the overlay curve                 | the curtain's lift, after its 1.2 s hold                                                                                 |
 
-   Components use only the semantic layer (`packages/ui/src/motion.ts`): `curtainLift`,
-   `curtainSkip`, `sectionReveal`, `carEntrance`, `statCount`, `overlayIn`/`overlayOut` (the
-   scrim uses the same two). No springs: the approved page uses curves throughout, and "precise" reads better
-   as a curve here.
+   Rules: **never ease-in** on UI motion (the move pair is ease-in-out, for things already on
+   screen); enter and exit share a pair; transform and opacity only; reduced motion is instant.
+   - **Hovers, colour/state changes and the dock appearing** were not named in the standard. They
+     are feedback or UI entering, which the rules keep on an ease-out, so they use the modal pair
+     (a quick ease-out). Every bare Tailwind `transition` utility defaults to it
+     (`--default-transition-duration` / `-timing-function`), so nothing falls back to Tailwind's
+     own 150 ms. This assignment is posted to `#build-decisions` for the owner to confirm.
+   - The carousel settle is Embla's own damped spring on a fixed 60 fps step
+     (`v += gap / duration; v *= 0.68`): it takes a `duration` in steps and no curve. Simulated
+     (Embla v8.6 `ScrollBody`): 15 steps (250 ms ÷ 16.7 ms) reach 95% at 250 ms but overshoot 1.06%
+     (about 15 px on a wide slide, a visible bounce); **18** reaches 95% at about 317 ms with 0.14%
+     overshoot (about 2 px, invisible), the closest to the move token without a bounce. Its shape is
+     a damped ease-out, not the in-out curve: a library limit. It governs programmatic moves
+     (arrows, dock, keys); a drag release settles at Embla's own speed.
+   - The curtain and the car entrance also animate the `transform` property with matching units,
+     so they run on the compositor like the overlays. The car entrance's former 75 ms start delay
+     is gone: it isn't part of the standard.
+   - **Checked in a real browser** (the owner's "fast and uneased" report), by reading each
+     element's Web Animations (`element.animate` calls and `getAnimations()`):
+     - The backdrop animated correctly, but the **panel had no browser animation at all**: motion
+       drove its `x` from JavaScript frame by frame, and the drawer's own render starved those
+       frames. Overlays now animate the `transform` property itself, which motion hands to the
+       compositor.
+     - After the fix: drawer and sheet run `transform` only, 500 ms, on the overlay curve, both
+       ways, with the backdrop in sync; the modal runs `transform` and opacity, 300 ms, on the
+       modal curve, both ways.
+     - The same check caught a unit mismatch (`translate3d(0, …)` against `1.5rem` interpolated
+       to an invalid unitless value). Resting and away positions now carry the same units, and a
+       unit test holds that.
+
+   **Sources**
+   - The overlay pair is the iOS sheet curve and duration as used by the Vaul drawer:
+     [Building a drawer component](https://emilkowal.ski/ui/building-a-drawer-component) (Emil
+     Kowalski, Vaul's author: `transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)`).
+   - The ease-out (`0.23, 1, 0.32, 1`, for UI entering and exiting) and ease-in-out
+     (`0.77, 0, 0.175, 1`, for on-screen movement) curves, and "never ease-in on UI":
+     [emilkowalski/skills, emil-design-eng](https://github.com/emilkowalski/skills/blob/main/skills/emil-design-eng/SKILL.md).
+   - The exact durations per surface are the owner's.
+
+   Components use only the semantic layer (`packages/ui/src/motion.ts`: `overlay`, `modal`,
+   `pillSlide`, `crossfade`, `countUp`, `carouselSettle`, `sectionReveal`, `carEntrance`,
+   `statCount`, `curtainLift`, `curtainSkip`) and `packages/ui/src/overlay-motion.ts`.
 
 2. **Reduced motion:** the curtain is never rendered; nothing is hidden, moved or counted (reveals,
    cars and figures are simply there); overlays open and close instantly. `useSeenOnce` reads the
@@ -83,9 +118,8 @@ names the semantic layer this grows.
 6. **Overlays:** Radix keeps the focus trap, Escape, scroll lock and focus return; motion's
    `AnimatePresence` with Radix `forceMount` keeps an overlay mounted until its exit ends
    (`packages/ui/src/overlay-motion.ts`). The drawer travels its own width from the inline end
-   (mirrored in RTL) with a fade, the sheet its own height, the modal 1.5rem with a fade. After the
-   owner's review they move slower and gentler: 700 ms in, 480 ms out, one long ease-out, the scrim
-   on the same two.
+   (mirrored in RTL), the sheet its own height (both transform only), the modal 1.5rem with a
+   fade. Their timings are the motion standard (point 1).
    - The drawer's ~240 ms delay before its exit was a re-render of the whole showroom shell (the
      drawer's state lived there). Its state now lives in its own host (`SpecDrawerHost`), so opening
      and closing re-render only the drawer.

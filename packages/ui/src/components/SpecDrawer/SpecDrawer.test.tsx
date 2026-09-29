@@ -194,16 +194,19 @@ describe("SpecDrawer: motion (slice 8)", () => {
 
   it("slides in from the inline end: the right in LTR, the left in RTL", async () => {
     const ltr = await openDrawer();
-    expect(ltr.style.transform).toMatch(/translateX\(\d/);
+    // It starts off the inline end and moves on the compositor (the transform property itself).
+    expect(ltr.style.transform).toContain("translate(");
+    expect(ltr.style.transform).not.toContain("translate(-");
     cleanup();
     const rtl = await openDrawer(CONTENT_AR);
-    expect(rtl.style.transform).toMatch(/translateX\(-\d/);
+    expect(rtl.style.transform).toContain("translate(-");
   });
 
   it("reduced motion: no movement, and it is gone at once on close", async () => {
     stubMedia((q) => q.includes("reduce"));
     const dialog = await openDrawer();
-    expect(dialog.style.transform ?? "").not.toMatch(/translateX\([-\d]*[1-9]/);
+    // At rest from the first frame: the resting transform, or none.
+    expect(["", "none", "translate(0%, 0%)"]).toContain(dialog.style.transform ?? "");
     await userEvent.keyboard("{Escape}");
     await act(tick);
     expect(screen.queryByRole("dialog")).toBeNull();

@@ -120,7 +120,7 @@ describe("CarEntrance", () => {
     );
     const el = container.querySelector("[data-car-entrance]") as HTMLElement;
     await waitFor(() => expect(el.style.opacity).toBe("0"));
-    expect(el.style.transform).toContain("translateX(-2.5rem)");
+    expect(el.style.transform).toContain("translate(-2.5rem, 0rem)");
     seeAll();
     await waitFor(() => expect(el.style.opacity).toBe("1"), { timeout: 4000 });
   });

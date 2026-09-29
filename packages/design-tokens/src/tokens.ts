@@ -149,51 +149,43 @@ export const elevation = {
   lg: "0 12px 32px rgba(8, 9, 10, 0.12)",
 } as const;
 
-// Motion — the Framer-Motion contract from day one (§4.1).
+// Motion — the showroom motion standard (owner, 2026-09-29; ADR 0026 records it with its sources).
+// These are the ONLY motion tokens: every transition and animation maps onto one of these pairs.
+// Rules: never ease-in on UI motion; enter and exit use the same duration and curve; transform
+// and opacity only; reduced motion is instant. Durations in ms.
 export const motion = {
-  durationFast: 150,
-  durationBase: 220,
-  durationSlow: 600,
-  easingStandard: "cubic-bezier(0.2, 0.7, 0.2, 1)",
-  // The approved showroom's timings (slice 8, ADR 0026). Durations in ms.
-  /** Overlays landing: the spec drawer, the filter sheet, the lead modal (owner: longer, gentler). */
-  durationOverlay: 700,
-  /** Overlays leaving, with their scrim in sync. */
-  durationOverlayOut: 480,
-  /** A section or card fading in as it scrolls into view. */
-  durationReveal: 650,
-  /** The intro curtain lifting (owner: a smooth ~0.8 s). */
+  /** The drawer and the filter sheet, and their backdrop in sync: enter and exit alike. */
+  durationOverlay: 500,
+  easingOverlay: "cubic-bezier(0.32, 0.72, 0, 1)",
+  /** The lead modal and its backdrop, enter and exit alike; also hovers, state changes and the
+   *  dock appearing (a quick ease-out). */
+  durationModal: 300,
+  easingModal: "cubic-bezier(0.23, 1, 0.32, 1)",
+  /** On-screen movement: the dock marker, the carousel settle, a crossfade, a chevron turning. */
+  durationMove: 250,
+  easingMove: "cubic-bezier(0.77, 0, 0.175, 1)",
+  /** Scroll reveals, a card's car entrance and figures counting up. */
+  durationReveal: 500,
+  easingReveal: "cubic-bezier(0.23, 1, 0.32, 1)",
+  /** Between one revealed item and the next (unchanged). */
+  staggerReveal: 120,
+  /** The intro curtain lifting, on the overlay curve. */
   durationCurtain: 800,
+
+  // Timings and distances the motions above use (not curves of their own).
   /** The least time the curtain stays on screen, from navigation start (owner: ~1.2 s). */
   durationCurtainHold: 1200,
   /** The latest it waits for the hero image to decode, from navigation start. */
   durationCurtainHoldMax: 1800,
-  /** A card's car driving into place. */
-  durationEntrance: 1600,
-  /** A card's figures counting up from zero. */
-  durationCount: 1750,
-  /** Between one revealed item and the next. */
-  staggerReveal: 120,
-  /** Before a card's car starts driving in. */
-  delayEntrance: 75,
   /**
    * The intro curtain's CSS failsafe: it hides itself this long after the page loads even if no
    * JavaScript runs. Above the longest JavaScript path: the hold max (1800 ms) plus the lift
    * (800 ms), plus a margin.
    */
   delayCurtainFailsafe: 3200,
-  easingReveal: "cubic-bezier(0.2, 0.6, 0.2, 1)",
-  easingCurtain: "cubic-bezier(0.65, 0, 0.35, 1)",
-  easingEntrance: "cubic-bezier(0.16, 1, 0.3, 1)",
-  /**
-   * A long, gentle ease-out: overlays in and out (owner, slice 8 review). The same curve as
-   * easingEntrance on purpose; two names because they can be tuned apart.
-   */
-  easingGentle: "cubic-bezier(0.16, 1, 0.3, 1)",
-  easingDecelerate: "cubic-bezier(0.33, 1, 0.68, 1)",
   /** How far a card's car travels in. */
   distanceEntrance: "2.5rem",
-  /** How far an overlay panel rises in (the lead modal). */
+  /** How far the lead modal rises in. */
   distanceOverlay: "1.5rem",
 } as const;
 

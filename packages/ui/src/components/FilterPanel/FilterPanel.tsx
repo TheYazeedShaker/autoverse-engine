@@ -226,7 +226,7 @@ function FilterGroupBlock({
                   aria-pressed={on}
                   onClick={() => onToggle(option.value)}
                   className={cn(
-                    "focus-visible:ring-focus-ring flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none",
+                    "focus-visible:ring-focus-ring flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none",
                     on
                       ? "bg-accent text-on-accent border-accent"
                       : "text-fg border-fg/15 hover:border-fg/40 bg-transparent",

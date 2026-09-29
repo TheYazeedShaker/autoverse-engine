@@ -309,6 +309,16 @@ found no path for an end user, anon or another brand to reach lead data. The pro
        3. Hero: the trim pill floats over the top of the model area, so every model has the same area, car position and height. With trims, the area had been 49 px shorter and the car 25 px lower, meeting the backdrop's floor band: the "border". The stats also fit a 375 px phone now.
        4. Filter sheet: the same slower overlay timings, open and close; transform only.
        5. Dock: light glass, Mist at 55% under a 40 px blur with saturation, Onyx names and a Gunmetal active pill. Contrast: Onyx over the glass 5.9:1 at worst (Onyx beneath), 17.9–19.2:1 over the light page; the pill 14:1. One tint passes everywhere, so no switching was needed.
+     - **Motion standard (owner, 2026-09-29), pushed to #88; it replaces the earlier fix 4.** The only motion tokens are now: overlay 500 ms cubic-bezier(0.32, 0.72, 0, 1) (drawer, sheet, backdrop; enter = exit; transform only), modal 300 ms (0.23, 1, 0.32, 1), move 250 ms (0.77, 0, 0.175, 1) (dock marker, carousel settle, hovers; also the Tailwind transition defaults), reveal 500 ms (0.23, 1, 0.32, 1) (stagger 120 ms), and the curtain lift 800 ms on the overlay curve after the 1.2 s hold. A test fails on any other duration or easing token. ADR 0026 records it, with sources (Vaul / Emil Kowalski).
+       - Browser check (element.animate / getAnimations()): the drawer panel had NO browser animation before, because motion drove x from JavaScript and the drawer render starved the frames. Overlays now animate transform on the compositor; drawer, sheet and modal were measured at their exact pairs, both ways, with the backdrop in sync. A unitless-transform bug was also found and fixed.
+       - Carousel settle: Embla duration 18. 95% at ~317 ms with 0.14% overshoot (~2 px); 15 would hit 250 ms but bounce 1.06% (~15 px). Its curve is a damped ease-out (a library limit); a drag release uses Embla's own speed.
+       - Code review applied:
+         - An earlier "no overshoot" claim was corrected.
+         - The preset's dangling `--av-ease` now points to the modal pair.
+         - The curtain and the car entrance moved onto `transform` strings (compositor).
+         - Tests: the TS keys, the semantic mapping table, the in-out move curve, and the drawer at rest under reduced motion.
+       - Hovers, state changes and the dock appearing are on the modal pair (a quick ease-out), since the standard didn't name them. Posted to #build-decisions for confirmation.
+       - The car entrance's former 75 ms delay was removed.
      - **PROGRESS.md repaired in this PR:** the slice-7 update inserted a second copy of the file (a replacement pattern in my edit script). The copy was verified byte-identical and removed (911 → 556 lines); the edit tooling now uses plain string slicing.
      - Raised for the owner: CI has no browser-level Storybook/axe or reduced-motion job; reduced motion is enforced structurally (`design-system-gates.test.ts`) and in unit tests. A browser gate would be a `ci.yml` change.
    - **Slice 7 (merged): LeadModal + capture contract** (2026-09-28). Three PRs, each against `main`:
