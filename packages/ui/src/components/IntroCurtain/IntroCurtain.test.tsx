@@ -3,7 +3,13 @@ import { join } from "node:path";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { axe } from "jest-axe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { INTRO_CURTAIN_SCRIPT, INTRO_STORAGE_KEY, IntroCurtain } from "./IntroCurtain";
+import {
+  INTRO_CURTAIN_SCRIPT,
+  INTRO_HOLD_MAX_MS,
+  INTRO_HOLD_MS,
+  INTRO_STORAGE_KEY,
+  IntroCurtain,
+} from "./IntroCurtain";
 
 const curtain = () => document.querySelector("[data-intro-curtain]");
 
@@ -32,10 +38,10 @@ describe("IntroCurtain", () => {
     await waitFor(() => expect(curtain()).toBeNull(), { timeout: 3000 });
   });
 
-  it("lifts by itself within the cap, even if the hero image never decodes", async () => {
+  it("with no hero image on the page, lifts by itself once the hold ends", async () => {
     render(<IntroCurtain logo={null} brandName="Demo Motors" readySelector="#nothing" />);
     await waitFor(() => expect(sessionStorage.getItem(INTRO_STORAGE_KEY)).toBe("1"), {
-      timeout: 2000,
+      timeout: 3000,
     });
     await waitFor(() => expect(curtain()).toBeNull(), { timeout: 3000 });
   });
@@ -95,14 +101,67 @@ describe("IntroCurtain: never covers the page for good (code review)", () => {
     );
   });
 
-  it("lifting marks <html> too, so a remount in the same document stays hidden", async () => {
+  it("lifting keeps the curtain on screen while it rises (no instant hide), then a remount stays hidden", async () => {
     render(<IntroCurtain logo={null} brandName="Demo Motors" />);
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-    expect(document.documentElement).toHaveAttribute("data-intro-seen");
-    cleanup();
+    // The seen attribute's CSS would hide it at once and cut the lift: it must not be set now.
+    expect(document.documentElement).not.toHaveAttribute("data-intro-seen");
+    expect(curtain()).not.toBeNull();
+    await waitFor(() => expect(curtain()).toBeNull(), { timeout: 3000 });
     render(<IntroCurtain logo={null} brandName="Demo Motors" />);
     await act(async () => {});
     expect(curtain()).toBeNull();
+  });
+
+  it("stays at least the hold time (~1.2 s from navigation start), even if the image decodes at once", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.spyOn(performance, "now").mockReturnValue(0);
+    const img = document.createElement("img");
+    img.setAttribute("fetchpriority", "high");
+    Object.defineProperty(img, "decode", { value: () => Promise.resolve() });
+    document.body.appendChild(img);
+    try {
+      render(<IntroCurtain logo={null} brandName="Demo Motors" />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(INTRO_HOLD_MS - 100);
+      });
+      expect(sessionStorage.getItem(INTRO_STORAGE_KEY)).toBeNull();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+      expect(sessionStorage.getItem(INTRO_STORAGE_KEY)).toBe("1");
+    } finally {
+      img.remove();
+      vi.useRealTimers();
+    }
+  });
+
+  it("an image that never decodes: waits no longer than the hold max, then lifts", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.spyOn(performance, "now").mockReturnValue(0);
+    const img = document.createElement("img");
+    img.setAttribute("fetchpriority", "high");
+    Object.defineProperty(img, "decode", { value: () => new Promise(() => {}) });
+    document.body.appendChild(img);
+    try {
+      render(<IntroCurtain logo={null} brandName="Demo Motors" />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(INTRO_HOLD_MAX_MS - 100);
+      });
+      expect(sessionStorage.getItem(INTRO_STORAGE_KEY)).toBeNull();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+      expect(sessionStorage.getItem(INTRO_STORAGE_KEY)).toBe("1");
+    } finally {
+      img.remove();
+      vi.useRealTimers();
+    }
+  });
+
+  it("the hold and its max are the motion tokens (owner: ~1.2 s on screen)", () => {
+    expect(INTRO_HOLD_MS).toBe(1200);
+    expect(INTRO_HOLD_MAX_MS).toBeGreaterThanOrEqual(INTRO_HOLD_MS);
   });
 
   it("storage alone (a client navigation back to the page) keeps it hidden", async () => {

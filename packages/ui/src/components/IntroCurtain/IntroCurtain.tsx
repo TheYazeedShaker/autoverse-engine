@@ -6,23 +6,29 @@ import { useEffect, useState, type ReactNode } from "react";
 import { semanticMotion } from "../../motion";
 
 // IntroCurtain — the showroom's once-per-session opening (spec §5.1), rebuilt from the approved
-// page: a dark full-screen curtain with the brand's mark, lifting off the page once the first hero
-// image has decoded (capped at ~900 ms). Any input (a pointer, a key, the wheel) lifts it at once.
+// page: a dark full-screen curtain with the brand's mark. It stays at least `curtainHoldMs` (~1.2 s,
+// owner) from navigation start, then lifts smoothly (~0.8 s) once the first hero image has decoded,
+// waiting for that at most until `curtainHoldMaxMs`. Any input (a pointer, a key, the wheel) lifts
+// it at once.
 //
 // - Once per session, read synchronously: INTRO_CURTAIN_SCRIPT (rendered just before the curtain)
 //   marks <html data-intro-seen> from sessionStorage before the curtain paints, and CSS hides the
 //   curtain then. It is never shown and then hidden, and needs no JavaScript to stay hidden.
 // - Reduced motion: never rendered (CSS hides it; the component unmounts it).
 // - Never covers the page for good: a CSS failsafe (`av-curtain-failsafe`, the
-//   delayCurtainFailsafe token) hides it even if no JavaScript runs. The JavaScript cap counts
-//   from navigation start, not from hydration.
+//   delayCurtainFailsafe token, above the hold max plus the lift) hides it even if no JavaScript
+//   runs. The hold and its max count from navigation start, not from hydration.
+// - Lifting writes the session flag only. It must NOT set <html data-intro-seen>: that attribute's
+//   CSS hides the curtain at once, which would cut the lift (the slice-8 review found exactly that).
+//   A remount in the same document reads the flag from storage instead.
 // - Decorative and aria-hidden: the page under it is the content. It lifts on the first key, so a
 //   keyboard user is never tabbing behind it.
 // - Motion: `curtainLift`, or `curtainSkip` when the visitor cuts it short (transform only).
 
 export const INTRO_STORAGE_KEY = "av-intro-seen";
-/** Hard cap before the curtain lifts, whether or not the hero image has decoded (spec §5.1). */
-export const INTRO_CAP_MS = 900;
+/** The least time on screen, and the latest it waits for the hero image, from navigation start. */
+export const INTRO_HOLD_MS = semanticMotion.curtainHoldMs;
+export const INTRO_HOLD_MAX_MS = semanticMotion.curtainHoldMaxMs;
 
 /**
  * Runs before the curtain is parsed: marks the page when the curtain was already seen this
@@ -71,7 +77,6 @@ export function IntroCurtain({
     const lift = (skip: boolean) => {
       if (done) return;
       done = true;
-      html.setAttribute("data-intro-seen", "");
       try {
         sessionStorage.setItem(INTRO_STORAGE_KEY, "1");
       } catch {
@@ -80,19 +85,40 @@ export function IntroCurtain({
       setFast(skip);
       setPhase("lifting");
     };
-    // The cap counts from navigation start: a slow hydration must not lengthen the cover.
-    const cap = window.setTimeout(() => lift(false), Math.max(0, INTRO_CAP_MS - performance.now()));
+    // Both clocks count from navigation start: a slow hydration must not lengthen the cover.
     const img = document.querySelector<HTMLImageElement>(readySelector);
+    let decoded = !img?.decode;
+    let cancelled = false;
+    let held = false;
+    const settle = () => {
+      if (!cancelled && decoded && held) lift(false);
+    };
+    const hold = window.setTimeout(
+      () => {
+        held = true;
+        settle();
+      },
+      Math.max(0, INTRO_HOLD_MS - performance.now()),
+    );
+    const cap = window.setTimeout(
+      () => lift(false),
+      Math.max(0, INTRO_HOLD_MAX_MS - performance.now()),
+    );
     img
       ?.decode?.()
-      .then(() => lift(false))
-      .catch(() => lift(false));
+      .catch(() => undefined)
+      .then(() => {
+        decoded = true;
+        settle();
+      });
     const skip = () => lift(true);
     window.addEventListener("pointerdown", skip);
     window.addEventListener("keydown", skip);
     window.addEventListener("wheel", skip, { passive: true });
     window.addEventListener("touchstart", skip, { passive: true });
     return () => {
+      cancelled = true;
+      window.clearTimeout(hold);
       window.clearTimeout(cap);
       window.removeEventListener("pointerdown", skip);
       window.removeEventListener("keydown", skip);

@@ -156,12 +156,18 @@ export const motion = {
   durationSlow: 600,
   easingStandard: "cubic-bezier(0.2, 0.7, 0.2, 1)",
   // The approved showroom's timings (slice 8, ADR 0026). Durations in ms.
-  /** Overlays landing: the spec drawer, the filter sheet, the lead modal. */
-  durationOverlay: 550,
+  /** Overlays landing: the spec drawer, the filter sheet, the lead modal (owner: longer, gentler). */
+  durationOverlay: 700,
+  /** Overlays leaving, with their scrim in sync. */
+  durationOverlayOut: 480,
   /** A section or card fading in as it scrolls into view. */
   durationReveal: 650,
-  /** The intro curtain lifting. */
-  durationCurtain: 820,
+  /** The intro curtain lifting (owner: a smooth ~0.8 s). */
+  durationCurtain: 800,
+  /** The least time the curtain stays on screen, from navigation start (owner: ~1.2 s). */
+  durationCurtainHold: 1200,
+  /** The latest it waits for the hero image to decode, from navigation start. */
+  durationCurtainHoldMax: 1800,
   /** A card's car driving into place. */
   durationEntrance: 1600,
   /** A card's figures counting up from zero. */
@@ -172,13 +178,18 @@ export const motion = {
   delayEntrance: 75,
   /**
    * The intro curtain's CSS failsafe: it hides itself this long after the page loads even if no
-   * JavaScript runs (the cap, 900 ms, plus the lift, 820 ms, plus a margin).
+   * JavaScript runs. Above the longest JavaScript path: the hold max (1800 ms) plus the lift
+   * (800 ms), plus a margin.
    */
-  delayCurtainFailsafe: 2000,
-  easingEmphasized: "cubic-bezier(0.22, 1, 0.36, 1)",
+  delayCurtainFailsafe: 3200,
   easingReveal: "cubic-bezier(0.2, 0.6, 0.2, 1)",
   easingCurtain: "cubic-bezier(0.65, 0, 0.35, 1)",
   easingEntrance: "cubic-bezier(0.16, 1, 0.3, 1)",
+  /**
+   * A long, gentle ease-out: overlays in and out (owner, slice 8 review). The same curve as
+   * easingEntrance on purpose; two names because they can be tuned apart.
+   */
+  easingGentle: "cubic-bezier(0.16, 1, 0.3, 1)",
   easingDecelerate: "cubic-bezier(0.33, 1, 0.68, 1)",
   /** How far a card's car travels in. */
   distanceEntrance: "2.5rem",
@@ -187,11 +198,14 @@ export const motion = {
 } as const;
 
 /* Glass — a tinted, blurred panel over moving content (the model dock). The page behind it can be
-   anything, white included, so the tint alone must carry the text: every foreground is checked
-   against the tint composited over the lightest possible backdrop (white) and the darkest (Onyx).
+   anything, so the tint alone must carry the text: every foreground is checked against the tint
+   composited over the lightest possible backdrop (white) and the darkest (Onyx).
    Slice 8, ADR 0026. */
 export const glass = {
-  dark: { tint: palette.gunmetal, alpha: 0.88, fg: palette.onDark, fgSoft: palette.onDarkSoft },
+  /** The model dock (owner: visibly translucent). Mist at 55% under a strong blur; Onyx text. */
+  light: { tint: palette.mist, alpha: 0.55, fg: [palette.onyx] },
+  /** The hero's trim pill, over the backdrop and the car (slice 8 review). Gunmetal at 88%. */
+  dark: { tint: palette.gunmetal, alpha: 0.88, fg: [palette.onDark, palette.onDarkSoft] },
 } as const;
 
 // Responsive breakpoints (px) — Grid / Container consume these (revision R3).

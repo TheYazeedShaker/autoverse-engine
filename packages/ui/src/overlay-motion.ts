@@ -18,7 +18,7 @@ export function overlaySurface(kind: OverlayKind, dir: "ltr" | "rtl", reduced: b
   const away =
     kind === "side"
       ? // The inline end: the right in LTR, the left in RTL. The panel travels its own width.
-        { x: dir === "rtl" ? "-100%" : "100%" }
+        { opacity: 0, x: dir === "rtl" ? "-100%" : "100%" }
       : kind === "sheet"
         ? { y: "100%" }
         : { opacity: 0, y: semanticMotion.overlayDistance };
@@ -43,7 +43,7 @@ export function overlayScrim(reduced: boolean | null) {
   return {
     initial: { opacity: 0 },
     animate: { opacity: 1 },
-    exit: { opacity: 0 },
-    transition: semanticMotion.scrimFade,
+    exit: { opacity: 0, transition: semanticMotion.overlayOut },
+    transition: semanticMotion.overlayIn,
   };
 }

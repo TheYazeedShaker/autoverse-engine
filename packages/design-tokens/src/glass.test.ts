@@ -16,12 +16,9 @@ function composite(tint: string, alpha: number, backdrop: string): string {
 
 describe("glass: foregrounds meet AA over any backdrop (ADR 0026)", () => {
   for (const [name, g] of Object.entries(glass)) {
-    for (const backdrop of [palette.white, palette.mist, palette.onyx]) {
-      for (const [role, fg] of [
-        ["fg", g.fg],
-        ["fgSoft", g.fgSoft],
-      ] as const) {
-        it(`glass.${name}.${role} over ${backdrop}`, () => {
+    for (const backdrop of [palette.white, palette.mist, palette.panel, palette.onyx]) {
+      for (const fg of g.fg) {
+        it(`glass.${name}: ${fg} over ${backdrop}`, () => {
           const bg = composite(g.tint, g.alpha, backdrop);
           const ratio = contrastRatio(fg, bg);
           expect(ratio, `${fg} on ${bg} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA.normal);
@@ -30,13 +27,27 @@ describe("glass: foregrounds meet AA over any backdrop (ADR 0026)", () => {
     }
   }
 
+  it("the dock's glass is visibly translucent (at most 60% tint)", () => {
+    expect(glass.light.alpha).toBeLessThanOrEqual(0.6);
+  });
+
   it("tokens.css uses the same tint and alpha", () => {
     const css = readFileSync(new URL("./tokens.css", import.meta.url), "utf8");
-    expect(css).toContain(`--av-glass-dark-alpha: ${Math.round(glass.dark.alpha * 100)}%;`);
-    expect(css).toMatch(
-      /--av-glass-dark: color-mix\(in srgb, var\(--av-gunmetal\) var\(--av-glass-dark-alpha\), transparent\);/,
+    expect(css).toContain(`--av-glass-light-alpha: ${Math.round(glass.light.alpha * 100)}%;`);
+    expect(css).toContain(
+      "--av-glass-light: color-mix(in srgb, var(--av-mist) var(--av-glass-light-alpha), transparent);",
     );
-    expect(css.toLowerCase()).toContain(`--av-on-dark-soft: ${glass.dark.fgSoft.toLowerCase()};`);
+    expect(glass.light.tint).toBe(palette.mist);
+    expect(css).toContain(`--av-glass-dark-alpha: ${Math.round(glass.dark.alpha * 100)}%;`);
+    expect(css).toContain(
+      "--av-glass-dark: color-mix(in srgb, var(--av-gunmetal) var(--av-glass-dark-alpha), transparent);",
+    );
+  });
+
+  it("the dock's names use the ink the glass test checks (on-surface is Onyx)", () => {
+    const css = readFileSync(new URL("./tokens.css", import.meta.url), "utf8");
+    expect(css).toContain("--av-on-surface: var(--av-onyx);");
+    expect(glass.light.fg).toContain(palette.onyx);
   });
 });
 
@@ -50,8 +61,11 @@ describe("motion tokens: TS and CSS agree", () => {
     ["--av-dur-count", `${motion.durationCount}ms`],
     ["--av-stagger-reveal", `${motion.staggerReveal}ms`],
     ["--av-delay-entrance", `${motion.delayEntrance}ms`],
+    ["--av-dur-overlay-out", `${motion.durationOverlayOut}ms`],
+    ["--av-dur-curtain-hold", `${motion.durationCurtainHold}ms`],
+    ["--av-dur-curtain-hold-max", `${motion.durationCurtainHoldMax}ms`],
+    ["--av-ease-gentle", motion.easingGentle],
     ["--av-delay-curtain-failsafe", `${motion.delayCurtainFailsafe}ms`],
-    ["--av-ease-emphasized", motion.easingEmphasized],
     ["--av-ease-reveal", motion.easingReveal],
     ["--av-ease-curtain", motion.easingCurtain],
     ["--av-ease-entrance", motion.easingEntrance],

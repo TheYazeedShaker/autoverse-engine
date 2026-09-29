@@ -12,10 +12,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { COPY, type Lang } from "../lib/showroom/copy";
 import type { DrawerContent } from "../lib/showroom/drawer";
@@ -82,20 +84,16 @@ export function ShowroomExperience({
   );
   // The spec drawer (slice 5): one at a time, for the trim whose "Technical data" was pressed. The
   // last trim stays mounted while closed, so nothing jumps as it closes.
-  const [drawerTrim, setDrawerTrim] = useState<string | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null);
+  // The drawer's own state lives in SpecDrawerHost, so opening and closing it re-render only the
+  // drawer, not this whole shell: that render was what delayed the exit (slice 8 review).
+  const drawerHost = useRef<DrawerHostApi | null>(null);
   const drawerApi = useMemo(
     () => ({
-      open: (trimId: string, trigger: HTMLElement | null) => {
-        setDrawerTrigger(trigger);
-        setDrawerTrim(trimId);
-        setDrawerOpen(true);
-      },
+      open: (trimId: string, trigger: HTMLElement | null) =>
+        drawerHost.current?.open(trimId, trigger),
     }),
     [],
   );
-  const drawer = drawerTrim ? drawers[drawerTrim] : undefined;
   // Compare (slice 6): the trims picked for comparison, in pick order, shared by the cards' checkboxes
   // and the tray. In memory for the visit.
   const [compareSelected, setCompareSelected] = useState<string[]>([]);
@@ -275,35 +273,74 @@ export function ShowroomExperience({
           status: (n) => t.compareStatus(numbers(n, 0), n),
         }}
       />
-      {drawer ? (
-        <SpecDrawer
-          open={drawerOpen}
-          onOpenChange={setDrawerOpen}
-          title={t.modelDetails}
-          {...drawer.content}
-          image={drawer.image}
-          imagePlaceholderLabel={t.imageComingSoon}
-          labels={{ close: t.close, configure: t.configure }}
-          secondaryAction={
-            lead && drawerTrim
-              ? {
-                  label: t.bookTestDrive,
-                  onClick: (trigger) =>
-                    lead.open(
-                      {
-                        type: "test_drive",
-                        modelId: trimToModel.get(drawerTrim) ?? null,
-                        trimId: drawerTrim,
-                      },
-                      trigger,
-                    ),
-                }
-              : undefined
-          }
-          returnFocusTo={drawerTrigger}
-          dir={lang === "ar" ? "rtl" : "ltr"}
-        />
-      ) : null}
+      <SpecDrawerHost apiRef={drawerHost} drawers={drawers} lang={lang} trimToModel={trimToModel} />
     </>
+  );
+}
+
+interface DrawerHostApi {
+  open: (trimId: string, trigger: HTMLElement | null) => void;
+}
+
+/** The spec drawer and its state (slice 5; isolated in slice 8 so it re-renders alone). */
+function SpecDrawerHost({
+  apiRef,
+  drawers,
+  lang,
+  trimToModel,
+}: {
+  apiRef: RefObject<DrawerHostApi | null>;
+  drawers: ShowroomExperienceProps["drawers"];
+  lang: Lang;
+  trimToModel: ReadonlyMap<string, string>;
+}) {
+  const t = COPY[lang];
+  const lead = useContext(LeadContext);
+  // One at a time, for the trim whose "Technical data" was pressed. The last trim stays mounted
+  // while closed, so nothing jumps as it closes.
+  const [drawerTrim, setDrawerTrim] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null);
+  useImperativeHandle(
+    apiRef,
+    () => ({
+      open: (trimId, trigger) => {
+        setDrawerTrigger(trigger);
+        setDrawerTrim(trimId);
+        setDrawerOpen(true);
+      },
+    }),
+    [],
+  );
+  const drawer = drawerTrim ? drawers[drawerTrim] : undefined;
+  if (!drawer) return null;
+  return (
+    <SpecDrawer
+      open={drawerOpen}
+      onOpenChange={setDrawerOpen}
+      title={t.modelDetails}
+      {...drawer.content}
+      image={drawer.image}
+      imagePlaceholderLabel={t.imageComingSoon}
+      labels={{ close: t.close, configure: t.configure }}
+      secondaryAction={
+        lead && drawerTrim
+          ? {
+              label: t.bookTestDrive,
+              onClick: (trigger) =>
+                lead.open(
+                  {
+                    type: "test_drive",
+                    modelId: trimToModel.get(drawerTrim) ?? null,
+                    trimId: drawerTrim,
+                  },
+                  trigger,
+                ),
+            }
+          : undefined
+      }
+      returnFocusTo={drawerTrigger}
+      dir={lang === "ar" ? "rtl" : "ltr"}
+    />
   );
 }

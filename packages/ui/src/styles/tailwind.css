@@ -15,6 +15,7 @@
   --color-on-white-muted: var(--av-on-white-muted);
   --color-surface-dark: var(--av-surface-dark);
   /* glass over moving content (the dock): AA over any backdrop, tokens glass.test.ts (ADR 0026) */
+  --color-glass-light: var(--av-glass-light);
   --color-glass-dark: var(--av-glass-dark);
   /* contextual "current surface" pair → `bg-fg` / `text-fg` / `border-fg` / `text-fg-muted` / `text-bg`.
      These invert with the surface, so an inverting control (primary Button = `bg-fg text-bg`) is correct

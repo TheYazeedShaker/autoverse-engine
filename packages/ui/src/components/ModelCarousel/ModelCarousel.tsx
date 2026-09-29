@@ -311,23 +311,29 @@ export function ModelCarousel({
         {sparse ? (
           <h2 className="text-on-dark text-xl font-semibold lg:text-3xl">{active.name}</h2>
         ) : null}
-        {active.trims.length > 1 ? (
-          <SegmentedToggle
-            label={labels.trim}
-            dir={dir}
-            size="sm"
-            value={trim?.id}
-            onValueChange={(v) => {
-              setTrimOf((s) => ({ ...s, [active.id]: v }));
-              setState("trims");
-            }}
-            options={active.trims.map((t) => ({ value: t.id, label: t.label }))}
-            className="bg-surface-dark/40 rounded-full backdrop-blur-md [&>*]:rounded-full"
-          />
-        ) : null}
       </div>
 
       <div className="relative min-h-0 flex-1">
+        {/* The trim pill floats over the top of the model area, so a model with trims lays out
+            exactly like one without: the same area, the same car position, the same height
+            (owner, slice 8 review). It sits over the backdrop and the car, so its fill is the
+            tested dark glass (glass-dark, Gunmetal 88%): light ink stays AA over any patch. */}
+        {active.trims.length > 1 ? (
+          <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center">
+            <SegmentedToggle
+              label={labels.trim}
+              dir={dir}
+              size="sm"
+              value={trim?.id}
+              onValueChange={(v) => {
+                setTrimOf((s) => ({ ...s, [active.id]: v }));
+                setState("trims");
+              }}
+              options={active.trims.map((t) => ({ value: t.id, label: t.label }))}
+              className="bg-glass-dark pointer-events-auto rounded-full backdrop-blur-md [&>*]:rounded-full"
+            />
+          </div>
+        ) : null}
         <div ref={viewportRef} className="h-full overflow-hidden" data-carousel-viewport>
           <div className="flex h-full touch-pan-y">
             {models.map((m, i) => {
@@ -396,7 +402,7 @@ export function ModelCarousel({
       </div>
 
       <div className="flex flex-col items-center gap-4 px-4 pb-6 lg:gap-7 lg:pb-12">
-        <dl className="flex items-start gap-8 lg:gap-16">
+        <dl className="flex items-start gap-5 sm:gap-8 lg:gap-16">
           <Stat label={labels.power} unit={labels.unitHp}>
             <CountUp value={trim?.stats.powerHp ?? null} format={int} />
           </Stat>
@@ -449,7 +455,7 @@ function Stat({ label, unit, children }: { label: string; unit: string; children
         {label}
       </dt>
       <dd className="flex items-baseline gap-1.5">
-        <span className="text-4xl font-light tracking-tight tabular-nums lg:text-6xl rtl:tracking-normal">
+        <span className="text-3xl font-light tracking-tight tabular-nums sm:text-4xl lg:text-6xl rtl:tracking-normal">
           {children}
         </span>
         <span className="text-on-dark-soft text-sm">{unit}</span>

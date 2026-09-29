@@ -19,8 +19,7 @@ import { motion as tokens } from "@autoverse/tokens";
 // - carEntrance: a card's car drives in from behind (transform + opacity). Reduced: in place.
 // - statCount: a card's figures count up from zero once it is seen. Reduced: final values.
 // - overlayIn / overlayOut: the drawer, the filter sheet and the lead modal land (transform) over a
-//   fading scrim. Reduced: instant.
-// - scrimFade: the overlay's scrim.
+//   scrim fading in step with them. Reduced: instant.
 // Durations and curves come from the tokens only; components never hold raw values.
 
 /** The standard easing token as motion/react's cubic-bezier array. */
@@ -34,7 +33,7 @@ function bezier(css: string): [number, number, number, number] {
 }
 
 const standard = bezier(tokens.easingStandard);
-const emphasized = bezier(tokens.easingEmphasized);
+const gentle = bezier(tokens.easingGentle);
 const seconds = (ms: number) => ms / 1000;
 
 export const semanticMotion = {
@@ -54,6 +53,9 @@ export const semanticMotion = {
     offstage: "-101%",
   },
   curtainSkip: { duration: seconds(tokens.durationBase), ease: bezier(tokens.easingCurtain) },
+  /** The curtain's least time on screen, and the latest it waits for the hero image (ms). */
+  curtainHoldMs: tokens.durationCurtainHold,
+  curtainHoldMaxMs: tokens.durationCurtainHoldMax,
   sectionReveal: {
     duration: seconds(tokens.durationReveal),
     ease: bezier(tokens.easingReveal),
@@ -67,11 +69,12 @@ export const semanticMotion = {
     distance: tokens.distanceEntrance,
   },
   statCount: { duration: seconds(tokens.durationCount), ease: bezier(tokens.easingDecelerate) },
-  overlayIn: { duration: seconds(tokens.durationOverlay), ease: emphasized },
-  overlayOut: { duration: seconds(tokens.durationBase), ease: standard },
+  // Overlays and their scrim share one duration and one gentle ease-out, in and out, so they move
+  // in sync (owner, slice 8 review).
+  overlayIn: { duration: seconds(tokens.durationOverlay), ease: gentle },
+  overlayOut: { duration: seconds(tokens.durationOverlayOut), ease: gentle },
   /** How far the lead modal's panel rises in. The drawer and the sheet travel their own size. */
   overlayDistance: tokens.distanceOverlay,
-  scrimFade: { duration: seconds(tokens.durationBase), ease: standard },
 } as const;
 
 /** A transition that respects reduced motion: instant when reduced. */

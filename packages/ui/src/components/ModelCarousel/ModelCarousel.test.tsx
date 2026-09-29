@@ -298,3 +298,13 @@ describe("ModelCarousel: Book a test drive (slice 7)", () => {
     expect(screen.queryByRole("button", { name: "Book a test drive" })).toBeNull();
   });
 });
+
+describe("ModelCarousel: one layout for every model (slice 8 review)", () => {
+  it("the trim pill floats over the model area, so models with and without trims lay out alike", () => {
+    render(<Hero />);
+    const pill = screen.getByRole("radiogroup");
+    const area = document.querySelector("[data-carousel-viewport]")!.parentElement!;
+    expect(area.contains(pill)).toBe(true);
+    expect(pill.closest(".absolute")).not.toBeNull();
+  });
+});

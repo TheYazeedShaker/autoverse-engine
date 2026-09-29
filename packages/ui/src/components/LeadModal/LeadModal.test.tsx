@@ -197,7 +197,7 @@ describe("LeadModal: motion (slice 8)", () => {
   it("reduced motion: no rise, and it is gone at once on close", async () => {
     stubMedia((q) => q.includes("reduce"));
     const dialog = await openModal();
-    expect(dialog.style.transform ?? "").not.toContain("translateY(24px)");
+    expect(dialog.style.transform ?? "").not.toContain("translateY");
     await userEvent.keyboard("{Escape}");
     await act(tick);
     expect(screen.queryByRole("dialog")).toBeNull();
