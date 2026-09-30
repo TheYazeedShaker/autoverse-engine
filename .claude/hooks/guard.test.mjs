@@ -2,13 +2,16 @@
 // Each case feeds the hook the JSON Claude Code sends and checks the exit code (2 = blocked).
 import { spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   existsSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -243,6 +246,190 @@ test("settings keep design/ unreadable and the approved copies read-only", () =>
   // Readable through Read(./**); nothing may deny reading the copies.
   assert.ok(allow.includes("Read(./**)"));
   assert.ok(!deny.some((r) => r.startsWith("Read(./design-approved")));
+});
+
+// ---- The visual comparison tool (working rule B; ADR 0010, "Visual comparison tool") ---------
+
+test("the one comparison call is allowed, as the pinned package script", () => {
+  for (const command of [
+    "pnpm visual:compare showroom/brochure --built http://demo.localhost:3000/models/demo-suv",
+    "pnpm run visual:compare --built http://localhost:3000/ showroom/showroom",
+    "cd . && pnpm visual:compare dashboard/Analytics --built http://localhost:3001/",
+    "ls /tmp/autoverse-visual-showroom-brochure-x",
+    "pnpm visual:compare showroom/compare --built https://demo.auto-verse.net/compare",
+    'pnpm visual:compare showroom/brochure --built "http://demo.localhost:3000/models/demo-suv?trim=base"',
+  ]) {
+    assert.equal(bash(command), 0, command);
+  }
+});
+
+test("every other way to run or aim the comparison is refused", () => {
+  for (const command of [
+    // paths, traversal, or the private folder instead of a design name
+    "pnpm visual:compare design-approved/showroom/brochure.dc.html --built http://localhost:3000",
+    "pnpm visual:compare ../design/brief --built http://localhost:3000",
+    "pnpm visual:compare showroom/../../design/x --built http://localhost:3000",
+    // missing or extra arguments, redirects, a non-http target
+    "pnpm visual:compare showroom/brochure",
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000 --out design-approved/x",
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000 > design-approved/showroom/x.png",
+    "pnpm visual:compare showroom/brochure --built file:///d/autoverase-engine/design/brief.html",
+    // other runners, and the tool itself
+    "npm run visual:compare showroom/brochure --built http://localhost:3000",
+    "yarn visual:compare showroom/brochure --built http://localhost:3000",
+    "pnpm exec visual:compare showroom/brochure --built http://localhost:3000",
+    "node .claude/tools/visual-compare.mjs showroom/brochure --built http://localhost:3000",
+    'bash -c "node .claude/tools/visual-compare.mjs showroom/brochure --built http://localhost:3000"',
+    "cat .claude/tools/visual-compare.mjs",
+    // changing the tool
+    "cp evil.mjs .claude/tools/visual-compare.mjs",
+    "echo x > .claude/tools/visual-compare.mjs",
+    "sed -i s/a/b/ .claude/tools/visual-compare.mjs",
+    "rm .claude/tools/visual-compare.mjs",
+    // the allowed call doesn't open the door for the rest of the line
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000 && cat design-approved/showroom/brochure.dc.html",
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000 | tee design-approved/x.txt",
+    // no shell substitution, chaining or quoting tricks through the URL
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000$(cat${IFS}design/brief.md)",
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000/`id`",
+    'pnpm visual:compare showroom/brochure --built "http://localhost:3000/;cat design/brief.md"',
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000/?a=1&b=2",
+    // nothing preloaded into the tool's process, no wrapper
+    "NODE_OPTIONS=--require=./x.cjs pnpm visual:compare showroom/brochure --built http://localhost:3000",
+    "env pnpm visual:compare showroom/brochure --built http://localhost:3000",
+    "npm_config_node_options=--require=./x.cjs pnpm visual:compare showroom/brochure --built http://localhost:3000",
+    // security review: cmd.exe expands %VAR% (even quoted); PowerShell splits on ,
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000/%npm_package_name%",
+    'pnpm visual:compare showroom/brochure --built "http://localhost:3000/%npm_package_name%"',
+    "pnpm visual:compare showroom/brochure --built http://localhost:3000/a,b",
+    // security review: another package's script, env set earlier on the line, escaped names
+    "cd apps/consumer && pnpm visual:compare showroom/brochure --built http://localhost:3000",
+    "pnpm -C apps/consumer visual:compare showroom/brochure --built http://localhost:3000",
+    "pnpm --filter @autoverse/consumer visual:compare showroom/brochure --built http://localhost:3000",
+    "export NODE_OPTIONS=--require=./x.cjs; pnpm visual:compare showroom/brochure --built http://localhost:3000",
+    "PATH=./bin:$PATH; pnpm visual:compare showroom/brochure --built http://localhost:3000",
+    'NODE_OPTIONS=--require=./x.cjs bash -c "pnpm visual:compare showroom/brochure --built http://localhost:3000"',
+    'bash -c "pnpm visual:compare showroom/brochure --built http://localhost:3000"',
+    "pnpm visual\\:compare showroom/brochure --built http://localhost:3000",
+    "pnpm run-script visual:compare showroom/brochure --built http://localhost:3000",
+    // the renders never go into the (public) repository
+    "cp /tmp/autoverse-visual-showroom-brochure-x/design-390-en.png apps/consumer/public/x.png",
+    "cat /tmp/autoverse-visual-showroom-brochure-x/index.html > docs/visual.html",
+    "mv /tmp/autoverse-visual-showroom-brochure-x packages/ui/visual",
+  ]) {
+    assert.equal(bash(command), 2, command);
+  }
+});
+
+test("the comparison is refused when package.json points visual:compare anywhere else", (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "guard-pin-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(path.join(root, ".claude", "hooks"), { recursive: true });
+  const hook = path.join(root, ".claude", "hooks", "guard.mjs");
+  copyFileSync(HOOK, hook);
+  const runIn = (script) => {
+    writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ scripts: { "visual:compare": script } }),
+    );
+    return spawnSync(process.execPath, [hook], {
+      input: JSON.stringify({
+        tool_name: "Bash",
+        tool_input: {
+          command: "pnpm visual:compare showroom/brochure --built http://localhost:3000",
+        },
+      }),
+    }).status;
+  };
+  assert.equal(runIn("node .claude/tools/visual-compare.mjs"), 0);
+  for (const script of [
+    "node scripts/copy-design.mjs",
+    "node .claude/tools/visual-compare.mjs && cat design/brief.md",
+    "node .claude/tools/visual-compare.mjs --no-confine",
+  ]) {
+    assert.equal(runIn(script), 2, script);
+  }
+  // Settings that would run other code with the tool, in any spelling.
+  for (const [file, text] of [
+    [".npmrc", "node-options=--require=./x.cjs\n"],
+    [".npmrc", "node_options=--require=./x.cjs\n"],
+    [".npmrc", "script-shell=./x.cmd\n"],
+    ["pnpm-workspace.yaml", "packages: []\nnodeOptions: --require=./x.cjs\n"],
+    ["pnpm-workspace.yaml", '{ "scriptShell": "./x.cmd" }\n'],
+  ]) {
+    writeFileSync(path.join(root, file), text);
+    assert.equal(runIn("node .claude/tools/visual-compare.mjs"), 2, `${file}: ${text}`);
+    rmSync(path.join(root, file));
+  }
+  // A pre/post script runs around the pinned one.
+  for (const around of ["previsual:compare", "postvisual:compare"]) {
+    writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        scripts: {
+          "visual:compare": "node .claude/tools/visual-compare.mjs",
+          [around]: "node x.mjs",
+        },
+      }),
+    );
+    const status = spawnSync(process.execPath, [hook], {
+      input: JSON.stringify({
+        tool_name: "Bash",
+        tool_input: {
+          command: "pnpm visual:compare showroom/brochure --built http://localhost:3000",
+        },
+      }),
+    }).status;
+    assert.equal(status, 2, around);
+  }
+  // A `node` in node_modules/.bin would come first on pnpm's PATH.
+  mkdirSync(path.join(root, "node_modules", ".bin"), { recursive: true });
+  writeFileSync(path.join(root, "node_modules", ".bin", "node.cmd"), "");
+  assert.equal(runIn("node .claude/tools/visual-compare.mjs"), 2);
+  rmSync(path.join(root, "node_modules"), { recursive: true, force: true });
+  assert.equal(runIn("node .claude/tools/visual-compare.mjs"), 0);
+});
+
+test("the guard starts from the shell's real folder (the hook input's cwd)", () => {
+  const call = (cwd) =>
+    run({
+      tool_name: "Bash",
+      cwd,
+      tool_input: {
+        command: "pnpm visual:compare showroom/brochure --built http://localhost:3000",
+      },
+    });
+  assert.equal(call(REPO), 0);
+  assert.equal(call(REPO.replace(/\\/g, "/")), 0);
+  assert.equal(call(path.join(REPO, "apps", "consumer")), 2);
+  // And the path checks resolve from there: `cat ../../design-approved/x` from apps/consumer.
+  assert.equal(
+    run({
+      tool_name: "Bash",
+      cwd: path.join(REPO, "apps", "consumer"),
+      tool_input: { command: "cat ../../design-approved/showroom/x.html" },
+    }),
+    2,
+  );
+});
+
+test("a backslash-newline doesn't hide a path behind a new line (security review)", () => {
+  assert.equal(bash("cat \\\ndesign-approved/showroom/x.html"), 2);
+  assert.equal(bash("cat \\\r\ndesign/brief.md"), 2);
+});
+
+test("the repo pins the script, and settings keep the tool owner-only", () => {
+  const pkg = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8"));
+  assert.equal(pkg.scripts["visual:compare"], "node .claude/tools/visual-compare.mjs");
+  const { allow, deny } = JSON.parse(
+    readFileSync(path.join(import.meta.dirname, "..", "settings.json"), "utf8"),
+  ).permissions;
+  for (const rule of ["Edit(./.claude/tools/**)", "Write(./.claude/tools/**)"]) {
+    assert.ok(deny.includes(rule), rule);
+  }
+  assert.ok(allow.includes("Bash(pnpm visual:compare *)"));
+  // The comparison gives the shell no general access: no rule allows reading the copies by shell.
+  assert.ok(!allow.some((r) => /^(Bash|PowerShell)\(.*design/.test(r)));
 });
 
 test("fails closed on input it cannot parse", () => {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Backstop for the permission rules in .claude/settings.json (ADR 0010).
+// Backstop for the permission rules in .claude/settings.json (ADR 0010). This file, .claude/tools/
+// and settings.json are the owner's: the agent proposes changes as a patch.
 //
 // Read/Edit deny rules only cover Claude's file tools. A shell command can still `cat design/…`,
 // `sed -i` the settings file, or `rm -rf` outside the repo. This PreToolUse hook sees every
@@ -78,6 +79,96 @@ const isProtectedDir = (p) => PROTECTED_DIRS.some((d) => inside(d, p));
 // them at all (ADR 0010, "Approved design copies").
 const OWNER_DIRS = ["design", "design-approved"].map((d) => path.join(REPO, d));
 const ownerDir = (p) => OWNER_DIRS.find((d) => inside(d, p));
+
+// The visual self-check (working rule B; ADR 0010, "Visual comparison tool"): the one program with
+// shell-side read access to design-approved/. It lives in .claude/tools/, which only the owner
+// changes, and runs only as the root package script `visual:compare`, pinned to exactly this command.
+const TOOLS_DIR = path.join(REPO, ".claude", "tools");
+const VISUAL_SCRIPT = "node .claude/tools/visual-compare.mjs";
+const VISUAL_DESIGN = /^[a-z0-9-]+\/[A-Za-z0-9-]+$/;
+// Plain URL characters only: no $ ` ( ) ; & | < > quotes, backslash or spaces (the shell can't
+// substitute, chain or redirect through it), no % (cmd.exe, which runs pnpm scripts on Windows,
+// expands %VAR% even inside quotes) and no , (a PowerShell array separator).
+const VISUAL_URL = /^https?:\/\/[A-Za-z0-9.\-:[\]]+(\/[A-Za-z0-9\-._~/?=+]*)?$/;
+/** npm/pnpm settings that run other code in or around a script, in any spelling or file format. */
+const RUN_HIJACK = /(node|script|shell)[-_]?(options|shell|emulator)/i;
+/** Ways to set the environment or the program path for a later command on the same line. */
+const ENV_CHANGE =
+  /NODE_OPTIONS|npm_config_|pnpm_config_|NPM_CONFIG_|(^|[\s;&|])(export|set|setx|declare|typeset)\s|(^|[\s;&|])PATH=|\$env:/i;
+
+/** Every npm/pnpm config file pnpm reads before running a script (project, user, global). */
+function pnpmConfigFiles() {
+  const home = os.homedir();
+  const files = [
+    path.join(REPO, ".npmrc"),
+    path.join(REPO, "pnpm-workspace.yaml"),
+    path.join(home, ".npmrc"),
+    path.join(home, ".config", "pnpm", "rc"),
+  ];
+  if (process.env.LOCALAPPDATA)
+    files.push(path.join(process.env.LOCALAPPDATA, "pnpm", "config", "rc"));
+  if (process.env.XDG_CONFIG_HOME) files.push(path.join(process.env.XDG_CONFIG_HOME, "pnpm", "rc"));
+  if (process.env.APPDATA) files.push(path.join(process.env.APPDATA, "npm", "etc", "npmrc"));
+  for (const v of ["NPM_CONFIG_USERCONFIG", "npm_config_userconfig", "NPM_CONFIG_GLOBALCONFIG"])
+    if (process.env[v]) files.push(process.env[v]);
+  return files;
+}
+
+/**
+ * Any segment that mentions `visual:compare` (quoted, escaped or wrapped included) must be exactly
+ * `pnpm [run] visual:compare <folder>/<name> --built <url>` (either order; nothing else: no
+ * redirects, no extra flags), run from the repo root with nothing set around it. The root package
+ * script must still be the pinned command, with no pre/post script. Returns true for that call, so
+ * the path checks skip it: its arguments are a design name and a URL, not paths. The tool
+ * re-checks both itself.
+ */
+function checkVisualCompare(segment, words, cwd, command) {
+  if (!/visual\\?:\\?compare/i.test(segment)) return false;
+  // Bare `pnpm`: no VAR= prefix (NODE_OPTIONS=--require … would preload other code into the tool),
+  // no env/xargs/bash -c wrapper, no pnpm flags (-C, --filter) that would pick another package.
+  const [first, ...rest] = words;
+  let args = rest;
+  if (args[0] === "run") args = args.slice(1);
+  if (first !== "pnpm" || args[0] !== "visual:compare")
+    block("run the visual comparison only as `pnpm visual:compare <folder>/<name> --built <url>`");
+  // pnpm runs the NEAREST package.json's script, so only from the root, whose script is pinned.
+  if (path.relative(REPO, path.resolve(cwd)) !== "")
+    block("run pnpm visual:compare from the repository root");
+  if (ENV_CHANGE.test(command))
+    block("pnpm visual:compare runs alone: nothing on the line may set the environment or PATH");
+  for (const rc of pnpmConfigFiles()) {
+    let text = "";
+    try {
+      text = readFileSync(rc, "utf8");
+    } catch {
+      continue; // no such file
+    }
+    if (RUN_HIJACK.test(text))
+      block(`${rc} sets node-options/script-shell, which would run other code with the tool`);
+  }
+  // pnpm puts node_modules/.bin first on PATH: a `node` there would replace the real one.
+  for (const bin of ["node", "node.exe", "node.cmd", "node.ps1", "node.bat"]) {
+    if (existsSync(path.join(REPO, "node_modules", ".bin", bin)))
+      block(`node_modules/.bin/${bin} would shadow node for the comparison tool`);
+  }
+  let scripts;
+  try {
+    scripts = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8"))?.scripts ?? {};
+  } catch {
+    scripts = {};
+  }
+  if (scripts["visual:compare"] !== VISUAL_SCRIPT)
+    block(`package.json's visual:compare must be exactly "${VISUAL_SCRIPT}" (owner-set)`);
+  if (scripts["previsual:compare"] !== undefined || scripts["postvisual:compare"] !== undefined)
+    block("package.json may not have a pre- or post-script around visual:compare");
+  const call = args.slice(1);
+  const at = call.indexOf("--built");
+  const url = at >= 0 ? call[at + 1] : undefined;
+  const others = call.filter((_, i) => i !== at && i !== at + 1);
+  if (call.length !== 3 || !url || !VISUAL_URL.test(url) || !VISUAL_DESIGN.test(others[0] ?? ""))
+    block("pnpm visual:compare takes <folder>/<name> --built <url> and nothing else");
+  return true;
+}
 
 /** git's `--no-index` / `--untracked`, abbreviations included (git accepts unambiguous prefixes). */
 const READS_OUTSIDE_INDEX = /^--(no-in|unt)/;
@@ -222,18 +313,24 @@ function checkGh(words) {
   }
 }
 
-function checkShell(command) {
-  let cwd = REPO;
+function checkShell(rawCommand, startCwd) {
+  // Where the shell really is (the Bash tool keeps its folder between calls); the repo if unknown.
+  let cwd = startCwd ? path.resolve(toNative(String(startCwd))) : REPO;
+  // A backslash-newline continues the line in bash: join it, so the continued words are checked
+  // as arguments of the same command rather than as a new, unchecked command name.
+  const command = rawCommand.replace(/\\\r?\n/g, " ");
 
   for (const segment of segments(command)) {
     const words = tokens(segment);
     const [cmd = "", ...args] = words;
 
     checkGh(words);
+    if (checkVisualCompare(segment, words, cwd, command)) continue;
     // `bash -c "gh pr merge 1"`, `env bash -lc "grep -r x ."`: the inner command gets every check.
     const [shell = "", ...shellArgs] = unwrap(words);
     const c = shellArgs.findIndex((a) => /^-[a-z]*c$|^-Command$/i.test(a));
-    if (SHELLS.test(baseCmd(shell)) && c >= 0 && shellArgs[c + 1]) checkShell(shellArgs[c + 1]);
+    if (SHELLS.test(baseCmd(shell)) && c >= 0 && shellArgs[c + 1])
+      checkShell(shellArgs[c + 1], cwd);
 
     // A search can be made to read ignored files without any flag.
     if (/RIPGREP_CONFIG_PATH/.test(segment))
@@ -273,10 +370,14 @@ function checkShell(command) {
         .map((a) => [a, resolveArg(a, cwd)]);
 
     // 1. design/ is the owner's. Never read, modified or committed. design-approved/ is for the
-    //    file tools only.
+    //    file tools only, and for the one comparison tool, which runs only as `pnpm visual:compare`.
     for (const [raw, p] of resolved([...plainArgs, ...redirectTargets])) {
       const dir = p && ownerDir(p);
       if (dir) block(`${path.basename(dir)}/ is off limits to the shell (${raw})`);
+      if (p && inside(TOOLS_DIR, p))
+        block(
+          `.claude/tools/ is the owner's; run the comparison only as pnpm visual:compare (${raw})`,
+        );
     }
 
     // 2. The loop never modifies its own guardrails: permissions, hooks, CI.
@@ -284,6 +385,7 @@ function checkShell(command) {
       p &&
       (inside(path.join(REPO, ".github"), p) ||
         inside(path.join(REPO, ".claude", "hooks"), p) ||
+        inside(TOOLS_DIR, p) ||
         /^settings(\.local)?\.json$/.test(path.relative(path.join(REPO, ".claude"), p)) ||
         IGNORE_FILE(p));
     for (const [raw, p] of resolved(redirectTargets)) {
@@ -292,6 +394,18 @@ function checkShell(command) {
     if (WRITE_VERB.test(segment)) {
       for (const [raw, p] of resolved(plainArgs)) {
         if (guarded(p)) block(`changing ${raw} is human-gated`);
+      }
+    }
+
+    // 2b. The comparison's renders show real brands, and the repository is public (ADR 0008): they
+    //     are never copied into it. A heuristic, like the rest (an interpreter could still copy).
+    if (
+      /autoverse-visual-/i.test(segment) &&
+      (WRITE_VERB.test(segment) || redirectTargets.length)
+    ) {
+      for (const [raw, p] of resolved([...plainArgs, ...redirectTargets])) {
+        if (p && inside(REPO, p) && !/autoverse-visual-/i.test(raw))
+          block(`the comparison renders stay out of the repository (${raw})`);
       }
     }
 
@@ -314,7 +428,7 @@ try {
   const input = JSON.parse(readFileSync(0, "utf8"));
   const toolName = String(input?.tool_name ?? "");
   if (toolName.startsWith("mcp__")) checkMcp(toolName, input.tool_input);
-  else checkShell(String(input?.tool_input?.command ?? ""));
+  else checkShell(String(input?.tool_input?.command ?? ""), input?.cwd);
   process.exit(0);
 } catch (error) {
   block(`the guard could not check this call (${error instanceof Error ? error.message : error})`);
