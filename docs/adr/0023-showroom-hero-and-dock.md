@@ -23,7 +23,8 @@ ADR 0021 before any of this was escalated.
      E2E path (browse → focus → trims) something to check.
 2. **Hero framing.** Every hero car sits in the fixed 16:9 `front-34` box of `CarImageFrame` and
    fills **80%** of its width (token `carFrame.heroFill` / `--av-car-fill-hero`), centred and
-   bottom-aligned: the same rule and the same value as the side view (ADR 0022).
+   bottom-aligned: the same rule and the same value as the side view (ADR 0022). (Since slice 8 the
+   side view is 2.8 : 1 and vertically centred; the hero keeps bottom alignment.)
    - Trimmed front three-quarter masters are wider than 16:9, so width is the binding dimension. Every
      car therefore renders at the same width and on the same ground line, with the same margin as on
      the cards.

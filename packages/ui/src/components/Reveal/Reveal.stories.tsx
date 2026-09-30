@@ -20,7 +20,7 @@ function Page() {
       </Reveal>
       <Reveal level={1} className="mt-6 max-w-md">
         <div className="bg-surface-white text-on-white rounded-2xl p-6">
-          <div className="relative aspect-[2/1] w-full">
+          <div className="relative aspect-(--av-car-aspect-side) w-full">
             <CarEntrance>
               <div
                 role="img"

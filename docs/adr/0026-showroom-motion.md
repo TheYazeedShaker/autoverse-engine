@@ -32,7 +32,7 @@ names the semantic layer this grows.
      are feedback or UI entering, which the rules keep on an ease-out, so they use the modal pair
      (a quick ease-out). Every bare Tailwind `transition` utility defaults to it
      (`--default-transition-duration` / `-timing-function`), so nothing falls back to Tailwind's
-     own 150 ms. This assignment is posted to `#build-decisions` for the owner to confirm.
+     own 150 ms. **Decided (owner, 2026-09-30, `#build-decisions`): A**, the modal pair, as built.
    - The carousel settle is Embla's own damped spring on a fixed 60 fps step
      (`v += gap / duration; v *= 0.68`): it takes a `duration` in steps and no curve. Simulated
      (Embla v8.6 `ScrollBody`): 15 steps (250 ms ÷ 16.7 ms) reach 95% at 250 ms but overshoot 1.06%
@@ -86,6 +86,9 @@ names the semantic layer this grows.
    high-priority hero image has decoded, waiting for it at most until 1.8 s. The first pointer,
    key, wheel or touch lifts it at once. It is decorative and `aria-hidden`, and a first key lifts it, so no keyboard user tabs
    behind it.
+   - **Colour (owner, 2026-09-30): Onyx**, not the Gunmetal dark surface. It is its own paired
+     surface token, `surfaces.curtain` / `--av-surface-curtain` with `--av-on-curtain` (Mist) and
+     `--av-on-curtain-muted`, AA-checked in both contrast tests; a test pins it to Onyx.
    - **It never covers the page for good** (code review). Both clocks count from navigation start
      (`hold − performance.now()`), so a slow hydration doesn't lengthen it. A CSS failsafe
      (`av-curtain-failsafe`: opacity and visibility, after the `delayCurtainFailsafe` token,
@@ -125,9 +128,19 @@ names the semantic layer this grows.
      and closing re-render only the drawer.
    - Hero: the trim pill floats over the top of the model area instead of taking layout space.
      Before, a model with trims had a model area 49 px shorter, starting lower, so the car sat
-     25 px lower and met the backdrop's floor band differently: the "border" the owner saw at
-     phone width. Now every model lays out alike. Over the backdrop and the car, the pill's fill
-     is the tested dark glass (`glass.dark`, Gunmetal 88%: light ink ≥ 6.8:1 over any patch).
+     25 px lower. Now every model lays out alike (measured at 375 px: the same hero height, car
+     frame and stats position for a model with trims and one without). Over the backdrop and the
+     car, the pill's fill is the tested dark glass (`glass.dark`, Gunmetal 88%: light ink ≥ 6.8:1
+     over any patch).
+   - **The "border" under the model names at phone width (owner, 2026-09-30) was the names row's
+     scrollbar**, not the layout: the row is `overflow-x-auto`, and when the names overflow a
+     phone (five models, the active one larger) its scrollbar thumb draws a grey bar under them.
+     Reproduced at 375 px. The row now hides its scrollbar (`scrollbar-width: none` and the WebKit
+     pseudo-element) and scrolls itself to keep the active name centred (the row only, never the
+     page). That scroll is instant, like the name's own size change: a native smooth scroll would
+     be browser-timed motion outside this standard. The hero's height doesn't depend on it.
+     (The page's own smooth `scrollIntoView` for "Show trims", from slice 4, predates this
+     standard; it is a page scroll, not an animation, and is instant under reduced motion.)
    - The filter sheet owns its open state (it can be uncontrolled) and closes itself when the
      window grows to `lg` while it is open, where the sidebar replaces it (its trigger is hidden
      at `lg`, so it can't open there).

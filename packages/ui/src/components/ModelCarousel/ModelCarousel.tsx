@@ -190,6 +190,21 @@ export function ModelCarousel({
     api.scrollTo(activeIndex, Boolean(reduced));
   }, [api, activeIndex, reduced]);
 
+  // The model names scroll sideways on a phone with their scrollbar hidden (it drew a line under the
+  // names: owner, slice 8 review), so keep the active name in view. It moves the row only: never
+  // the page, even when the dock changes the model while the hero is off screen. Instant, like the
+  // active name's own size change: a native smooth scroll is browser-timed motion outside the
+  // motion standard (ADR 0026). Physical rects, so RTL needs no special case.
+  const namesRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const row = namesRef.current;
+    const name = row?.children[activeIndex];
+    if (!row || !name || row.scrollWidth <= row.clientWidth) return;
+    const r = row.getBoundingClientRect();
+    const n = name.getBoundingClientRect();
+    row.scrollBy({ left: n.left + n.width / 2 - (r.left + r.width / 2), behavior: "auto" });
+  }, [activeIndex]);
+
   const go = (index: number) => {
     setState("focus");
     userMove.current = true;
@@ -283,8 +298,10 @@ export function ModelCarousel({
       <div className="flex flex-col items-center gap-3 px-4 pt-5 lg:gap-4 lg:pt-7">
         {sparse ? null : (
           <ul
+            ref={namesRef}
             role="list"
-            className="flex max-w-full items-baseline gap-4 overflow-x-auto px-3 lg:gap-10"
+            // No scrollbar: when the names overflow a phone, its thumb drew a line under them.
+            className="flex max-w-full items-baseline gap-4 overflow-x-auto px-3 [scrollbar-width:none] lg:gap-10 [&::-webkit-scrollbar]:hidden"
           >
             {models.map((m, i) => {
               const on = i === activeIndex;

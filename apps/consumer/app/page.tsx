@@ -247,7 +247,7 @@ export default async function Page({
                         fill
                         sizes={DRAWER_IMAGE_SIZES}
                         loading="lazy"
-                        className="object-contain object-bottom"
+                        className="object-contain object-center"
                       />
                     ) : null,
                   },
@@ -308,7 +308,7 @@ export default async function Page({
                                 alt={t.sideView(card.title)}
                                 fill
                                 sizes={CARD_IMAGE_SIZES}
-                                className="object-contain object-bottom"
+                                className="object-contain object-center"
                               />
                             ) : null
                           }

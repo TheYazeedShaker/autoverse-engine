@@ -57,17 +57,34 @@ On the first real preview, two things went wrong:
      (1·B creates those), so on **insert** `register.sql` records `masters/` + the public name as a
      demo-only convention; on **update** it leaves `storage_path` unchanged. 1·B will write real
      private-store paths.
-5. **Every car renders in a fixed box per view.** `CarImageFrame` has a 2:1 box for `side` (the
+5. **Every car renders in a fixed box per view.** `CarImageFrame` has a 2:1 box (2.8 : 1 since
+   slice 8; see the amendment below) for `side` (the
    same box on every card and, from slice 5, in the drawer) and 16:9 for `front-34` (the hero).
    - The image fills the box width with `object-contain` and bottom alignment, so every car appears
-     the same size and stands on the same ground line.
+     the same size and stands on the same ground line. (Side view: centred both ways since slice 8;
+     see the last amendment.)
    - The placeholder for a missing image takes the same box, so the layout never jumps.
    - **Amendment (owner, 2026-09-28):** in the `side` box the car fills **80%** of the box width,
-     centred and still bottom-aligned; the box keeps its size. The 80% is one token,
+     centred and still bottom-aligned (vertically centred since slice 8); the box keeps its size. The 80% is one token,
      `carFrame.sideFill` / `--av-car-fill-side` (TS↔CSS parity tested), never a literal.
    - **Amendment (slice 4, 2026-09-28; ADR 0023):** the hero's `front-34` box uses the same rule and
      value: 80% of the 16:9 box width, centred, bottom-aligned (`carFrame.heroFill` /
      `--av-car-fill-hero`).
+   - **Amendment (owner, slice 8 review, 2026-09-30): the side box takes the masters' shape, and
+     the car is centred both ways.** At 2:1 an 80%-wide car (the masters run about 2.7–2.9 : 1)
+     left a band of empty space above it. The side box is now **2.8 : 1**, the middle of that
+     range, from the token `carAspect.side` / `--av-car-aspect-side` (TS↔CSS parity tested, and
+     tested to stay within 2.7–2.9), on the cards and in the drawer. The car keeps its 80% width
+     and is centred horizontally and **vertically** (`object-center`); the hero keeps
+     bottom alignment.
+     - Ground line: every side master has the same width, so at 80% width a car of ratio r is
+       `0.8·w / r` tall and its wheels sit `0.4·w / r` below the box's centre. Between a 2.7 and a
+       2.9 master the difference is `0.4·w·(1/2.7 − 1/2.9) ≈ 0.010·w`: about 3.5 px on a 342 px
+       phone card, about 4 px on a desktop card and about 5 px in the drawer. That is nearly level;
+       exact bottom alignment would bring back the gap above short cars.
+     - A master narrower than about 2.24 : 1 (the image layer's own shape, 80% × the box height)
+       would be limited by height and render narrower than 80%: a slightly smaller car, never a
+       cropped one (`object-contain`).
    - On the card, the box bleeds past the content column by exactly the card's padding, so it spans
      the card's full inner width (edge to border) and never overflows it. The placeholder is inset
      by the same padding, so it lines up with the content.

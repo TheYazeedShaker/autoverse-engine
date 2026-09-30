@@ -50,6 +50,11 @@
   --av-on-dark-soft: #cfd3d1;
   --av-on-dark-muted: #9aa19d; /* lightened to clear AA on gunmetal */
 
+  /* the showroom's intro curtain (slice 8): Onyx with the dark ink */
+  --av-surface-curtain: var(--av-onyx);
+  --av-on-curtain: var(--av-mist);
+  --av-on-curtain-muted: var(--av-on-dark-muted);
+
   /* --- admin ramp (REV2): dark operator chrome, its own neutrals --- */
   --av-admin-sidebar: #101113;
   --av-admin-base: #0d0e10;
@@ -133,7 +138,8 @@
   --av-radius-2xl: 28px; /* the vehicle card (showroom) */
   --av-radius-pill: 999px;
 
-  /* --- car framing (ADR 0022): share of each box's width the car fills (side 2:1, hero 16:9) --- */
+  /* --- car framing (ADR 0022): share of each box's width the car fills (side 2.8:1, hero 16:9) --- */
+  --av-car-aspect-side: 2.8; /* the side box's width : height, the masters' shape */
   --av-car-fill-side: 80%;
   --av-car-fill-hero: 80%;
   --av-hero-slide: 92%; /* the hero carousel slide from md: a 4% neighbour peek each side */

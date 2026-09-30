@@ -203,6 +203,77 @@ describe("ModelCarousel", () => {
     expect(stats()).toEqual(["٤٢٠", "١٨٠", "٦٫٤"]);
   });
 
+  it("the model names scroll with no scrollbar (its thumb drew a line under the names on phones)", () => {
+    render(<Hero />);
+    const names = within(region()).getAllByRole("list")[0]!;
+    expect(names).toHaveClass("overflow-x-auto", "[scrollbar-width:none]");
+    expect(names).toHaveClass("[&::-webkit-scrollbar]:hidden");
+  });
+
+  describe("keeps the active name centred in an overflowing names row (the row only)", () => {
+    // Test geometry (CSS px in a fake layout, not styling): a 300-wide row showing 600 of names,
+    // the second name at 200–280.
+    const ROW = 300;
+    const NAMES = 600;
+    const NAME_LEFT = 200;
+    const NAME_WIDTH = 80;
+    const NAME_HEIGHT = 20;
+    const rect = (left: number, width: number) =>
+      ({
+        left,
+        width,
+        right: left + width,
+        top: 0,
+        bottom: NAME_HEIGHT,
+        height: NAME_HEIGHT,
+        x: left,
+        y: 0,
+      }) as DOMRect;
+    const layOut = (overflow: boolean) => {
+      const row = within(region()).getAllByRole("list")[0]!;
+      Object.defineProperty(row, "scrollWidth", {
+        configurable: true,
+        value: overflow ? NAMES : ROW,
+      });
+      Object.defineProperty(row, "clientWidth", { configurable: true, value: ROW });
+      row.getBoundingClientRect = () => rect(0, ROW);
+      (row.children[1] as HTMLElement).getBoundingClientRect = () => rect(NAME_LEFT, NAME_WIDTH);
+      const scrollBy = vi.fn();
+      row.scrollBy = scrollBy as unknown as typeof row.scrollBy;
+      return scrollBy;
+    };
+
+    it.each(["ltr", "rtl"] as const)(
+      "%s: moves the row by the physical centre offset, instantly, never the page",
+      async (dir) => {
+        const pageScroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+        const intoView = vi.fn();
+        const saved = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = intoView;
+        render(<Hero dir={dir} />);
+        const scrollBy = layOut(true);
+        await userEvent.click(
+          screen.getByRole("button", { name: dir === "rtl" ? LABELS_AR.next : "Next model" }),
+        );
+        // The second name's centre minus the row's centre (240 − 150).
+        const offset = NAME_LEFT + NAME_WIDTH / 2 - ROW / 2;
+        expect(scrollBy).toHaveBeenLastCalledWith({ left: offset, behavior: "auto" });
+        expect(pageScroll).not.toHaveBeenCalled();
+        expect(intoView).not.toHaveBeenCalled();
+        Element.prototype.scrollIntoView = saved;
+        pageScroll.mockRestore();
+      },
+    );
+
+    it("does nothing when the names fit", async () => {
+      render(<Hero />);
+      const scrollBy = layOut(false);
+      await userEvent.click(screen.getByRole("button", { name: "Next model" }));
+      expect(current()).toHaveTextContent(HERO_MODELS[1]!.name);
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+  });
+
   it("every car sits in the same 16:9 frame (placeholder included)", () => {
     render(<Hero />);
     const frames = document.querySelectorAll('[data-car-frame="front-34"]');

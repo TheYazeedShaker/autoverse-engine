@@ -61,6 +61,8 @@ export const surfaces = {
   // The vehicle card. A brand accent is validated against white (validate-theme), so accents may sit on it.
   white: { bg: palette.white, fg: palette.onyx, fgMute: palette.slate },
   dark: { bg: palette.gunmetal, fg: palette.onDark, fgMute: palette.onDarkMute },
+  // The showroom's intro curtain (slice 8, owner review): Onyx, the deepest neutral, with the dark ink.
+  curtain: { bg: palette.onyx, fg: palette.onDark, fgMute: palette.onDarkMute },
   // admin — dark operator chrome (REV2). The light equivalents reuse the consumer neutrals rather
   // than inventing a second light ramp: an operator on a light theme sees the same greys as everyone.
   adminSidebar: { bg: palette.adminSidebar, fg: palette.onAdmin, fgMute: palette.onAdminMute },
@@ -127,10 +129,15 @@ export const space = {
 // Radius (§4.1).
 export const radius = { sm: 7, md: 10, lg: 14, xl: 18, "2xl": 28, pill: 999 } as const;
 
-// Car framing (ADR 0022). The share of each fixed box's width the car fills, centred and bottom-aligned:
-// side (2:1; cards and the drawer) and hero (16:9, front three-quarter). The same 80% in both, so a car
+// Car framing (ADR 0022). The share of each fixed box's width the car fills: side (cards and the drawer;
+// centred both ways) and hero (16:9, front three-quarter; bottom-aligned). The same 80% in both, so a car
 // keeps the same margin in every box.
 export const carFrame = { sideFill: 0.8, heroFill: 0.8 } as const;
+
+// The side box's width : height (ADR 0022 amendment, slice 8). The normalised side masters are trimmed
+// tight to the car and run about 2.7–2.9 : 1, so the box takes their middle and the car fills it with no
+// band of empty space above.
+export const carAspect = { side: 2.8 } as const;
 
 // The hero carousel: each slide's share of the stage width from `md` (a 4% neighbour peek each side; spec
 // §5.3). Below `md` a slide is full width.

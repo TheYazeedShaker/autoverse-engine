@@ -19,6 +19,8 @@
   --color-on-white: var(--av-on-white);
   --color-on-white-muted: var(--av-on-white-muted);
   --color-surface-dark: var(--av-surface-dark);
+  --color-surface-curtain: var(--av-surface-curtain);
+  --color-on-curtain: var(--av-on-curtain);
   /* glass over moving content (the dock): AA over any backdrop, tokens glass.test.ts (ADR 0026) */
   --color-glass-light: var(--av-glass-light);
   --color-glass-dark: var(--av-glass-dark);
