@@ -8,14 +8,16 @@ import { Icon } from "../Icon";
 import { Reveal } from "../Reveal";
 
 // ModelSection — one model's block in the range (spec §5.6): a header band (name, descriptor, from-price)
-// and its trim cards in the 3-per-row grid. It is rendered for every model, even one with a single trim.
+// and its trim cards in the range grid (at most 3 per row). It is rendered for every model, even one with a single trim.
 //
 // The header toggles the section open and closed, as in the approved page. It follows the APG accordion
 // pattern: a heading wrapping a Radix Collapsible trigger (a real <button> with aria-expanded and
 // aria-controls), so the model name stays in the heading outline and the toggle is keyboard-operable.
 //
-// The grid never stretches a card. A section with one or two cards keeps them at one column's width,
-// start-aligned in the reading direction.
+// The grid never stretches a card. The column count comes from the card's minimum width, not breakpoints
+// (`av-card-grid`, packages/ui/src/styles/tailwind.css; tokens `vehicleCard`), at most 3. A section with
+// one or two cards keeps them at one column's width, start-aligned in the reading direction, and no card
+// grows past the approved card's max width.
 
 export interface ModelSectionProps {
   /** The model name, shown as the section heading. */
@@ -88,10 +90,10 @@ export function ModelSection({
         <Collapsible.Content className="pt-5 lg:pt-7">
           <ul
             role="list"
-            className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:gap-10"
+            className="av-card-grid items-stretch 2xl:[--card-gap:calc(var(--spacing)*10)]"
           >
             {Children.map(children, (child) => (
-              <li className="flex min-w-0 max-w-[35rem]">
+              <li className="flex max-w-(--av-card-max-width) min-w-0">
                 {/* Slice 8: each card fades in one stagger step after its header (as approved). */}
                 <Reveal level={1} className="flex w-full min-w-0">
                   {child}

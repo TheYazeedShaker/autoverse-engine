@@ -50,10 +50,11 @@
   --av-on-dark-soft: #cfd3d1;
   --av-on-dark-muted: #9aa19d; /* lightened to clear AA on gunmetal */
 
-  /* the showroom's intro curtain (slice 8): Onyx with the dark ink */
-  --av-surface-curtain: var(--av-onyx);
-  --av-on-curtain: var(--av-mist);
-  --av-on-curtain-muted: var(--av-on-dark-muted);
+  /* Onyx with the dark ink: the showroom's intro curtain and TopBar (slice 8); the hero stays Gunmetal */
+  --av-surface-onyx: var(--av-onyx);
+  --av-on-onyx: var(--av-mist);
+  --av-on-onyx-soft: var(--av-on-dark-soft);
+  --av-on-onyx-muted: var(--av-on-dark-muted);
 
   /* --- admin ramp (REV2): dark operator chrome, its own neutrals --- */
   --av-admin-sidebar: #101113;
@@ -144,6 +145,8 @@
   --av-car-fill-hero: 80%;
   --av-hero-slide: 92%; /* the hero carousel slide from md: a 4% neighbour peek each side */
   --av-topbar-height: 64px; /* the showroom top bar; the hero fills the screen below it */
+  --av-card-min-width: 336px; /* the vehicle card: the grid's column floor (slice 8) */
+  --av-card-max-width: 560px; /* the vehicle card never grows past the approved 560px */
 
   /* --- border width --- */
   --av-border-width: 1px; /* hairline — pair with --av-border */

@@ -19,8 +19,10 @@
   --color-on-white: var(--av-on-white);
   --color-on-white-muted: var(--av-on-white-muted);
   --color-surface-dark: var(--av-surface-dark);
-  --color-surface-curtain: var(--av-surface-curtain);
-  --color-on-curtain: var(--av-on-curtain);
+  --color-surface-onyx: var(--av-surface-onyx);
+  --color-on-onyx: var(--av-on-onyx);
+  --color-on-onyx-soft: var(--av-on-onyx-soft);
+  --color-on-onyx-muted: var(--av-on-onyx-muted);
   /* glass over moving content (the dock): AA over any backdrop, tokens glass.test.ts (ADR 0026) */
   --color-glass-light: var(--av-glass-light);
   --color-glass-dark: var(--av-glass-dark);
@@ -119,4 +121,21 @@
   .av-curtain-failsafe {
     animation: none;
   }
+}
+
+/* The vehicle-card grid (slice 8, owner review). The column count comes from the card's minimum width,
+   never from breakpoints: as many columns as keep every card at least --av-card-min-width wide, and at
+   most three, because each track's floor is also a third of the row ((100% - 2 gaps) / 3).
+   min(100%, ...) keeps a screen narrower than the minimum on one full-width column instead of
+   overflowing. auto-fill keeps the empty tracks, so a model with one or two trims never stretches its
+   cards; each card also stops at --av-card-max-width (the approved card's 560px). The gap is a local
+   property so the 2xl step can widen it and the track maths follows. */
+@utility av-card-grid {
+  --card-gap: calc(var(--spacing) * 6);
+  display: grid;
+  gap: var(--card-gap);
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(var(--av-card-min-width), (100% - 2 * var(--card-gap)) / 3)), 1fr)
+  );
 }

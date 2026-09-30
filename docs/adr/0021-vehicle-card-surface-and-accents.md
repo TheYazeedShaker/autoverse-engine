@@ -73,3 +73,32 @@ brand focus colour in the database", trigger: before the first real brand goes l
 - The white card sits on the grey page panel (`--av-surface-panel`), matching the approved page.
 - Any future accent use on a surface other than Mist or white (for example the Gunmetal hero)
   needs a new validated pair first (theming REV, as amended).
+
+## Amendment (owner, slice 8 review, 2026-09-30): the card's width range sets the grid
+
+The range grid used fixed breakpoints (1 / 2 / 3 columns at `md` / `xl`). Narrowing the window made
+the cards thinner and thinner before a breakpoint dropped a column: measured at 248–288 px with 3
+columns from 1290 px, and 281 px at 1030 px.
+
+- **The column count comes from the card's minimum width**, never from breakpoints:
+  `repeat(auto-fill, minmax(min(100%, max(min-width, (100% − 2 gaps) / 3)), 1fr))`. That gives as
+  many columns as keep every card at least the minimum wide, and **at most three**. The utility is
+  `av-card-grid` (`packages/ui/src/styles/tailwind.css`). `auto-fill` keeps the empty tracks, so a
+  model with one or two trims never stretches its cards.
+- **Minimum 336 px** (`vehicleCard.minWidth` / `--av-card-min-width`, TS↔CSS parity tested). It was
+  measured on the card at 10 px steps:
+  - English content fits from 310 px. Below that, the price overflows and "0 – 100 km/h" is cut off.
+  - Arabic needs 330 px, because "السرعة القصوى" is cut off below it.
+  - 336 px (21 rem) clears both with a margin, and still fits one column on a 390 px phone (343 px).
+  - The approved card's own compact layout (container ≤ 24 rem) shows it was designed to render
+    this narrow.
+- **Maximum 560 px**, the approved card's `max-width` (`vehicleCard.maxWidth` /
+  `--av-card-max-width`). Each grid cell stops there and stays start-aligned, so a lone column may
+  leave space beside it (for example 1030–1150 px, where the filter sidebar appears).
+- **Checked in the browser** (fixture, EN and AR) at every width from 390 to 1440 px in 20 px steps,
+  plus 1440, 1600, 1920, 2560 and 3200 px:
+  - the narrowest card is 341.7 px and the widest 560 px, with no text cut off or overflowing;
+  - one column up to 810 px, two from 830 px, one again from 1030 px (the sidebar takes its width),
+    two from 1170 px, three from about 1600 px, never more than three;
+  - the 40 px gap at `2xl` is part of the track maths.
+- Spec §5.6's "3-per-row grid" now reads "at most 3 per row, from the card's minimum width".

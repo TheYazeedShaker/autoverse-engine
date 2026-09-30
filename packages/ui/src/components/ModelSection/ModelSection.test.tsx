@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
@@ -34,6 +36,21 @@ describe("ModelSection", () => {
   it("puts each card in its own grid cell, however many there are", () => {
     expect(within(section(1)).getAllByRole("listitem")).toHaveLength(1);
     expect(within(section(3)).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("takes its columns from the card's minimum width, not breakpoints, and never stretches a card", () => {
+    const grid = within(section(3)).getByRole("list");
+    expect(grid).toHaveClass("av-card-grid");
+    expect(grid.className).not.toMatch(/grid-cols-/);
+    for (const cell of within(grid).getAllByRole("listitem"))
+      expect(cell).toHaveClass("max-w-(--av-card-max-width)");
+    // jsdom can't lay out a grid, so pin the rule itself: auto-fill from the minimum width, capped at
+    // a third of the row (at most 3), one full-width column below the minimum.
+    const css = readFileSync(join(__dirname, "..", "..", "styles", "tailwind.css"), "utf8");
+    const rule = css.slice(css.indexOf("@utility av-card-grid"));
+    expect(rule).toMatch(
+      /repeat\(\s*auto-fill,\s*minmax\(min\(100%, max\(var\(--av-card-min-width\), \(100% - 2 \* var\(--card-gap\)\) \/ 3\)\), 1fr\)/,
+    );
   });
 
   it("opens by default and toggles with its heading button (aria-expanded follows)", async () => {

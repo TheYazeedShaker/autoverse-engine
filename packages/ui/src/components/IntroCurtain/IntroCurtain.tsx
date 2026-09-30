@@ -143,7 +143,7 @@ export function IntroCurtain({
       onAnimationComplete={() => {
         if (phase === "lifting") setPhase("gone");
       }}
-      className="av-curtain-failsafe bg-surface-curtain text-on-curtain fixed inset-0 z-60 flex items-center justify-center motion-reduce:hidden [html[data-intro-seen]_&]:hidden"
+      className="av-curtain-failsafe bg-surface-onyx text-on-onyx fixed inset-0 z-60 flex items-center justify-center motion-reduce:hidden [html[data-intro-seen]_&]:hidden"
     >
       <span className="flex items-center text-2xl font-semibold tracking-tight rtl:tracking-normal">
         {logo ?? brandName}

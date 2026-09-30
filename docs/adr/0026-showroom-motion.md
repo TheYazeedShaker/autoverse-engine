@@ -87,8 +87,14 @@ names the semantic layer this grows.
    key, wheel or touch lifts it at once. It is decorative and `aria-hidden`, and a first key lifts it, so no keyboard user tabs
    behind it.
    - **Colour (owner, 2026-09-30): Onyx**, not the Gunmetal dark surface. It is its own paired
-     surface token, `surfaces.curtain` / `--av-surface-curtain` with `--av-on-curtain` (Mist) and
-     `--av-on-curtain-muted`, AA-checked in both contrast tests; a test pins it to Onyx.
+     surface token, `surfaces.onyx` / `--av-surface-onyx` with `--av-on-onyx` (Mist),
+     `--av-on-onyx-soft` and `--av-on-onyx-muted`, AA-checked in both contrast tests; a test pins it
+     to Onyx. **The TopBar uses the same token** (owner, same day), so the curtain lifts into a bar
+     of the same colour; the hero stage below stays Gunmetal. TopBar contrast on Onyx: its text
+     (Mist) 18.5:1, the market chip (muted ink) 7.55:1, the idle language link (soft ink) above
+     13:1, and the primary button is Mist with Onyx text. The logo tool
+     (`packages/asset-tools/src/logo.mjs`) still checks a dark-surface logo against Gunmetal. That
+     is the stricter test: a light mark that clears 3:1 on Gunmetal clears more on the darker Onyx.
    - **It never covers the page for good** (code review). Both clocks count from navigation start
      (`hold − performance.now()`), so a slow hydration doesn't lengthen it. A CSS failsafe
      (`av-curtain-failsafe`: opacity and visibility, after the `delayCurtainFailsafe` token,

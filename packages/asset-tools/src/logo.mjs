@@ -75,7 +75,9 @@ export async function checkLogo(fileName, data) {
 
 /**
  * The surface each variant is FOR (logos are named by the surface they go on; owner decision B):
- * `light` → the light canvas (Mist), `dark` → the dark surface (Gunmetal, the TopBar). The same
+ * `light` → the light canvas (Mist), `dark` → the dark surface (Gunmetal). The TopBar and the intro
+ * curtain are Onyx (slice 8), which is darker: a light mark that clears 3:1 on Gunmetal clears more on
+ * Onyx, so Gunmetal is the stricter check (and the hero is still Gunmetal). The same
  * values as the design tokens (a test keeps them equal; this file runs in plain Node).
  */
 export const SURFACE = { light: "#F4F7F5", dark: "#222823" };

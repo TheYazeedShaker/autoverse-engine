@@ -61,8 +61,9 @@ export const surfaces = {
   // The vehicle card. A brand accent is validated against white (validate-theme), so accents may sit on it.
   white: { bg: palette.white, fg: palette.onyx, fgMute: palette.slate },
   dark: { bg: palette.gunmetal, fg: palette.onDark, fgMute: palette.onDarkMute },
-  // The showroom's intro curtain (slice 8, owner review): Onyx, the deepest neutral, with the dark ink.
-  curtain: { bg: palette.onyx, fg: palette.onDark, fgMute: palette.onDarkMute },
+  // Onyx, the deepest neutral, with the dark ink: the showroom's intro curtain and the TopBar (slice 8,
+  // owner review), so the curtain lifts into a bar of the same colour. The hero stage stays `dark`.
+  onyx: { bg: palette.onyx, fg: palette.onDark, fgMute: palette.onDarkMute },
   // admin — dark operator chrome (REV2). The light equivalents reuse the consumer neutrals rather
   // than inventing a second light ramp: an operator on a light theme sees the same greys as everyone.
   adminSidebar: { bg: palette.adminSidebar, fg: palette.onAdmin, fgMute: palette.onAdminMute },
@@ -145,6 +146,12 @@ export const heroCarousel = { slide: 0.92 } as const;
 
 // The showroom top bar's height (px). The hero fills the screen below it.
 export const topBar = { height: 64 } as const;
+
+// The vehicle card's width range (px; slice 8, owner review). The range grid fits as many columns as keep
+// every card at least `minWidth` wide (at most 3): 336 is the narrowest the card holds its content in both
+// languages (Arabic's stat labels need 330) and still fits a 390 px phone's one column (343). `maxWidth` is
+// the approved card's 560 px: a card never grows past it.
+export const vehicleCard = { minWidth: 336, maxWidth: 560 } as const;
 
 // Border width. One hairline, used with --av-border for every divider and outline.
 export const borderWidth = { hairline: 1 } as const;
