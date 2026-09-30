@@ -1,0 +1,220 @@
+name: Demo sync
+
+# Keeps the `demo` branch equal to `main`. demo.auto-verse.net is a Vercel Preview domain on that
+# branch, behind Vercel login (BACKLOG #18), so every push to `demo` creates a Preview deployment
+# that the address then serves. Owner decision (`#build-decisions`, 2026-09-30): the demo tracks
+# main only, moved by this workflow. Runbook: docs/runbooks/showroom-preview-demo.md, section "The
+# demo address" (what to do for each failure; added by the BACKLOG #18 docs PR).
+#
+# Fast-forward only, never force:
+#   - It reads main's CURRENT tip, not the pushed commit, so a re-run of an old run can never move
+#     demo backwards, and demo's workflow files always end up identical to the default branch's.
+#   - It asks GitHub how demo relates to that tip:
+#       identical              → nothing to do;
+#       demo behind main       → moves demo to main's tip through the refs API with force: false,
+#                                so GitHub itself refuses anything that isn't a fast-forward;
+#       demo ahead or diverged → someone committed to demo directly;
+#       demo missing, or an unreadable answer;
+#       GitHub rejects the move (`refused`) or the move times out (result unknown; re-run).
+#     Every case but the first two fails loudly. None of them moves demo, except a timed-out move,
+#     which may have landed (a re-run tells). The owner decides how to reset demo.
+#   - Loudly means: the run is red on main's commit, and the `alert` job posts to #build. It also
+#     fires when the sync step hits its time limit, and it fails, visibly, when Slack isn't set up.
+#     `alert_drill` (manual run) proves the alert path end to end without touching demo.
+#
+# No checkout: the sync job runs no code from the repository, only the GitHub API through `gh`
+# (preinstalled on the runner). Its token can write contents; the alert job's token can do
+# nothing. Tests: .github/scripts/demo-sync/sync.test.mjs (run by CI's verify job).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      alert_drill:
+        description: Fail on purpose before touching anything, to check the Slack alert
+        type: boolean
+        default: false
+
+permissions: {}
+
+# One sync at a time. While one runs, GitHub keeps only the newest waiting run and cancels an older
+# waiting one (a grey "cancelled" run on that main commit). That is harmless: every sync run syncs
+# demo to main's CURRENT tip, so the newest run does what the cancelled one would have done. Drill
+# runs use their own group, so a drill never replaces a waiting sync.
+concurrency:
+  group: ${{ inputs.alert_drill && 'demo-sync-drill' || 'demo-sync' }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    outputs:
+      outcome: ${{ steps.sync.outputs.outcome }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TRIGGER_SHA: ${{ github.sha }}
+      ALERT_DRILL: ${{ inputs.alert_drill && 'true' || 'false' }}
+    steps:
+      - name: Fast-forward demo to main
+        id: sync
+        # Shorter than the job's limit, so a hang ends as a step FAILURE (which the alert sees),
+        # not as a cancelled job. Worst case of the calls below: 4 reads × 75 s + a 20 s write
+        # = 320 s (the test checks this budget against the limit).
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+
+          # Stops the job with a clear reason in the log, the annotations and the run summary.
+          fail() {
+            echo "outcome=$1" >> "$GITHUB_OUTPUT"
+            echo "::error title=demo was not synced::$2"
+            printf '### demo was NOT synced (%s)\n\n%s\n' "$1" "$2" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+
+          # Reads: up to 3 attempts, 20 s each, 5 then 10 s apart. A 404 is final (return 4). The one
+          # write below is not retried; re-running the whole job is safe.
+          read_api() {
+            local attempt out rc
+            for attempt in 1 2 3; do
+              rc=0
+              out=$(timeout 20 gh api "$@" 2>&1) || rc=$?
+              if [ "$rc" -eq 0 ]; then
+                printf '%s' "$out"
+                return 0
+              fi
+              case "$out" in *"HTTP 404"*) printf '%s' "$out"; return 4 ;; esac
+              [ "$rc" -eq 124 ] && out="timed out after 20 s"
+              echo "read attempt $attempt failed: $out" >&2
+              if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
+            done
+            printf '%s' "$out"
+            return 1
+          }
+
+          is_sha() { [[ "$1" =~ ^[0-9a-f]{40}$ ]]; }
+
+          if [ "$ALERT_DRILL" = "true" ]; then
+            fail drill "Alert drill (manual run): nothing was read or changed."
+          fi
+
+          main_sha=$(read_api "repos/$REPO/git/ref/heads/main" --jq .object.sha) \
+            || fail api_error "Could not read main: $main_sha"
+          is_sha "$main_sha" || fail api_error "main resolved to an unexpected value: $main_sha"
+
+          rc=0
+          demo_sha=$(read_api "repos/$REPO/git/ref/heads/demo" --jq .object.sha) || rc=$?
+          if [ "$rc" -eq 4 ]; then
+            fail missing "The demo branch does not exist. The owner creates it from main, then re-runs this workflow."
+          elif [ "$rc" -ne 0 ]; then
+            fail api_error "Could not read demo: $demo_sha"
+          fi
+          is_sha "$demo_sha" || fail api_error "demo resolved to an unexpected value: $demo_sha"
+
+          echo "triggered by $TRIGGER_SHA; main is at $main_sha; demo is at $demo_sha"
+
+          # compare/BASE...HEAD with base = demo, head = main: "ahead" means main is ahead of demo.
+          status=$(read_api "repos/$REPO/compare/$demo_sha...$main_sha" --jq .status) \
+            || fail api_error "Could not compare demo with main: $status"
+
+          case "$status" in
+            identical)
+              echo "outcome=unchanged" >> "$GITHUB_OUTPUT"
+              echo "demo already equals main ($main_sha)."
+              printf '### demo already equals main\n\n%s\n' "$main_sha" >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            ahead)
+              rc=0
+              out=$(timeout 20 gh api -X PATCH "repos/$REPO/git/refs/heads/demo" \
+                -f sha="$main_sha" -F force=false --jq .object.sha 2>&1) || rc=$?
+              if [ "$rc" -eq 124 ]; then
+                fail api_error "Moving demo to $main_sha timed out after 20 s, so GitHub may or may not have applied it. Re-run this workflow: it is safe, and it reports 'demo already equals main' if the move landed."
+              elif [ "$rc" -ne 0 ]; then
+                case "$out" in
+                  *workflow*permission*)
+                    fail refused "GitHub refused to let this workflow's token move demo across a change to .github/workflows (it never has the workflows permission). The owner moves demo once by hand with a plain, non-forced push of $main_sha to demo; re-running will not help. GitHub said: $out"
+                    ;;
+                esac
+                fail refused "GitHub refused to move demo to $main_sha (the move is never forced). GitHub said: $out"
+              fi
+              [ "$out" = "$main_sha" ] || fail api_error "demo moved to $out, expected $main_sha"
+              echo "outcome=fast_forwarded" >> "$GITHUB_OUTPUT"
+              echo "demo fast-forwarded: $demo_sha → $main_sha"
+              printf '### demo fast-forwarded\n\n%s → %s\n' "$demo_sha" "$main_sha" >> "$GITHUB_STEP_SUMMARY"
+
+              # Vercel may judge a monorepo build by the newest commit's own changes and mark it
+              # Skipped. After a jump over several merges, that can leave the demo address on an
+              # older build while this run is green, so say so. A failed read here only skips the
+              # hint.
+              first_parent=$(read_api "repos/$REPO/commits/$main_sha" --jq '.parents[0].sha') || first_parent=""
+              if [ -n "$first_parent" ] && [ "$first_parent" != "$demo_sha" ]; then
+                echo "::warning title=demo jumped over several merges::demo moved $demo_sha → $main_sha in one step. Check the newest demo deployment in Vercel; if it is Skipped, create a deployment from branch demo."
+                printf '\n**Check Vercel:** demo moved over more than one merge. Confirm the newest demo deployment was built, not Skipped.\n' >> "$GITHUB_STEP_SUMMARY"
+              fi
+              ;;
+            behind)
+              fail demo_ahead "demo has commits that main doesn't (demo $demo_sha is ahead of main $main_sha): someone committed to demo directly. Nothing was changed; the owner decides how to reset demo."
+              ;;
+            diverged)
+              fail diverged "demo and main have diverged (demo $demo_sha, main $main_sha): someone committed to demo directly. Nothing was changed; the owner decides how to reset demo."
+              ;;
+            *)
+              fail api_error "Unexpected compare status '$status' for demo $demo_sha vs main $main_sha."
+              ;;
+          esac
+
+  alert:
+    needs: sync
+    # Any sync result but success, including the step's time limit. Not for a cancelled run: a
+    # manual cancel, or a waiting run replaced by a newer one.
+    if: ${{ !cancelled() && needs.sync.result != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions: {}
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      CHANNEL: ${{ vars.SLACK_BUILD_CHANNEL_ID }}
+      OUTCOME: ${{ needs.sync.outputs.outcome }}
+      SYNC_RESULT: ${{ needs.sync.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Post the failure to Slack
+        run: |
+          set -euo pipefail
+          if [ -z "$SLACK_BOT_TOKEN" ] || [ -z "$CHANNEL" ]; then
+            echo "::error::No Slack alert was sent: set the SLACK_BOT_TOKEN secret and the SLACK_BUILD_CHANNEL_ID variable, and invite the bot to that channel."
+            exit 1
+          fi
+          if [ "$OUTCOME" = "drill" ]; then
+            text="Demo sync alert drill (manual run): the alert path works; demo was not touched. Run: $RUN_URL"
+          else
+            text="Demo sync failed (${OUTCOME:-$SYNC_RESULT}): demo.auto-verse.net no longer follows main. Run: $RUN_URL"
+          fi
+          # Same conventions as .github/scripts/loop/slack.mjs: no link previews, and a write is
+          # retried only on 429 (Slack refuses a rate-limited request before acting on it).
+          body=$(jq -n --arg channel "$CHANNEL" --arg text "$text" \
+            '{channel: $channel, text: $text, unfurl_links: false, unfurl_media: false}')
+          for attempt in 1 2; do
+            code=$(curl -sS --max-time 10 -o resp.json -D headers.txt -w '%{http_code}' \
+              -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json; charset=utf-8" \
+              --data "$body") || code=000
+            if [ "$code" = "429" ] && [ "$attempt" -eq 1 ]; then
+              retry_after=$(grep -i '^retry-after:' headers.txt | tr -dc '0-9' || true)
+              retry_after=${retry_after:-5}
+              [ "$retry_after" -le 30 ] || retry_after=30
+              sleep "$retry_after"
+              continue
+            fi
+            break
+          done
+          [ "$code" = "200" ] || { echo "::error::Slack answered HTTP $code; no alert was posted."; exit 1; }
+          jq -e '.ok == true' resp.json > /dev/null \
+            || { echo "::error::Slack refused the alert: $(jq -r '.error // "unknown"' resp.json)"; exit 1; }
+          echo "Alert posted."
