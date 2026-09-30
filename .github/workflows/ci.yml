@@ -23,6 +23,19 @@ jobs:
     # Vercel creates a preview deploy per PR automatically (that preview IS staging).
     # Merging to main triggers the production deploy.
 
+  # The agent guard and the visual comparison tool (ADR 0010). Both are written for the Windows dev
+  # machine (Git Bash paths such as /c/Users), so their tests run on Windows. No dependencies.
+  guard:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test .claude/hooks/guard.test.mjs .claude/tools/visual-compare.test.mjs
+
   # The mandatory cross-tenant isolation test (CLAUDE.md, "Data & tenancy").
   # Runs against a throwaway Supabase Postgres started inside the job, with every migration
   # in supabase/migrations applied. No hosted database and no secrets are involved.

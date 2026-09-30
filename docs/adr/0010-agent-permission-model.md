@@ -108,6 +108,59 @@ predate this change:
 - a link placed in `design-approved/` by hand. The agent can't create one there. A guard test fails
   if `design-approved/` holds any link, so the owner's copies stay copies.
 
+## Visual comparison tool (amended 2026-09-30, owner; working rule B)
+
+Working rule B (`CLAUDE.md`) makes the agent render each approved design and the built page at 390,
+768 and 1440 px, in EN and AR, and compare them before any UI PR. Rendering a design means running
+a browser over `design-approved/`, which the shell may not touch. So there is **one** program with
+that access, and it is the owner's:
+
+- **`.claude/tools/visual-compare.mjs`**, run only as **`pnpm visual:compare <folder>/<name> --built
+<url>`**. The agent can't change it: `Edit`/`Write(./.claude/tools/**)` are denied, the guard refuses
+  shell writes there and any other shell mention of it (running it with `node`, reading it with
+  `cat`), and `.claude/` is code-owned.
+- **What the guard checks on that call** (every command line that mentions `visual:compare`, in any
+  quoting, escaping or `bash -c` wrapper):
+  - it is exactly a bare `pnpm [run] visual:compare <folder>/<name> --built <url>`, with no `VAR=`
+    prefix, no wrapper, no pnpm flag such as `-C` or `--filter`, and no redirect or extra argument;
+  - it runs from the repository root. The guard starts from the shell's real folder (the hook
+    input's `cwd`), because pnpm runs the nearest `package.json`'s script;
+  - nothing on the line sets the environment or `PATH` (`export`, `NODE_OPTIONS`, `npm_config_*`, …);
+  - the root script is exactly `node .claude/tools/visual-compare.mjs`, with no `pre`/`post` script
+    around it;
+  - no npm/pnpm config file pnpm reads (the project `.npmrc` and `pnpm-workspace.yaml`, the user's
+    `~/.npmrc`, the pnpm global rc, the npm global rc, `NPM_CONFIG_USERCONFIG`) mentions
+    `node-options`, `script-shell` or `shell-emulator` in any spelling;
+  - `node_modules/.bin` holds no `node` that would shadow the real one on pnpm's `PATH`;
+  - the URL uses plain URL characters only: no `$`, backticks, `;`, `&`, quotes, spaces, `%` (which
+    cmd.exe expands even inside quotes when pnpm runs the script on Windows) or `,`.
+- **What the tool itself does.** It accepts only `<folder>/<name>`, resolves it through symlinks, and
+  refuses links, hard links, `..`, and an approved folder that resolves into `design/`. It serves that
+  design's own folder over `127.0.0.1` (GET only, regular single-link files inside the folder only),
+  so the browser never gets a `file://` URL. The design's browser context, popups included, may
+  reach only that server and the font hosts, with service workers and downloads off. The built page
+  must be loopback `http(s)` or `https` on the demo host. Output goes to a new folder in the OS temp
+  directory, and the tool refuses a temp directory inside the repository.
+- **Screenshots stay out of the repository.** The design renders carry real brand names and imagery,
+  and the repository is public (ADR 0008). The guard refuses shell copies, moves or redirects of a
+  render folder into the repository. That is a heuristic like the rest: an interpreter could still
+  copy them. How both sets reach the owner with each PR is the owner's call (`#build-decisions`).
+- Tests: `.claude/hooks/guard.test.mjs` covers the allowed call, every refused variant from the
+  security review, the pin against a tampered `package.json`, the config files, `pre`/`post`
+  scripts, a shadowing `node`, the hook's `cwd`, and the settings.
+  `.claude/tools/visual-compare.test.mjs` covers names, traversal, links, hard links, the served
+  folder, URLs and the output folder. A CI job runs both on Windows, where the guard's path forms
+  apply.
+
+**Limits, stated plainly.** The guard is a heuristic over command text; it cannot see inside a
+process. Shell-side protection of `design/` and `design-approved/` is **only** that heuristic:
+`node -e`, `python -c` or any program the agent writes can read either folder, as the list above
+already says. The file-tool deny protects `design/` from the Read/Edit/Write tools, not from the
+shell. The comparison also runs with the installed dependencies (`playwright` in `node_modules`),
+which the agent can modify like the rest of the toolchain. So the tool doesn't make the shell safer
+than before; it gives rule B **one** sanctioned, reviewed path, and grants nothing that an allowed
+`pnpm test` with an edited script couldn't already do.
+
 ## Merging and approval (amended 2026-09-25, owner, `#build-decisions`)
 
 Claude sessions started from claude.ai act on GitHub **as the owner**: PR #40, opened by an agent
