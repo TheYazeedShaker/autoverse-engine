@@ -81,9 +81,17 @@ spec → branch → build behind flag → self-gate (lint · types · tests · s
 
 `.claude/` provides: subagents (code-reviewer, security-review, test-runner), skills (write-feature-spec, ADR, RLS, analytics-event), secret-scan hook. Use them; record architectural decisions as ADRs.
 
+## Working rules (owner, 2026-09-30)
+
+**A. The approved design wins.** Where a spec's text and the approved design (`design-approved/<page>/`) differ on layout, visuals, copy or interaction, follow the design without asking, and note each difference in the PR. Escalate only **security, data, money, legal and consent** questions (Tier B/C as before). This does not override the engineering rules above or the production plan: the design decides what the page looks like and does, never how tenancy, capture, flags or observability work. The design's copy and images are sample content: real names and values come from engine data, and no real manufacturer name enters tracked code or tests (ADR 0008).
+
+**B. Visual self-check before any UI PR.** Render the approved design file and the built page at **390, 768 and 1440 px, in EN and AR**, compare the screenshots, fix the differences, and attach both sets to the PR. Rendering the design runs only through the one comparison script the guard allows read-only access for (`pnpm visual:compare`, once the owner has applied that guard patch). Until then, read the design with the file tools only, as before, and say in the PR that the design screenshots are missing.
+
+**C. Fewer, bigger PRs.** At most **2–3 PRs per page**, one per coherent part of it (not one per slice). Every CI gate, the reviews (`code-reviewer`, plus `security-review` where it applies) and the isolation tests are unchanged. **Database, security and money changes still go in their own PR first and wait for the owner's merge**; this overrides any spec PR plan that bundles them with UI.
+
 ## Session protocol
 
 1. Read `PROGRESS.md` first. It is the only source of session state and current holds.
-2. Never start work `PROGRESS.md` marks as held; ask instead of guessing on open decisions.
-3. One PR per slice; post progress to Slack.
+2. Never start work `PROGRESS.md` marks as held; ask instead of guessing on open decisions (under rule A, a difference between a spec's text and the approved design is not an open decision).
+3. PRs sized by rule C; post progress to Slack.
 4. Update `PROGRESS.md` before ending every session.
