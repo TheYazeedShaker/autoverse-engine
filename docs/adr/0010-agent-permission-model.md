@@ -1,6 +1,6 @@
 # 0010 — agent permission model
 
-**Status:** accepted — 2026-09-24. Amended 2026-09-25: merging and approval; approved design copies.
+**Status:** accepted — 2026-09-24. Amended 2026-09-25: merging and approval; approved design copies. Amended 2026-09-30: visual comparison tool, and where its screenshots go.
 
 ## Context
 
@@ -144,7 +144,13 @@ that access, and it is the owner's:
 - **Screenshots stay out of the repository.** The design renders carry real brand names and imagery,
   and the repository is public (ADR 0008). The guard refuses shell copies, moves or redirects of a
   render folder into the repository. That is a heuristic like the rest: an interpreter could still
-  copy them. How both sets reach the owner with each PR is the owner's call (`#build-decisions`).
+  copy them.
+- **Where the screenshots go (decided 2026-09-30, owner, `#build-decisions`: option B).** Both sets,
+  design and built, are shown to the owner **in the chat** at each UI stop. The PR gets a
+  **text-only** note: which designs and pages were compared, at which widths and languages, and what
+  was fixed; it names no brand, model or asset shown in the design. The renders stay in the OS temp folder: never in the repository, a PR, a PR comment or
+  CI (no CI job runs the comparison or uploads its output). `CLAUDE.md` rule B carries the same rule. It
+  replaces any spec acceptance line that asks for screenshots on or attached to a PR.
 - Tests: `.claude/hooks/guard.test.mjs` covers the allowed call, every refused variant from the
   security review, the pin against a tampered `package.json`, the config files, `pre`/`post`
   scripts, a shadowing `node`, the hook's `cwd`, and the settings.
