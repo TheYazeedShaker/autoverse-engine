@@ -5,9 +5,11 @@
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
 **Last updated:** 2026-09-30
-**Latest (2026-09-30, step 2):** #89 (the docs PR) is **merged**. The notice decision is **A** (owner): slice 9 ships the analytics notice as a component the footer can host, and `/privacy` on the versioned storage from the footer spec. The **visual-check guard patch** (rule B) was handed to the owner as a patch, since `.claude/` and `.github/` are human-gated; this note arrives with it. It adds `.claude/tools/visual-compare.mjs` (owner-only; run only as `pnpm visual:compare <folder>/<name> --built <url>`, with the package script pinned), the guard checks and tests, a Windows CI job for the guard tests, and an ADR 0010 amendment. After applying it, the owner installs Playwright and starts a fresh session. Open: where the design screenshots go (they show real brands; the repo is public), in `#build-decisions`. Next: step 3, the stable demo address (BACKLOG #18).
+**Latest (2026-09-30, after step 2):** the visual-compare guard (#90) is **merged**, `guard` is a required check, and this session started fresh with the new guard and settings loaded. The screenshot decision is **B** (owner, answered in its `#build-decisions` thread): both screenshot sets are shown to the owner in the chat at each UI stop, the PR gets a text-only note, and the renders stay in the temp folder. It is recorded in ADR 0010 and in `CLAUDE.md` rule B. The docs PR `docs/working-rules-permanent` makes the owner's session prompt permanent: its working rules and gotchas are now in `CLAUDE.md` (_Working rules_, _Gotchas_), and its decisions are under _Decisions Made_ below. It waits for the owner's merge. Next: step 3, the stable demo address (BACKLOG #18).
 
-**Earlier (2026-09-30, later):** #88 (slice 8) is **merged**. The owner set three new working rules, now in `CLAUDE.md`: **A** the approved design wins over spec text on layout, visuals, copy and interaction (escalate only security, data, money, legal, consent); **B** a visual self-check (design vs built page at 390/768/1440, EN and AR, screenshots on the PR) through one guard-allowed script; **C** at most 2–3 PRs per page, gates and reviews unchanged, database/security/money changes still first and merged by the owner. The docs PR (`docs/working-rules-and-specs`) carries those rules, four new specs (brochure, compare, configurator, footer) and the BACKLOG queue. See _Next Session_ §0 for the order.
+**Earlier (2026-09-30, step 2):** #89 (the docs PR) is **merged**. The notice decision is **A** (owner): slice 9 ships the analytics notice as a component the footer can host, and `/privacy` on the versioned storage from the footer spec. The **visual-check guard patch** (rule B) was handed to the owner as a patch, since `.claude/` and `.github/` are human-gated; this note arrives with it. It adds `.claude/tools/visual-compare.mjs` (owner-only; run only as `pnpm visual:compare <folder>/<name> --built <url>`, with the package script pinned), the guard checks and tests, a Windows CI job for the guard tests, and an ADR 0010 amendment. After applying it, the owner installs Playwright and starts a fresh session. Open: where the design screenshots go (they show real brands; the repo is public), in `#build-decisions`. Next: step 3, the stable demo address (BACKLOG #18).
+
+**Earlier (2026-09-30, later):** #88 (slice 8) is **merged**. The owner set three new working rules, now in `CLAUDE.md`: **A** the approved design wins over spec text on layout, visuals, copy and interaction (escalate only security, data, money, legal, consent); **B** a visual self-check (design vs built page at 390/768/1440, EN and AR, screenshots on the PR; superseded by screenshot decision B, above) through one guard-allowed script; **C** at most 2–3 PRs per page, gates and reviews unchanged, database/security/money changes still first and merged by the owner. The docs PR (`docs/working-rules-and-specs`) carries those rules, four new specs (brochure, compare, configurator, footer) and the BACKLOG queue. See _Next Session_ §0 for the order.
 
 **Last session (2026-09-30):** **Interactive local session, runner OFF.** The owner's three #88 fixes were applied and pushed to #88: the curtain is Onyx (a token), the line under the hero's names at phone width is gone (it was the names row's scrollbar), and the side-view box is 2.8:1 with the car centred (a token). Round 4, also on #88: the TopBar is Onyx (the same token as the curtain), and the card grid takes its columns from a 336 px minimum card width (at most 3, each card at most 560 px). The hover decision is answered (**A**) and recorded in ADR 0026. #88 then waited for the owner's merge (since merged); slice 9 (event capture, EG consent **B**) follows in its own PR. See _Next Session_ §0.
 
@@ -34,7 +36,7 @@
 | `AUTONOMOUS-LOOP-P2`              | ⏸ Runner OFF       | Runner on `main`. `agent_loop_enabled` inactive since 2026-09-25 and stays off until the owner decides on a measured trial. Work continues in interactive sessions.                  |
 | Storybook / design system         | ⏸ Closed at Tier 1 | Tier 1 complete (9 primitives). Tier 2 superseded by `SPEC-storybook-tier2` (forthcoming). The three Storybook specs are marked do-not-execute.                                      |
 | Phase 1·B — Pipeline & admin      | ⏳ Held            | 7-stage board, render orchestration, AI content w/ approval gate.                                                                                                                    |
-| Phase 1·C — Consumer app          | 🟡 In progress     | `PAGE-CONSUMER-SHOWROOM`: slice 1 and four migrations merged (#66–#70); the wiring PR (1b) is in review. Next: slice 2.                                                              |
+| Phase 1·C — Consumer app          | 🟡 In progress     | `PAGE-CONSUMER-SHOWROOM`: slices 1–8 merged (#66–#88). Next: the stable demo address (BACKLOG #18), then slices 9 and 10.                                                            |
 | Phase 1·D — Dashboard & hardening | ⏳ Held            |                                                                                                                                                                                      |
 
 ### Phase 0-H tracker — all built and green; **on `main` only once PR #10 merges**
@@ -168,6 +170,12 @@ Interactive local session, 2026-09-26. Runner **off**. Task: `PAGE-CONSUMER-SHOW
 - **Event payloads: 8 KB, 9 KB per event, 256 KB per request; oversized refused (413), never dead-lettered; never PII** (ADR 0016, owner 2026-09-25). Per-kind payload schemas are queued (`EVENT-PAYLOAD-SCHEMAS`) for when page event capture lands.
 - **Design files reach the agent only as the owner's copies** in `design-approved/<page>/` (ADR 0010, owner 2026-09-26). `design/` stays closed. Each page spec names its copies, and a spec's text grants nothing by itself. Page work runs in a local session.
 - **No real manufacturer names anywhere in the repo outside `docs/`**, specs included. The demo brand is "the demo brand".
+- **Working rules A–C and the standing rules** (owner, 2026-09-30) live in `CLAUDE.md` (_Working rules_, _Gotchas_). Future sessions start from a short prompt pointing at `CLAUDE.md`, this file and `BACKLOG.md`.
+- **Decisions already made; don't re-ask** (owner, 2026-09-30):
+  - **EG analytics consent: B**, pending legal review before a real brand goes live. First-party journey events by default (no cookies, no PII, a per-visit random id in `sessionStorage`), a clear notice linking a privacy page, and a one-click opt-out; third-party analytics (PostHog capture) only after an opt-in; a journey links to a lead only through the lead's own consent. Details under _Next Session_ §0, slice 9.
+  - **The analytics notice: A.** It is a component the footer can host, and `/privacy` uses the versioned storage from the footer spec.
+  - **Screenshots: B.** Both sets are shown to the owner in the chat at each UI stop; the PR gets a text-only note; the renders never enter the repo, a PR, a comment or CI (ADR 0010, `CLAUDE.md` rule B).
+  - **Order after step 3 (the stable demo address):** slice 9 (event capture, consent B, the per-kind payload schemas, BACKLOG #12) and slice 10 finish the showroom; then brochure, compare, configurator, footer; then the admin portal and brand dashboard phases, not before the consumer pages are done.
 
 ## Known Issues / TODOs
 
@@ -185,7 +193,6 @@ Interactive local session, 2026-09-26. Runner **off**. Task: `PAGE-CONSUMER-SHOW
 
 - Send the studio package (`docs/autoverse-model-delivery-spec.html` + `docs/model-manifest-template.yaml`) and lock the shared ID vocabulary + change process.
 - Two documentation portals (internal + client-facing) — Phase 1·D.
-- `CLAUDE.md` names a car maker as a quality benchmark ("Porsche-level bar"). REV2's acceptance bans real manufacturer names outside `docs/`. Left untouched because `CLAUDE.md` is the operating manual; Yazeed to decide whether to reword it.
 
 ## ✅ 1·A BLOCK review — resolved 2026-09-24 (kept for the record)
 
@@ -254,10 +261,10 @@ found no path for an end user, anon or another brand to reach lead data. The pro
 
 ### 0. First thing next session
 
-1. **Continue `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **local** session. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only, never the shell. PRs are sized by rule C (`CLAUDE.md`), each against `main`, stopping for the owner's merge; the showroom finishes with slice 9 and slice 10, one PR each, with any database change in its own PR first. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
+1. **Continue `PAGE-CONSUMER-SHOWROOM`** (`specs/SPEC-page-consumer-showroom.md`), in a **local** session. The design source is the owner's copies in `design-approved/showroom/`, read with the file tools only; the shell reaches them only through `pnpm visual:compare` (rule B). PRs are sized by rule C (`CLAUDE.md`), each against `main`, stopping for the owner's merge; the showroom finishes with slice 9 and slice 10, one PR each, with any database change in its own PR first. Anything the design shows that the schema lacks is Tier B, never invented. The EG consent value is HUMAN ONLY.
    - **The order (owner, 2026-09-30), one step at a time, each stopping for the owner's merge:**
-     1. The docs PR: working rules A–C in `CLAUDE.md`, the four new specs committed as-is (prettier only), BACKLOG rows 7, 8, 9 and 9a queued after the showroom.
-     2. The visual-check guard patch (rule B): read-only access to `design-approved/` for one comparison script (`pnpm visual:compare`) only, with tests that everything else stays blocked. The owner applies it (`.claude/` is human-gated), then starts a fresh session.
+     1. ✅ The docs PR (#89, merged): working rules A–C in `CLAUDE.md`, the four new specs committed as-is (prettier only), BACKLOG rows 7, 8, 9 and 9a queued after the showroom.
+     2. ✅ The visual-check guard (#90, merged; `guard` is a required check): read-only access to `design-approved/` for one comparison script (`pnpm visual:compare`) only, with tests that everything else stays blocked. Screenshots decided **B** (ADR 0010). The follow-up docs PR `docs/working-rules-permanent` folds the owner's session prompt into `CLAUDE.md` and _Decisions Made_.
      3. BACKLOG #18, the stable demo address: propose the exact setup (for example `demo.auto-verse.net` on a branch that tracks `main`) with the DNS, Vercel, Turnstile and `allowed_origins` steps. From then on, test on that one address.
      4. Slice 9 (below) and slice 10, finishing the showroom.
      5. Then brochure, compare, configurator and footer, in that order.
@@ -525,7 +532,7 @@ found no path for an end user, anon or another brand to reach lead data. The pro
    - `<html lang dir>` is still static `en`/`ltr` in `app/layout.tsx`. Fix it with the TopBar's EN/AR toggle (slice 4 or earlier).
 2. **Owner: confirm the Supabase check on `main` applied both new migrations to the hosted DB** (`20260925120000_lead_activities_brand_fk`, `20260925140000_event_payload_cap`). The guard blocks the agent from hosted-DB reads.
 3. **Owner, before any loop trial:** apply the trust-check patch to `agent-loop.yml` (ADR 0014, _Amendment — workspace trust_), and raise the monthly spend limit to at least runs per month × `LOOP_MAX_BUDGET_USD`.
-4. Commit messages or heredocs that mention `design/` or `design-approved/` are blocked by the guard (it parses every line as a command). Write the message to a scratch file and use `git commit -F`.
+4. The guard and environment gotchas (design paths in command text, edit scripts, Git Bash, Windows paths, the browser pane) are in `CLAUDE.md` _Gotchas_.
 
 ### 1. Part 2 precondition: ✅ PASSED (2026-09-25)
 
