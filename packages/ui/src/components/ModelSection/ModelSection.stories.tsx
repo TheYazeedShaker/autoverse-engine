@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { VehicleCard, type VehicleCardProps } from "../VehicleCard";
 import { ModelSection } from "./ModelSection";
 
-// A model's block: header band + its trim cards in the 3-per-row grid (spec §5.6). Cards are never
+// A model's block: header band + its trim cards in the range grid, at most 3 per row, the column count
+// set by the card's minimum width (spec §5.6, ADR 0021). Cards are never
 // stretched: one or two cards keep a single column's width, start-aligned in the reading direction.
 
 const trim = (title: string, price: string): VehicleCardProps => ({

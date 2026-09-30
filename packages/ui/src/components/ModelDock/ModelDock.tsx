@@ -5,8 +5,11 @@ import { useId } from "react";
 import { cn } from "../../cn";
 import { semanticMotion, safeTransition } from "../../motion";
 
-// ModelDock — the floating model switcher (spec §5.4): pills on an opaque dark surface (the approved page is glassy;
-// opaque keeps the text on the validated dark pair whatever scrolls beneath) with a sliding active pill. It is
+// ModelDock — the floating model switcher (spec §5.4): pills on visibly translucent light glass
+// (slice 8, owner review). The tint is the `glass-light` token, Mist at 55% under a strong blur; the
+// names are Onyx, checked against the tint composited over white, Mist and Onyx (tokens
+// glass.test.ts: 5.9:1 at worst, over Onyx), so they stay AA whatever scrolls beneath. The active pill
+// is solid Gunmetal with light ink (14:1). A sliding active pill. It is
 // a navigation landmark of in-page links; the active one carries aria-current. The pill slides with
 // motion's shared layout (transform only, the `pillSlide` semantic motion) and jumps under reduced
 // motion.
@@ -42,14 +45,14 @@ export function ModelDock({ models, activeId, onPick, label, shown, className }:
       inert={!shown}
       data-shown={shown}
       className={cn(
-        "pointer-events-none sticky top-3.5 z-20 flex h-0 justify-center transition-[opacity,transform] duration-(--av-dur-slow) ease-(--av-ease) motion-reduce:transition-none",
+        "pointer-events-none sticky top-3.5 z-20 flex h-0 justify-center transition-[opacity,transform] duration-(--av-dur-modal) ease-(--av-ease-modal) motion-reduce:transition-none",
         shown ? "translate-y-0 opacity-100" : "-translate-y-3.5 opacity-0",
         className,
       )}
     >
       <nav
         aria-label={label}
-        className="border-surface-white/20 bg-surface-dark pointer-events-auto relative flex h-fit max-w-[min(94vw,68.75rem)] gap-1 overflow-x-auto rounded-full border p-1.5 shadow-lg [scrollbar-width:none] lg:p-2"
+        className="border-surface-white/60 bg-glass-light pointer-events-auto backdrop-blur-2xl backdrop-saturate-150 relative flex h-fit max-w-[min(94vw,68.75rem)] gap-1 overflow-x-auto rounded-full border p-1.5 shadow-lg [scrollbar-width:none] lg:p-2"
       >
         <LayoutGroup id={group}>
           <ul role="list" className="flex gap-1">
@@ -62,7 +65,7 @@ export function ModelDock({ models, activeId, onPick, label, shown, className }:
                       layoutId="dock-pill"
                       aria-hidden="true"
                       transition={safeTransition(semanticMotion.pillSlide, reduced)}
-                      className="bg-surface absolute inset-0 rounded-full"
+                      className="bg-surface-dark absolute inset-0 rounded-full"
                     />
                   ) : null}
                   <a
@@ -73,8 +76,8 @@ export function ModelDock({ models, activeId, onPick, label, shown, className }:
                       onPick(m.id);
                     }}
                     className={cn(
-                      "focus-visible:ring-focus-ring relative block rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none lg:px-4 lg:py-2.5 lg:text-base",
-                      on ? "text-on-surface" : "text-on-dark-soft hover:text-on-dark",
+                      "focus-visible:ring-focus-ring relative block rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none lg:px-4 lg:py-2.5 lg:text-base",
+                      on ? "text-on-dark" : "text-on-surface",
                     )}
                   >
                     {m.name}

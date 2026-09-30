@@ -74,6 +74,10 @@ export type {
   SpecDrawerTriggerProps,
 } from "./components/SpecDrawer";
 export type { TopBarProps, TopBarLanguage } from "./components/TopBar";
+export { IntroCurtain, INTRO_CURTAIN_SCRIPT, INTRO_STORAGE_KEY } from "./components/IntroCurtain";
+export type { IntroCurtainProps } from "./components/IntroCurtain";
+export { Reveal, CarEntrance, StatCount } from "./components/Reveal";
+export type { RevealProps, StatCountProps } from "./components/Reveal";
 export { LeadModal } from "./components/LeadModal";
 export type { LeadModalProps, LeadTextBinding, LeadSelectBinding } from "./components/LeadModal";
 export type { ModelDockProps, DockModel } from "./components/ModelDock";

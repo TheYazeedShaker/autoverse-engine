@@ -54,6 +54,17 @@ export function cardProps(
     model.trims.length > 1 ? `${model.name[lang]} ${trim.name[lang]}` : model.name[lang];
   const int = numberFormat(lang, market);
   const oneDecimal = numberFormat(lang, market, 1);
+  // Slice 8: the card's figures count up once seen. The tween formats like the server did: same
+  // locale, and the numbering system resolved here, so its digits match the final text.
+  const count = (to: number, f: Intl.NumberFormat) => {
+    const o = f.resolvedOptions();
+    return {
+      to,
+      fractionDigits: o.maximumFractionDigits ?? 0,
+      locale: o.locale,
+      numberingSystem: o.numberingSystem,
+    };
+  };
 
   const attributes: CardProps["attributes"] = [];
   if (model.fuel) attributes.push({ icon: "fuel", label: model.fuel.label[lang] });
@@ -70,10 +81,17 @@ export function cardProps(
       value: oneDecimal.format(accelS),
       unit: t.unitSeconds,
       label: t.accel,
+      count: count(accelS, oneDecimal),
     });
   }
   if (powerHp !== null) {
-    stats.push({ icon: "power", value: int.format(powerHp), unit: t.unitHp, label: t.power });
+    stats.push({
+      icon: "power",
+      value: int.format(powerHp),
+      unit: t.unitHp,
+      label: t.power,
+      count: count(powerHp, int),
+    });
   }
   if (topSpeedKph !== null) {
     stats.push({
@@ -81,6 +99,7 @@ export function cardProps(
       value: int.format(topSpeedKph),
       unit: t.unitKph,
       label: t.topSpeed,
+      count: count(topSpeedKph, int),
     });
   }
 

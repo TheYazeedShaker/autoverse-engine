@@ -190,6 +190,21 @@ export function ModelCarousel({
     api.scrollTo(activeIndex, Boolean(reduced));
   }, [api, activeIndex, reduced]);
 
+  // The model names scroll sideways on a phone with their scrollbar hidden (it drew a line under the
+  // names: owner, slice 8 review), so keep the active name in view. It moves the row only: never
+  // the page, even when the dock changes the model while the hero is off screen. Instant, like the
+  // active name's own size change: a native smooth scroll is browser-timed motion outside the
+  // motion standard (ADR 0026). Physical rects, so RTL needs no special case.
+  const namesRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const row = namesRef.current;
+    const name = row?.children[activeIndex];
+    if (!row || !name || row.scrollWidth <= row.clientWidth) return;
+    const r = row.getBoundingClientRect();
+    const n = name.getBoundingClientRect();
+    row.scrollBy({ left: n.left + n.width / 2 - (r.left + r.width / 2), behavior: "auto" });
+  }, [activeIndex]);
+
   const go = (index: number) => {
     setState("focus");
     userMove.current = true;
@@ -283,8 +298,10 @@ export function ModelCarousel({
       <div className="flex flex-col items-center gap-3 px-4 pt-5 lg:gap-4 lg:pt-7">
         {sparse ? null : (
           <ul
+            ref={namesRef}
             role="list"
-            className="flex max-w-full items-baseline gap-4 overflow-x-auto px-3 lg:gap-10"
+            // No scrollbar: when the names overflow a phone, its thumb drew a line under them.
+            className="flex max-w-full items-baseline gap-4 overflow-x-auto px-3 [scrollbar-width:none] lg:gap-10 [&::-webkit-scrollbar]:hidden"
           >
             {models.map((m, i) => {
               const on = i === activeIndex;
@@ -295,7 +312,7 @@ export function ModelCarousel({
                     aria-current={on ? "true" : undefined}
                     onClick={() => go(i)}
                     className={cn(
-                      "focus-visible:ring-focus-ring rounded-sm p-0.5 whitespace-nowrap transition-colors duration-(--av-dur) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
+                      "focus-visible:ring-focus-ring rounded-sm p-0.5 whitespace-nowrap transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
                       on
                         ? "text-on-dark text-xl font-semibold lg:text-3xl"
                         : "text-on-dark-muted hover:text-on-dark text-sm lg:text-xl",
@@ -311,23 +328,29 @@ export function ModelCarousel({
         {sparse ? (
           <h2 className="text-on-dark text-xl font-semibold lg:text-3xl">{active.name}</h2>
         ) : null}
-        {active.trims.length > 1 ? (
-          <SegmentedToggle
-            label={labels.trim}
-            dir={dir}
-            size="sm"
-            value={trim?.id}
-            onValueChange={(v) => {
-              setTrimOf((s) => ({ ...s, [active.id]: v }));
-              setState("trims");
-            }}
-            options={active.trims.map((t) => ({ value: t.id, label: t.label }))}
-            className="bg-surface-dark/40 rounded-full backdrop-blur-md [&>*]:rounded-full"
-          />
-        ) : null}
       </div>
 
       <div className="relative min-h-0 flex-1">
+        {/* The trim pill floats over the top of the model area, so a model with trims lays out
+            exactly like one without: the same area, the same car position, the same height
+            (owner, slice 8 review). It sits over the backdrop and the car, so its fill is the
+            tested dark glass (glass-dark, Gunmetal 88%): light ink stays AA over any patch. */}
+        {active.trims.length > 1 ? (
+          <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center">
+            <SegmentedToggle
+              label={labels.trim}
+              dir={dir}
+              size="sm"
+              value={trim?.id}
+              onValueChange={(v) => {
+                setTrimOf((s) => ({ ...s, [active.id]: v }));
+                setState("trims");
+              }}
+              options={active.trims.map((t) => ({ value: t.id, label: t.label }))}
+              className="bg-glass-dark pointer-events-auto rounded-full backdrop-blur-md [&>*]:rounded-full"
+            />
+          </div>
+        ) : null}
         <div ref={viewportRef} className="h-full overflow-hidden" data-carousel-viewport>
           <div className="flex h-full touch-pan-y">
             {models.map((m, i) => {
@@ -344,7 +367,7 @@ export function ModelCarousel({
                 >
                   <div
                     className={cn(
-                      "relative w-[min(100cqw,calc(100cqh*16/9))] transition-opacity duration-(--av-dur-slow) ease-(--av-ease) motion-reduce:transition-none",
+                      "relative w-[min(100cqw,calc(100cqh*16/9))] transition-opacity duration-(--av-dur-move) ease-(--av-ease-move) motion-reduce:transition-none",
                       on ? "opacity-100" : "opacity-40",
                     )}
                   >
@@ -396,7 +419,7 @@ export function ModelCarousel({
       </div>
 
       <div className="flex flex-col items-center gap-4 px-4 pb-6 lg:gap-7 lg:pb-12">
-        <dl className="flex items-start gap-8 lg:gap-16">
+        <dl className="flex items-start gap-5 sm:gap-8 lg:gap-16">
           <Stat label={labels.power} unit={labels.unitHp}>
             <CountUp value={trim?.stats.powerHp ?? null} format={int} />
           </Stat>
@@ -449,7 +472,7 @@ function Stat({ label, unit, children }: { label: string; unit: string; children
         {label}
       </dt>
       <dd className="flex items-baseline gap-1.5">
-        <span className="text-4xl font-light tracking-tight tabular-nums lg:text-6xl rtl:tracking-normal">
+        <span className="text-3xl font-light tracking-tight tabular-nums sm:text-4xl lg:text-6xl rtl:tracking-normal">
           {children}
         </span>
         <span className="text-on-dark-soft text-sm">{unit}</span>

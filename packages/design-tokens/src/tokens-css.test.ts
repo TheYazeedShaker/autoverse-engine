@@ -1,7 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AA, contrastRatio } from "./contrast";
-import { borderWidth, carFrame, heroCarousel, radius, space, topBar } from "./tokens";
+import {
+  borderWidth,
+  carAspect,
+  carFrame,
+  heroCarousel,
+  palette,
+  radius,
+  space,
+  topBar,
+  vehicleCard,
+} from "./tokens";
 
 // Companion to surfaces.test.ts: tokens.css is the CANONICAL web source, so its surface↔foreground
 // pairs must clear AA too — not just the TS registry. This parses the CSS, resolves var() chains to
@@ -49,6 +59,7 @@ const surfacePairs: Record<string, string[]> = {
   // The vehicle card: the accent (year, icons, dividers, Configure) sits on white too.
   "--av-surface-white": ["--av-on-white", "--av-on-white-muted", "--av-accent"],
   "--av-surface-dark": ["--av-on-dark", "--av-on-dark-soft", "--av-on-dark-muted"],
+  "--av-surface-onyx": ["--av-on-onyx", "--av-on-onyx-soft", "--av-on-onyx-muted"],
   // The accent family's neutral defaults (a brand theme replaces them with validated values).
   "--av-accent": ["--av-on-accent"],
   "--av-accent-hover": ["--av-on-accent"],
@@ -97,5 +108,23 @@ describe("tokens.css scales match the TS registry (no drift)", () => {
       expect(fill).toBeGreaterThan(0);
       expect(fill).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("the vehicle card's width range matches in CSS and TS, and the minimum is below the maximum", () => {
+    expect(declarations.get("--av-card-min-width")).toBe(`${vehicleCard.minWidth}px`);
+    expect(declarations.get("--av-card-max-width")).toBe(`${vehicleCard.maxWidth}px`);
+    expect(vehicleCard.minWidth).toBeLessThan(vehicleCard.maxWidth);
+  });
+
+  it("the side box's aspect matches in CSS and TS, in the normalised masters' range (2.7–2.9 : 1)", () => {
+    expect(declarations.get("--av-car-aspect-side")).toBe(`${carAspect.side}`);
+    expect(carAspect.side).toBeGreaterThanOrEqual(2.7);
+    expect(carAspect.side).toBeLessThanOrEqual(2.9);
+  });
+
+  it("the Onyx surface (curtain and TopBar; owner, slice 8) is Onyx, not the Gunmetal dark surface", () => {
+    expect(resolveHex(declarations.get("--av-surface-onyx")!).toLowerCase()).toBe(
+      palette.onyx.toLowerCase(),
+    );
   });
 });

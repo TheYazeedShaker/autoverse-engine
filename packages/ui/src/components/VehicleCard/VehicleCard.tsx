@@ -16,6 +16,7 @@ import { cn } from "../../cn";
 import { Button } from "../Button";
 import { CarImageFrame } from "../CarImageFrame";
 import { Icon } from "../Icon";
+import { StatCount, type StatCountProps } from "../Reveal";
 
 // VehicleCard — one trim, as the approved showroom card (`vehicle-card.dc.html`, spec §5.7), rebuilt in the
 // system: tokens only, Lucide glyphs, container-query sizing so the card reads the same at any column width.
@@ -74,7 +75,14 @@ export interface VehicleCardProps {
   /** Accessible name of the spec panel, e.g. "Technical highlights". */
   highlightsLabel: string;
   /** Up to three headline figures: value, unit and label already formatted. */
-  stats: { icon: VehicleStatIcon; value: string; unit?: string; label: string }[];
+  stats: {
+    icon: VehicleStatIcon;
+    value: string;
+    unit?: string;
+    label: string;
+    /** Counts up from zero once the card is seen (slice 8). The final text stays `value`. */
+    count?: Omit<StatCountProps, "final">;
+  }[];
   /** Efficiency and seating rows. */
   details: { icon: VehicleDetailIcon; label: string; value: string }[];
   /** The "Technical data ›" row: a client trigger that opens the spec drawer (slice 5). */
@@ -207,6 +215,8 @@ export function VehicleCard({
             image={image}
             placeholderLabel={imagePlaceholderLabel}
             placeholderClassName="inset-x-6 @md:inset-x-8"
+            // Slice 8: the car drives in as the card scrolls into view (the approved `carIn`).
+            entrance
           />
         </div>
 
@@ -230,7 +240,7 @@ export function VehicleCard({
                   <dd className="text-fg order-1 flex flex-col items-center text-lg font-medium tracking-tight whitespace-nowrap @md:text-xl rtl:tracking-normal">
                     <Icon icon={STAT_ICON[s.icon]} size="md" className="text-accent mb-1.5" />
                     <span>
-                      {s.value}
+                      {s.count ? <StatCount final={s.value} {...s.count} /> : s.value}
                       {s.unit ? <span className="ms-1 text-base">{s.unit}</span> : null}
                     </span>
                   </dd>

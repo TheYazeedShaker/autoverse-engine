@@ -14,12 +14,12 @@ describe("CarImageFrame", () => {
     const hero = render(
       <CarImageFrame view="front-34" image={img} placeholderLabel="x" />,
     ).container;
-    expect(side.firstChild).toHaveClass("aspect-[2/1]");
-    expect(sidePlaceholder.firstChild).toHaveClass("aspect-[2/1]");
+    expect(side.firstChild).toHaveClass("aspect-(--av-car-aspect-side)");
+    expect(sidePlaceholder.firstChild).toHaveClass("aspect-(--av-car-aspect-side)");
     expect(hero.firstChild).toHaveClass("aspect-video");
   });
 
-  it("side: the car fills the token share of the box width, centred, full height (same ground line)", () => {
+  it("side: the box has the masters' shape (token) and the car fills its token share of the width, centred", () => {
     const c = render(<CarImageFrame view="side" image={img} placeholderLabel="x" />).container;
     const layer = within(c).getByRole("img").parentElement;
     // Width from the token (--av-car-fill-side), never a literal; centred; top-to-bottom of the box.

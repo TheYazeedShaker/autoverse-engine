@@ -7,8 +7,9 @@ import { Button } from "../Button";
 //
 // - A server component: the language switch is two plain links (the page is rendered per language),
 //   marked with hreflang and aria-current, so it works without JavaScript.
-// - On the dark surface: it re-publishes the contextual pair, so the inverting primary button (Mist on
-//   Onyx, as approved) is AA.
+// - On the Onyx surface (owner, slice 8: the same colour as the intro curtain, which lifts into it; the
+//   hero below stays Gunmetal): it re-publishes the contextual pair, so the inverting primary button
+//   (Mist with Onyx text, as approved) is AA.
 // - Its height is the `--av-topbar-height` token; the hero fills the screen below it.
 // - "Book a test drive" opens the LeadModal (slice 7). The bar stays a server component: the app
 //   passes its client button as `bookTestDriveSlot`. Without a slot, the button is honestly disabled.
@@ -52,15 +53,15 @@ export function TopBar({
   return (
     <header
       className={cn(
-        "bg-surface-dark text-on-dark border-on-dark/10 flex h-(--av-topbar-height) items-center justify-between gap-4 border-b px-4 sm:px-[4.5vw] [--av-bg:var(--av-surface-dark)] [--av-fg-muted:var(--av-on-dark-muted)] [--av-fg:var(--av-on-dark)]",
+        "bg-surface-onyx text-on-onyx border-on-onyx/10 flex h-(--av-topbar-height) items-center justify-between gap-4 border-b px-4 sm:px-[4.5vw] [--av-bg:var(--av-surface-onyx)] [--av-fg-muted:var(--av-on-onyx-muted)] [--av-fg:var(--av-on-onyx)]",
         className,
       )}
     >
       <div className="flex min-w-0 items-center gap-3.5">
-        <span className="text-on-dark flex min-w-0 items-center truncate text-lg font-semibold tracking-tight rtl:tracking-normal">
+        <span className="text-on-onyx flex min-w-0 items-center truncate text-lg font-semibold tracking-tight rtl:tracking-normal">
           {logo ?? brandName}
         </span>
-        <span className="text-on-dark-muted border-on-dark/20 hidden rounded-full border px-3 py-1 text-xs tracking-[0.16em] whitespace-nowrap uppercase sm:inline-block rtl:tracking-normal">
+        <span className="text-on-onyx-muted border-on-onyx/20 hidden rounded-full border px-3 py-1 text-xs tracking-[0.16em] whitespace-nowrap uppercase sm:inline-block rtl:tracking-normal">
           {marketLabel}
         </span>
       </div>
@@ -68,7 +69,7 @@ export function TopBar({
         <nav aria-label={languageLabel}>
           <ul
             role="list"
-            className="border-on-dark/15 bg-surface-dark flex rounded-full border p-0.5"
+            className="border-on-onyx/15 bg-surface-onyx flex rounded-full border p-0.5"
           >
             {languages.map((l) => (
               <li key={l.code}>
@@ -78,10 +79,11 @@ export function TopBar({
                   lang={l.code}
                   aria-current={l.current ? "true" : undefined}
                   className={cn(
-                    "focus-visible:ring-focus-ring block rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors duration-(--av-dur-fast) ease-(--av-ease) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
+                    // The ring is the contextual ink (Mist): the focus-ring token is Onyx, invisible on this bar.
+                    "focus-visible:ring-fg block rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors duration-(--av-dur-modal) ease-(--av-ease-modal) focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none",
                     l.current
                       ? "bg-surface text-on-surface"
-                      : "text-on-dark-soft hover:text-on-dark",
+                      : "text-on-onyx-soft hover:text-on-onyx",
                   )}
                 >
                   {l.label}

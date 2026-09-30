@@ -19,6 +19,7 @@ export const palette = {
   gunmetalLine: "#3A413B",
   onDark: "#F4F7F5",
   onDarkMute: "#9AA19D", // muted ink on dark (AA on gunmetal)
+  onDarkSoft: "#CFD3D1", // secondary ink on dark (the dock's idle pills; tokens.css --av-on-dark-soft)
 
   // Admin ramp (REV2). The operator portal runs denser and darker than the consumer surfaces, so it
   // gets its own neutrals rather than bending the consumer ones. The same pairing rule applies.
@@ -60,6 +61,9 @@ export const surfaces = {
   // The vehicle card. A brand accent is validated against white (validate-theme), so accents may sit on it.
   white: { bg: palette.white, fg: palette.onyx, fgMute: palette.slate },
   dark: { bg: palette.gunmetal, fg: palette.onDark, fgMute: palette.onDarkMute },
+  // Onyx, the deepest neutral, with the dark ink: the showroom's intro curtain and the TopBar (slice 8,
+  // owner review), so the curtain lifts into a bar of the same colour. The hero stage stays `dark`.
+  onyx: { bg: palette.onyx, fg: palette.onDark, fgMute: palette.onDarkMute },
   // admin — dark operator chrome (REV2). The light equivalents reuse the consumer neutrals rather
   // than inventing a second light ramp: an operator on a light theme sees the same greys as everyone.
   adminSidebar: { bg: palette.adminSidebar, fg: palette.onAdmin, fgMute: palette.onAdminMute },
@@ -126,10 +130,15 @@ export const space = {
 // Radius (§4.1).
 export const radius = { sm: 7, md: 10, lg: 14, xl: 18, "2xl": 28, pill: 999 } as const;
 
-// Car framing (ADR 0022). The share of each fixed box's width the car fills, centred and bottom-aligned:
-// side (2:1; cards and the drawer) and hero (16:9, front three-quarter). The same 80% in both, so a car
+// Car framing (ADR 0022). The share of each fixed box's width the car fills: side (cards and the drawer;
+// centred both ways) and hero (16:9, front three-quarter; bottom-aligned). The same 80% in both, so a car
 // keeps the same margin in every box.
 export const carFrame = { sideFill: 0.8, heroFill: 0.8 } as const;
+
+// The side box's width : height (ADR 0022 amendment, slice 8). The normalised side masters are trimmed
+// tight to the car and run about 2.7–2.9 : 1, so the box takes their middle and the car fills it with no
+// band of empty space above.
+export const carAspect = { side: 2.8 } as const;
 
 // The hero carousel: each slide's share of the stage width from `md` (a 4% neighbour peek each side; spec
 // §5.3). Below `md` a slide is full width.
@@ -137,6 +146,12 @@ export const heroCarousel = { slide: 0.92 } as const;
 
 // The showroom top bar's height (px). The hero fills the screen below it.
 export const topBar = { height: 64 } as const;
+
+// The vehicle card's width range (px; slice 8, owner review). The range grid fits as many columns as keep
+// every card at least `minWidth` wide (at most 3): 336 is the narrowest the card holds its content in both
+// languages (Arabic's stat labels need 330) and still fits a 390 px phone's one column (343). `maxWidth` is
+// the approved card's 560 px: a card never grows past it.
+export const vehicleCard = { minWidth: 336, maxWidth: 560 } as const;
 
 // Border width. One hairline, used with --av-border for every divider and outline.
 export const borderWidth = { hairline: 1 } as const;
@@ -148,12 +163,55 @@ export const elevation = {
   lg: "0 12px 32px rgba(8, 9, 10, 0.12)",
 } as const;
 
-// Motion — the Framer-Motion contract from day one (§4.1).
+// Motion — the showroom motion standard (owner, 2026-09-29; ADR 0026 records it with its sources).
+// These are the ONLY motion tokens: every transition and animation maps onto one of these pairs.
+// Rules: never ease-in on UI motion; enter and exit use the same duration and curve; transform
+// and opacity only; reduced motion is instant. Durations in ms.
 export const motion = {
-  durationFast: 150,
-  durationBase: 220,
-  durationSlow: 600,
-  easingStandard: "cubic-bezier(0.2, 0.7, 0.2, 1)",
+  /** The drawer and the filter sheet, and their backdrop in sync: enter and exit alike. */
+  durationOverlay: 500,
+  easingOverlay: "cubic-bezier(0.32, 0.72, 0, 1)",
+  /** The lead modal and its backdrop, enter and exit alike; also hovers, state changes and the
+   *  dock appearing (a quick ease-out). */
+  durationModal: 300,
+  easingModal: "cubic-bezier(0.23, 1, 0.32, 1)",
+  /** On-screen movement: the dock marker, the carousel settle, a crossfade, a chevron turning. */
+  durationMove: 250,
+  easingMove: "cubic-bezier(0.77, 0, 0.175, 1)",
+  /** Scroll reveals, a card's car entrance and figures counting up. */
+  durationReveal: 500,
+  easingReveal: "cubic-bezier(0.23, 1, 0.32, 1)",
+  /** Between one revealed item and the next (unchanged). */
+  staggerReveal: 120,
+  /** The intro curtain lifting, on the overlay curve. */
+  durationCurtain: 800,
+
+  // Timings and distances the motions above use (not curves of their own).
+  /** The least time the curtain stays on screen, from navigation start (owner: ~1.2 s). */
+  durationCurtainHold: 1200,
+  /** The latest it waits for the hero image to decode, from navigation start. */
+  durationCurtainHoldMax: 1800,
+  /**
+   * The intro curtain's CSS failsafe: it hides itself this long after the page loads even if no
+   * JavaScript runs. Above the longest JavaScript path: the hold max (1800 ms) plus the lift
+   * (800 ms), plus a margin.
+   */
+  delayCurtainFailsafe: 3200,
+  /** How far a card's car travels in. */
+  distanceEntrance: "2.5rem",
+  /** How far the lead modal rises in. */
+  distanceOverlay: "1.5rem",
+} as const;
+
+/* Glass — a tinted, blurred panel over moving content (the model dock). The page behind it can be
+   anything, so the tint alone must carry the text: every foreground is checked against the tint
+   composited over the lightest possible backdrop (white) and the darkest (Onyx).
+   Slice 8, ADR 0026. */
+export const glass = {
+  /** The model dock (owner: visibly translucent). Mist at 55% under a strong blur; Onyx text. */
+  light: { tint: palette.mist, alpha: 0.55, fg: [palette.onyx] },
+  /** The hero's trim pill, over the backdrop and the car (slice 8 review). Gunmetal at 88%. */
+  dark: { tint: palette.gunmetal, alpha: 0.88, fg: [palette.onDark, palette.onDarkSoft] },
 } as const;
 
 // Responsive breakpoints (px) — Grid / Container consume these (revision R3).

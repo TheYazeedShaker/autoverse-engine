@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { ModelFacts } from "../lib/showroom/range";
@@ -185,7 +185,8 @@ describe("ShowroomExperience: the spec drawer", () => {
     expect(within(dialog).getByRole("heading", { name: "Mid" })).toBeTruthy();
     expect(within(dialog).getByText("350 hp")).toBeTruthy();
     await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    // The drawer stays mounted until its exit motion ends (slice 8).
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(trigger);
   });
 });

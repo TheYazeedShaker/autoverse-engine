@@ -1,5 +1,6 @@
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { stubMedia, tick } from "../../test-media";
 import { axe } from "jest-axe";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -134,7 +135,7 @@ describe("LeadModal", () => {
   it("Escape closes it and returns focus to the opener", async () => {
     await openModal();
     await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: "Book a test drive" })).toHaveFocus();
   });
 
@@ -160,7 +161,7 @@ describe("LeadModal", () => {
     await act(async () => {
       await userEvent.keyboard("{Escape}");
     });
-    expect(screen.getByRole("button", { name: "Opener" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Opener" })).toHaveFocus());
   });
 
   it("sets its own direction (it is portaled out of the page)", async () => {
@@ -187,5 +188,18 @@ describe("LeadModal", () => {
     cleanup();
     await openModal({ overrides: { status: "success" } });
     expect(await axe(document.body)).toHaveNoViolations();
+  });
+});
+
+describe("LeadModal: motion (slice 8)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("reduced motion: no rise, and it is gone at once on close", async () => {
+    stubMedia((q) => q.includes("reduce"));
+    const dialog = await openModal();
+    expect(dialog.style.transform ?? "").not.toContain("translateY");
+    await userEvent.keyboard("{Escape}");
+    await act(tick);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

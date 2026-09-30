@@ -1,5 +1,6 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { stubMedia, tick } from "../../test-media";
 import { axe } from "jest-axe";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -70,11 +71,11 @@ describe("SpecDrawer", () => {
   it("closes with the close button and with Escape, returning focus to the trigger", async () => {
     await openDrawer();
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: "Technical data" })).toHaveFocus();
     await userEvent.click(screen.getByRole("button", { name: "Technical data" }));
     await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: "Technical data" })).toHaveFocus();
   });
 
@@ -103,7 +104,7 @@ describe("SpecDrawer", () => {
     const trigger = screen.getByRole("button", { name: "Technical data" });
     await userEvent.click(trigger);
     await userEvent.keyboard("{Escape}");
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("Configure is disabled until the configurator exists, and a link when it does", async () => {
@@ -185,5 +186,29 @@ describe("SpecDrawer: the secondary action (slice 7)", () => {
   it("is absent without the prop", async () => {
     const dialog = await openDrawer();
     expect(within(dialog).queryByRole("button", { name: "Book a test drive" })).toBeNull();
+  });
+});
+
+describe("SpecDrawer: motion (slice 8)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("slides in from the inline end: the right in LTR, the left in RTL", async () => {
+    const ltr = await openDrawer();
+    // It starts off the inline end and moves on the compositor (the transform property itself).
+    expect(ltr.style.transform).toContain("translate(");
+    expect(ltr.style.transform).not.toContain("translate(-");
+    cleanup();
+    const rtl = await openDrawer(CONTENT_AR);
+    expect(rtl.style.transform).toContain("translate(-");
+  });
+
+  it("reduced motion: no movement, and it is gone at once on close", async () => {
+    stubMedia((q) => q.includes("reduce"));
+    const dialog = await openDrawer();
+    // At rest from the first frame: the resting transform, or none.
+    expect(["", "none", "translate(0%, 0%)"]).toContain(dialog.style.transform ?? "");
+    await userEvent.keyboard("{Escape}");
+    await act(tick);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

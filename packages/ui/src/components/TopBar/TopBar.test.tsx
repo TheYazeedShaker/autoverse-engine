@@ -56,6 +56,21 @@ describe("TopBar", () => {
     expect(screen.getByRole("banner")).toHaveClass("h-(--av-topbar-height)");
   });
 
+  it("is Onyx, the intro curtain's surface, with its paired ink (not the hero's Gunmetal)", () => {
+    render(<TopBar {...props()} />);
+    const bar = screen.getByRole("banner");
+    expect(bar).toHaveClass("bg-surface-onyx", "text-on-onyx");
+    expect(bar.outerHTML).not.toMatch(/surface-dark|on-dark/);
+  });
+
+  it("draws the language links' focus ring in the bar's ink, never the Onyx focus token (1:1 here)", () => {
+    render(<TopBar {...props()} />);
+    for (const link of within(screen.getByRole("navigation")).getAllByRole("link")) {
+      expect(link).toHaveClass("focus-visible:ring-fg");
+      expect(link).not.toHaveClass("focus-visible:ring-focus-ring");
+    }
+  });
+
   it("has no axe violations, in both directions", async () => {
     const { container } = render(<TopBar {...props()} />);
     expect(await axe(container)).toHaveNoViolations();

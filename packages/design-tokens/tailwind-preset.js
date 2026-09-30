@@ -22,7 +22,7 @@ module.exports = {
         mono: "var(--av-font-mono)",
       },
       borderRadius: { DEFAULT: "var(--av-radius)", sm: "var(--av-radius-sm)", lg: "var(--av-radius-lg)" },
-      transitionTimingFunction: { av: "var(--av-ease)" },
+      transitionTimingFunction: { av: "var(--av-ease-modal)" },
     },
   },
 };

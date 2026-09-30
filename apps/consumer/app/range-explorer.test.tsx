@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FacetOption } from "../lib/showroom/loader";
@@ -102,7 +102,8 @@ describe("RangeExplorer", () => {
     expect(sheet.getByRole("button", { name: "Show 2 models" })).toBeTruthy();
     expect(sheet.getByRole("status").textContent).toBe("2 of 3 models");
     await userEvent.click(sheet.getByRole("button", { name: "Show 2 models" }));
-    expect(screen.getByRole("button", { name: "Filters · 1" })).toBeTruthy();
+    // The sheet stays mounted (the page behind it hidden) until its exit motion ends (slice 8).
+    await waitFor(() => expect(screen.getByRole("button", { name: "Filters · 1" })).toBeTruthy());
     expect(order()).toEqual(["Zeta", "Mid"]);
   });
 

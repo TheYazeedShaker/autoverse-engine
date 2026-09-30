@@ -9,7 +9,9 @@ export const metadata = { title: "Consumer" };
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const lang = langFrom((await headers()).get(LANG_HEADER));
   return (
-    <html lang={lang} dir={dirOf(lang)}>
+    // suppressHydrationWarning (this element only): the intro curtain's inline script marks
+    // <html data-intro-seen> before hydration (slice 8, IntroCurtain).
+    <html lang={lang} dir={dirOf(lang)} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );
