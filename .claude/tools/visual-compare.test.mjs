@@ -1,7 +1,15 @@
 // Run: node --test .claude/tools/visual-compare.test.mjs
 // The comparison tool's confinement: what it will open, serve and write. No browser needed.
 import assert from "node:assert/strict";
-import { linkSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -172,10 +180,41 @@ test("hard links are neither opened nor served (security review)", (t) => {
 test("output goes to a new folder in the OS temp directory, never the repo", (t) => {
   const out = makeOutDir("showroom/brochure");
   t.after(() => rmSync(out, { recursive: true, force: true }));
-  const rel = path.relative(os.tmpdir(), out);
-  assert.ok(rel && !rel.startsWith("..") && !path.isAbsolute(rel), out);
-  const repo = path.resolve(import.meta.dirname, "..", "..");
+  // Real paths on both sides: os.tmpdir() can be an 8.3 short name (C:\Users\RUNNER~1 on GitHub's
+  // Windows runners), while the tool creates the folder under the real, long path.
+  const real = realpathSync.native(out);
+  const rel = path.relative(realpathSync.native(os.tmpdir()), real);
+  assert.ok(rel && !rel.startsWith("..") && !path.isAbsolute(rel), `${out} is not in temp`);
+  const repo = realpathSync.native(path.resolve(import.meta.dirname, "..", ".."));
   // Outside the repo: a relative path that climbs out, or an absolute one (another drive).
-  const fromRepo = path.relative(repo, out);
-  assert.ok(fromRepo.startsWith("..") || path.isAbsolute(fromRepo), out);
+  const fromRepo = path.relative(repo, real);
+  assert.ok(fromRepo.startsWith("..") || path.isAbsolute(fromRepo), `${out} is in the repo`);
+});
+
+test("the served folder may be given in any spelling of its path (short name, junction, case)", (t) => {
+  const l = layout();
+  t.after(() => rmSync(l.root, { recursive: true, force: true }));
+  const brochure = realpathSync.native(path.join(l.folder, "brochure.dc.html"));
+  // os.tmpdir() may itself be a short name, so the layout's own spelling is exercised here too.
+  assert.equal(resolveServed(l.folder, "/brochure.dc.html"), brochure);
+  if (process.platform === "win32") {
+    // Windows paths are case-insensitive: an upper-cased folder is the same folder.
+    assert.equal(resolveServed(l.folder.toUpperCase(), "/brochure.dc.html"), brochure);
+  }
+  // A second spelling of the same folder, as an 8.3 short name is: a junction to it.
+  const alias = path.join(l.root, "alias");
+  if (!canLink(l.folder, alias, "junction")) return t.skip("this machine can't create links");
+  assert.equal(resolveServed(alias, "/brochure.dc.html"), brochure);
+  assert.ok(resolveServed(alias, "/assets/car.png"));
+  // Every refusal still holds from that spelling.
+  for (const p of [
+    "/../other.dc.html",
+    "/../../private/secret.html",
+    "/%2e%2e/%2e%2e/outside.txt",
+    "/..%5c..%5coutside.txt",
+    "/assets",
+    "/missing.js",
+  ]) {
+    assert.equal(resolveServed(alias, p), null, p);
+  }
 });

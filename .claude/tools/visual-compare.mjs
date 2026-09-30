@@ -92,15 +92,24 @@ export function resolveServed(folder, urlPath) {
     return null;
   }
   if (decoded.includes("\0")) return null;
-  const p = path.resolve(folder, `.${decoded.startsWith("/") ? decoded : `/${decoded}`}`);
-  if (!inside(folder, p)) return null;
+  // Real paths against real paths: the folder may be spelled differently from its real path (a
+  // Windows 8.3 short name such as C:\Users\RUNNER~1, another case, a junction), and realpath
+  // always returns the long, canonical form.
+  let root;
+  try {
+    root = realpathSync.native(folder);
+  } catch {
+    return null;
+  }
+  const p = path.resolve(root, `.${decoded.startsWith("/") ? decoded : `/${decoded}`}`);
+  if (!inside(root, p)) return null;
   let real;
   try {
     real = realpathSync.native(p);
   } catch {
     return null;
   }
-  if (!inside(folder, real)) return null;
+  if (!inside(root, real)) return null;
   try {
     const st = statSync(real);
     // A hard link shares its content with a file elsewhere: never served.
