@@ -19,6 +19,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # demo-sync.yml's shell steps against fake gh/curl (no dependencies; needs bash; uses jq when
+      # the runner has it, a stand-in otherwise).
+      - run: node --test .github/scripts/demo-sync/sync.test.mjs
       - run: pnpm build
     # Vercel creates a preview deploy per PR automatically (that preview IS staging).
     # Merging to main triggers the production deploy.
