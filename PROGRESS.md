@@ -4,8 +4,31 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-09-30
-**Latest (2026-09-30, after step 2):** the visual-compare guard (#90) is **merged**, `guard` is a required check, and this session started fresh with the new guard and settings loaded. The screenshot decision is **B** (owner, answered in its `#build-decisions` thread): both screenshot sets are shown to the owner in the chat at each UI stop, the PR gets a text-only note, and the renders stay in the temp folder. It is recorded in ADR 0010 and in `CLAUDE.md` rule B. The docs PR `docs/working-rules-permanent` makes the owner's session prompt permanent: its working rules and gotchas are now in `CLAUDE.md` (_Working rules_, _Gotchas_), and its decisions are under _Decisions Made_ below. It waits for the owner's merge. Next: step 3, the stable demo address (BACKLOG #18).
+**Last updated:** 2026-11-20
+
+**Latest (2026-11-20): the merge map.**
+
+- **Owner decisions** (not re-asked):
+  - Nmesis and the Engine become one platform on this monorepo: one design system, one Supabase project, one admin.
+  - The Engine's admin design wins.
+  - The showcase is the consumer showroom's base: ported, not redesigned.
+  - The Nmesis admin is ported page by page.
+  - The configurator server stays where it is.
+  - The dashboard comes after the admin.
+  - The repo goes private when the merge is finished.
+- **The docs PR `docs/merge-map`** adds `docs/merge-map/`:
+  - `README.md`: the target platform;
+  - `admin-pages.md`: 54 pages mapped;
+  - `showroom.md`;
+  - `data.md`: table by table, with the zero-downtime move;
+  - `order.md`: PRs A1–A28, B1–B3, C1–C9, E1–E4, with switch-off points;
+  - `decisions.md`: D1–D31, each with a recommendation.
+- **Finding:** the showcase's pages are rebranded copies of the same Claude Design exports as `design-approved/showroom/`.
+- **Recommended:** the Nmesis Supabase project becomes the one database; the Engine's current project becomes Preview.
+- **Nothing is built** until the owner answers `decisions.md` and merges the PR.
+- **Next:** the owner answers D1–D31; then PR 0.2 (ADRs and the one-database runbook) and the owner's hosted steps H1–H4 (`order.md`). The order in _Next Session_ §0 below predates this and is superseded by `order.md` once D28 is answered.
+
+**Earlier (2026-09-30, after step 2):** the visual-compare guard (#90) is **merged**, `guard` is a required check, and this session started fresh with the new guard and settings loaded. The screenshot decision is **B** (owner, answered in its `#build-decisions` thread): both screenshot sets are shown to the owner in the chat at each UI stop, the PR gets a text-only note, and the renders stay in the temp folder. It is recorded in ADR 0010 and in `CLAUDE.md` rule B. The docs PR `docs/working-rules-permanent` makes the owner's session prompt permanent: its working rules and gotchas are now in `CLAUDE.md` (_Working rules_, _Gotchas_), and its decisions are under _Decisions Made_ below. It waits for the owner's merge. Next: step 3, the stable demo address (BACKLOG #18).
 
 **Earlier (2026-09-30, step 2):** #89 (the docs PR) is **merged**. The notice decision is **A** (owner): slice 9 ships the analytics notice as a component the footer can host, and `/privacy` on the versioned storage from the footer spec. The **visual-check guard patch** (rule B) was handed to the owner as a patch, since `.claude/` and `.github/` are human-gated; this note arrives with it. It adds `.claude/tools/visual-compare.mjs` (owner-only; run only as `pnpm visual:compare <folder>/<name> --built <url>`, with the package script pinned), the guard checks and tests, a Windows CI job for the guard tests, and an ADR 0010 amendment. After applying it, the owner installs Playwright and starts a fresh session. Open: where the design screenshots go (they show real brands; the repo is public), in `#build-decisions`. Next: step 3, the stable demo address (BACKLOG #18).
 
