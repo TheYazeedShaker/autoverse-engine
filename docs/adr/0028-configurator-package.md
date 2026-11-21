@@ -50,7 +50,7 @@ It is ported, not redesigned (owner decision). Three places will use it:
 
 ## Consequences
 
-- **`CLAUDE.md`'s repo structure gains a line** (the owner's edit, D29).
+- **`CLAUDE.md`'s repo structure gains a line** (PR 0.3, D29).
 - **The CSP** must allow `worker-src blob:` and the asset CDN for `img-src`/`connect-src`. That goes in the CSP note in ADR 0026.
 - **One more package** to version and test. In exchange, the three users share one engine.
 - **Deno can't import `engine-core` today.** The edge functions run on Deno, and `services/deno.json` maps only zod and supabase-js, so `capture-lead` can't reuse the pricing rules yet. C4a adds an import-map entry for the pure modules (or a generated copy, checked against the source in CI).

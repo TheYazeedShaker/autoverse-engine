@@ -1,6 +1,6 @@
 # 0029 — one configurator protocol: the `nmesis:*` wire, mapped from the Engine's typed protocol
 
-**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D19)
+**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D19). The owner also accepted point 4 the same day: commands only from listed hosts, and view-only with an empty list.
 
 ## Context
 
@@ -47,7 +47,7 @@ The Engine's embed route carries the showcase's embed over (ADR 0028).
 4. **Origins are locked both ways, never `*`.**
    - The Engine page posts to, and accepts from, only the embed's origin and window.
    - The embed accepts commands only from `window.parent`, and only when the parent's origin is on the brand's allowed-host list (`embed_hosts`). It posts only to that origin.
-   - With no list for the brand, the embed runs standalone and posts nothing.
+   - With no list for the brand, the embed is view-only: it shows the car, takes no command and posts nothing.
    - No message carries personal data or a key.
 5. **Naming and the contract test.**
    - **This ADR names the mapped protocol v1.2.** The envelope's `version` moves from `"1"` to `"1.2"` with the adapter (track C, PR C2).

@@ -4,7 +4,7 @@
 
 **When:** after PR 0.2 merges, before A1 (DB-1).
 
-**Order:** H1 → Before you start → H2 → H3 → H4 → Verify. Then _After A1_ once A1 merges, and H5 before A11.
+**Order:** H1 → Before you start → H2 → H3 → H4 → Verify. Then _After A1_ once A1 merges, and H5 (the data-only repository) before A11.
 
 **H1** is a private pre-step the owner already has. Do it first.
 
@@ -24,8 +24,8 @@
 ## H2 — inventory, exposure and the schema dump
 
 1. **Inventory.** List every non-system schema and every object in the four schemas to adopt.
-   - Mark the AI Studio's objects and the key-handling functions; neither kind is committed to the baseline.
-   - This is the starting point for D30, which the owner confirms.
+   - Compare it with the AI Studio's list in ADR 0027 (D30). Every object in `accounts` is either adopted or on that list; report any that is on neither to the A1 session.
+   - Mark the key-handling functions; they are not committed to the baseline.
 
    ```sql
    select nspname from pg_namespace
@@ -55,29 +55,53 @@
    where tgrelid = 'auth.users'::regclass and not tgisinternal;
    ```
 
+   **The AI Studio's access today.** The baseline keeps it exactly (ADR 0027, decision 10). Save the output privately for the A1 session:
+
+   ```sql
+   select has_schema_privilege('studio_app', 'accounts', 'USAGE') as accounts_usage;
+
+   select c.relname, c.relkind,
+          has_table_privilege('studio_app', c.oid, 'SELECT') as can_select,
+          has_table_privilege('studio_app', c.oid, 'INSERT,UPDATE,DELETE') as can_write
+   from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'accounts' and c.relkind in ('r', 'p', 'v', 'm')
+   order by 1;
+
+   -- from_public: the access comes from PUBLIC, so A1 grants it to studio_app by name before revoking
+   select p.proname, pg_get_function_identity_arguments(p.oid) as args,
+          has_function_privilege('studio_app', p.oid, 'EXECUTE') as can_execute,
+          has_function_privilege('public', p.oid, 'EXECUTE') as from_public
+   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'accounts'
+   order by 1;
+   ```
+
+   Also confirm, from the Studio's code or the API logs, that the Studio reaches `accounts` only as `studio_app`. If it reaches any object as `anon` or `authenticated`, tell the A1 session: A1 stops there for you (ADR 0027, decision 10).
+
 2. **Exposure.** Measure what `anon` and `authenticated` can reach today.
    - Every row is an exposure. **Nothing is revoked by hand:** A1's migration closes them, tested in CI, and the consumer app is pointed at this project only after that (_After A1_).
+   - Rows for the AI Studio's own objects are listed too. A1 doesn't change them (D30); _After A1_ asks you to confirm each one.
    - Save the output privately for the A1 session.
 
    ```sql
    -- Schema usage
    select n.nspname, r.rolname
    from pg_namespace n cross join (values ('anon'), ('authenticated')) r(rolname)
-   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public')
+   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public', 'studio')
      and has_schema_privilege(r.rolname, n.oid, 'USAGE');
 
    -- Function EXECUTE
    select n.nspname, p.proname, r.rolname, p.prosecdef
    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    cross join (values ('anon'), ('authenticated')) r(rolname)
-   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog')
+   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'studio')
      and has_function_privilege(r.rolname, p.oid, 'EXECUTE');
 
    -- Table privileges, and whether RLS is on
    select n.nspname, c.relname, r.rolname, c.relrowsecurity
    from pg_class c join pg_namespace n on n.oid = c.relnamespace
    cross join (values ('anon'), ('authenticated')) r(rolname)
-   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public')
+   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public', 'studio')
      and c.relkind in ('r', 'p', 'v', 'm', 'S')
      and (has_table_privilege(r.rolname, c.oid, 'SELECT')
           or has_table_privilege(r.rolname, c.oid, 'INSERT,UPDATE,DELETE'));
@@ -100,6 +124,7 @@
    ```
 
    Before anything from it is committed:
+   - the AI Studio's `accounts` objects are stripped by the ADR 0027 list, and a check fails if one is left;
    - its ACL lines are stripped;
    - it is scanned for secrets, infrastructure identifiers (hosts, URLs, bucket and CDN names, refs, emails) and real names;
    - the secret scan runs on the resulting baseline.
@@ -169,6 +194,38 @@ where n.nspname in ('accounts', 'ops', 'analytics', 'brochures')
 
 -- 10. Migration history. Expect 0 rows, or only versions that exist in supabase/migrations/.
 select version, name from supabase_migrations.schema_migrations order by version;
+
+-- 11. The AI Studio's role exists. Expect 1 row.
+select rolname from pg_roles where rolname = 'studio_app';
+
+-- 12. The AI Studio's listed objects in accounts all exist (ADR 0027). Expect 17 rows; more only
+--     if a function has overloads (list them for A1).
+select p.proname as name, 'function' as kind
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'accounts' and p.proname in (
+  'studio_accept_membership','studio_support_access','studio_team_check',
+  'studio_team_invite','studio_team_remove','studio_team_set_role')
+union all
+select c.relname, 'view'
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'accounts' and c.relkind = 'v' and c.relname in (
+  'studio_brands','studio_cars','studio_credit_packs','studio_live_cars','studio_memberships',
+  'studio_organisations','studio_people','studio_price_book','studio_staff',
+  'studio_team_changes','studio_usage');
+
+-- 13. No studio_* object in accounts is missing from the list. Expect 0 rows. Any row joins the
+--     list through an Engine PR before A1.
+select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'accounts' and p.proname like 'studio\_%' and p.proname not in (
+  'studio_accept_membership','studio_support_access','studio_team_check',
+  'studio_team_invite','studio_team_remove','studio_team_set_role')
+union all
+select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'accounts' and c.relkind in ('r', 'p', 'v', 'm', 'f')
+  and c.relname like 'studio\_%' and c.relname not in (
+  'studio_brands','studio_cars','studio_credit_packs','studio_live_cars','studio_memberships',
+  'studio_organisations','studio_people','studio_price_book','studio_staff',
+  'studio_team_changes','studio_usage');
 ```
 
 **Function slugs and secrets** are shared by every function in a project, so check that none of the Engine's are taken:
@@ -237,7 +294,7 @@ Record pass or fail and the date in `PROGRESS.md`, with no refs, URLs or counts.
 
 A1 (DB-1) closes the exposure H2 measured: its grant rules and asserting block, tested in CI (ADR 0027). Only after it has merged and applied:
 
-1. **Re-run H2 step 2's queries.** They return only rows on A1's allow-list.
+1. **Re-run H2 step 2's queries.** They return only rows on A1's allow-list, or rows for the AI Studio's own objects (ADR 0027, decision 10). Confirm that each Studio row is meant to be reachable by `anon` or `authenticated`. If one isn't, stop here: the Studio fixes it, since the Engine leaves its objects alone.
 2. **Point the Vercel production env vars** (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ASSET_BASE_URL`) at the Nmesis project, and redeploy. Preview stays on the Engine project.
 3. **Re-run the verify block above**, and the showroom's own preview checks.
 4. **Record pass or fail** in `PROGRESS.md`. The next PR marks ADR 0019 superseded and BACKLOG #13 done.
@@ -274,10 +331,21 @@ The Engine's objects are new and separate, so the rollback removes only them. Do
 
 Restoring the backup is the last resort: it would lose the configurator events written since the backup.
 
-## H5 — the `publish-config` identity (before A11, ADR 0030)
+## H5 — the data-only repository for `publish-config` (before A11, ADR 0030)
 
-1. **Preferred:** move the catalogue files to a separate data-only repository that the configurator server reads. Otherwise use the existing data branch, with steps 2–3, which need rulesets. On a private repository, rulesets need a paid GitHub plan; without one, the separate repository is required.
-2. **The identity.** Create a GitHub App, installed on that repository only, with contents read and write; or create a dedicated machine user. **Not** a personal token.
-3. **A repository ruleset:** that identity may push only to the data branch, and may not create branches or push tags; every other branch requires review. The identity has no administration permission, so it can't edit the ruleset. Then a leaked secret can't reach the configurator server's code.
-4. **Where it lives.** Store the App's private key (or the machine user's token) as a secret of the `publish-config` function only (the name is set in A11).
-5. **Rotation.** Rotate on the same schedule as the other function secrets. A publish with a revoked credential fails closed: the configurator keeps its last good files, and an alert fires.
+The owner's choice (D27): a separate private repository that holds nothing but the configurator server's data files. Nothing here needs a paid GitHub feature.
+
+1. **Create the repository.** A new private repository with no code, no Actions and no other collaborators.
+   - Copy the data branch into it with its history, so every file and path stays identical. From a clone of the Nmesis repo, run `git push <data repository> <branch>:<branch>`. The branch is the one in the server's `GITHUB_DATA_BRANCH`, or `data` if that isn't set.
+   - Check first that nothing else reads the old data branch. Anything that does moves with it.
+2. **The identity.** Create a GitHub App with only these repository permissions: **Contents: read and write**, **Metadata: read**. Install it on the data repository alone.
+   - **Not** a personal token, and not installed on any other repository.
+   - It has no administration permission, so it can't change the repository's settings.
+3. **Where its key lives.** Store the App's private key as a secret of the `publish-config` function only (the name is set in A11). `publish-config` mints an installation token for each publish; the token lasts an hour.
+4. **Point the configurator server at it.** On that server's host, set `GITHUB_REPO` to the data repository, and give the server its own token for it.
+   - The token is read and write while the Nmesis admin still writes the catalogue, and read-only after the catalogue's switch-off (A17).
+   - Redeploy. Then check that the boot restore succeeded: the server's health endpoint reports the restore as done, and a configurator loads as before.
+   - Keep the old data branch untouched, as a backup, until the catalogue's switch-off.
+   - **Rollback:** set `GITHUB_REPO` back and redeploy. Nothing was deleted.
+5. **Re-reading on change.** Today the server reads its data files only at boot, so a publish would reach visitors only after a restart. ADR 0030 point 2 has it re-read the data repository when the branch moves. That change is made on that server, before A11.
+6. **Rotation.** Rotate the App's key on the same schedule as the other function secrets. A publish with a revoked key fails closed: the configurator keeps its last good files, and an alert fires.

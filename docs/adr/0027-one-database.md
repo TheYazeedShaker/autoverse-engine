@@ -1,6 +1,6 @@
 # 0027 — one database: the Nmesis project, with its schemas adopted in place
 
-**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D1, D2). It supersedes ADR 0019 once step H4 of the runbook is done: from then on, Preview has its own project.
+**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D1, D2 and D30). The owner also accepted decision 4 (the consumer app is pointed at the project only after A1) the same day. It supersedes ADR 0019 once step H4 of the runbook is done: from then on, Preview has its own project.
 
 ## Context
 
@@ -34,12 +34,14 @@ The full table-by-table map is in `docs/merge-map/data.md`.
    - **The dump is cleaned before it becomes the baseline:**
      - its `GRANT`, `REVOKE`, `ALTER DEFAULT PRIVILEGES` and `OWNER` lines are stripped, so live ACLs are not re-applied;
      - it is scanned for secrets, identifiers and real names (ADR 0008).
-   - **Some definitions are not committed:** key-handling functions and the AI Studio's objects. They are left as they are on the live project, while the grant rules below still apply to them.
+   - **Key-handling functions are not committed.** They are left as they are on the live project, while the grant rules below still apply to them.
+   - **The AI Studio's objects are not in the baseline at all** (decision 10). The generator strips them from the dump by their list, and a check fails if one is left.
    - **A drift check** compares definitions, policy expressions, ACLs, `prosecdef` and `proconfig`.
      - The A1 session runs it locally against the dump.
      - Later the owner runs it against production, or it runs as a server-side job, with a read-only catalogue role.
      - It prints only object names and hashes, and it **never runs in CI**, since Actions logs on a public repo are public.
-   - From then on, this repo is the only place those schemas change, and any other migration pipeline aimed at that project is disconnected at H4.
+   - It skips the AI Studio's listed objects, and reports any object in the adopted schemas that is on neither the baseline nor that list.
+   - From then on, this repo is the only place those schemas change, except for the AI Studio's own objects (decision 10). Any other migration pipeline aimed at that project is disconnected at H4, except the Studio's own.
    - `catalog` is retired into `public`.
 3. **The grant rules live in the same migration as the baseline**, so no database (CI, Preview, production) ever holds the adopted schemas without them:
    - **Staff means aal2** (ADR 0032).
@@ -50,10 +52,12 @@ The full table-by-table map is in `docs/merge-map/data.md`.
    - **Explicit grants per table** replace schema-wide default privileges.
    - **Default privileges are revoked, not just left out.** Stripping the dump's `ALTER DEFAULT PRIVILEGES` lines keeps them out of CI, but production keeps its live defaults. So the baseline runs `alter default privileges for role <owner> in schema <each> revoke all on tables, sequences, functions from anon, authenticated` for every owner role found in H2.
    - **The migration ends with an asserting `do` block.** It raises if anything in the four schemas is usable by `anon` or `authenticated` outside an allow-list: schema usage, table or sequence privilege, function EXECUTE, a table without RLS, or a `pg_default_acl` entry for those roles. The same assertion is a CI test, because a REVOKE that does nothing only warns.
+   - **None of these rules touches the AI Studio's own objects** (decision 10). They skip them by the closed list, never by a name pattern, so no Engine object escapes the rules by its name.
 4. **The live project's current exposure is measured, then closed by A1, before the Engine uses its anon key.**
    - H2 lists what `anon` and `authenticated` can reach today, and each function's callers.
    - A1's migration closes it: the grant rules and the asserting block, tested in CI.
    - The production consumer app is pointed at the Nmesis project **only after A1 merges** (runbook, _After A1_).
+   - Before that, the exposure queries run again. Anything `anon` or `authenticated` can still reach must be on A1's allow-list or one of the AI Studio's objects. The owner confirms each such Studio object is meant to be reachable, since the Engine leaves them alone.
    - H4 itself changes no permission on the live project.
 5. **One exception, on purpose.** Adopted brand-scoped tables have no Engine brand column from A1 until A10 (DB-5). From DB-5 they carry a **nullable** `brand_uuid` (FK to `public.brands`, `on delete restrict`), until the backfill (A11) fills it. In both phases, until it becomes `not null`:
    - adopted tables get **staff policies only**: no brand-read policy, and never the "no brand" public-read pattern;
@@ -68,6 +72,42 @@ The full table-by-table map is in `docs/merge-map/data.md`.
 7. **What never moves:** `analytics.events`, `ops.shared_configs`, `ops.frame_keys` and `ops.model_state`. The configurator server owns their writes, and it stays where it is.
 8. **More people become `authenticated`** on a database that holds PII and money: AI Studio members, and any self-sign-up. The runbook checks that Auth sign-ups are off, or intended. Policies that say `to authenticated using (true)` are re-checked in DB-1.
 9. **Other credentials.** The configurator server, the AI Studio and the Nmesis backend hold service credentials that will reach Engine tables. Each moves to its own least-privilege credential before Engine leads land there (A8); the steps are with the owner.
+10. **The AI Studio's objects are the Studio's, and the Engine leaves them alone** (owner, D30). The list is below.
+    - **Engine migrations never alter, re-grant or drop them.** They are not in the baseline, and the grant rules, the asserting block and the drift check skip them by the closed list.
+    - **The Studio's own migrations** (`studio.__studio_migrations`) stay the only place they change. A new Studio object in `accounts` joins the list through an Engine PR; until then, the drift check reports it.
+    - **The whole `studio` schema is the Studio's.** No Engine migration creates, alters or drops anything in it.
+    - **The role `studio_app` is never altered.** The baseline creates it as a `nologin` role only where it doesn't exist (CI, Preview), so the grants and the contract tests below work everywhere.
+    - **The shared objects keep their contract.** On the shared `accounts` objects, `studio_app` keeps exactly the access H2 measures today, and on schema `accounts` its usage. Where that access comes from PUBLIC, the baseline grants it to `studio_app` by name before revoking from PUBLIC.
+    - **Contract tests**, run as `studio_app` in CI, keep each shared function's result shape and each shared table's and view's columns, and prove `studio_app` can still reach them.
+    - **If H2 shows the Studio reaching an `accounts` object as `anon` or `authenticated`** rather than as `studio_app`, A1 stops for the owner: the grant rules and D30 would then conflict.
+    - **When an Engine page needs a Studio function** (for example support access, A17), it calls it from inside an Engine RPC that applies ADR 0032's checks. No Engine migration grants anything on a Studio object.
+
+## The AI Studio's objects (D30)
+
+As the owner listed them on 2026-11-21. A1 fixes each function's argument types from the H2 dump.
+
+**The Studio's own: left alone by every Engine migration.**
+
+| Where                 | Objects                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Role                  | `studio_app`                                                                                                                                                                                                                                                                                                                                                                                        |
+| `studio`, tables      | `__studio_migrations`, `alert_recipients`, `brand_kits`, `brand_logos`, `car_settings`, `credit_accounts`, `credit_holds`, `design_presence`, `design_versions`, `film_budgets`, `films`, `folder_items`, `folders`, `image_jobs`, `library_backfills`, `library_items`, `share_links`, `staff_access_log`, `storyboards`, `support_grants`, `swap_jobs`, `topaz_jobs`, `work_access` (all of them) |
+| `studio`, functions   | `credits_balance`, `credits_total`, `public_share`, `record_usage`, `request_env`, `request_is_staff`, `request_orgs`, `request_owner_orgs`, `request_user`                                                                                                                                                                                                                                         |
+| `accounts`, functions | `studio_accept_membership`, `studio_support_access`, `studio_team_check`, `studio_team_invite`, `studio_team_remove`, `studio_team_set_role`                                                                                                                                                                                                                                                        |
+| `accounts`, views     | `studio_brands`, `studio_cars`, `studio_credit_packs`, `studio_live_cars`, `studio_memberships`, `studio_organisations`, `studio_people`, `studio_price_book`, `studio_staff`, `studio_team_changes`, `studio_usage`                                                                                                                                                                                |
+
+**Shared: adopted by the Engine, with their behaviour kept by contract tests.**
+
+- Functions in `accounts`: `entitlements(org)`, `credits_balance(org)`, `record_usage(…)`, `seats(org)`, `save_member(…)`, `user_for_email(email)`, `org_for_brand(brand)`.
+- The view `accounts.people`.
+- The members, usage-ledger and cars tables behind them (`accounts.members`, `accounts.usage_ledger`, `accounts.cars`).
+  - `accounts.cars` becomes a view over `public.models` only if no Studio view depends on it, because a drop never cascades. Otherwise it stays a table kept in step from `public.models` (`docs/merge-map/data.md` §5.3).
+
+**Not the Studio's.** These are the Nmesis admin's, adopted under the Engine's rules like the rest of `accounts`:
+
+- the functions `client_direct_costs`, `credit_ledger_summary`, `invoice_totals`, `open_invoice`, `replace_invoice_lines` and `settle_invoice`;
+- the `refuse_*` triggers;
+- the cron jobs `nmesis-cleanup-nightly` and `nmesis-rollup-hourly`.
 
 ## Alternatives considered
 
@@ -91,6 +131,7 @@ The full table-by-table map is in `docs/merge-map/data.md`.
 
 - Two styles live side by side until the contract step: text slugs (crosswalked by `public.legacy_ids`, ADR 0030) and uuids.
 - The baseline must be regenerated if the live schema changes before it merges.
+- `accounts` has two owners: the Studio's objects change outside this repo. The list, the drift check and the contract tests need upkeep whenever the Studio changes.
 - Repointing (the integration, function secrets, Vault entries, Vercel env vars) is one owner session, with a backup taken first.
 - The Engine's project ref, already published (ADR 0008), becomes the Preview project.
 

@@ -1,6 +1,6 @@
 # 0032 — staff auth, roles and the write path
 
-**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D6, D7, D8)
+**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D6, D7, D8). The owner also accepted the RPC as the boundary the same day.
 
 ## Context
 
@@ -89,10 +89,10 @@ Today's Engine checks staff in two places, and both look only at `profiles.platf
 
 ## Consequences
 
-- **The admin spec's "writes under the staff session with RLS"** becomes "writes under the staff JWT through RPCs that check themselves" (the owner's spec edit, D29).
+- **The admin spec's "writes under the staff session with RLS"** becomes "writes under the staff JWT through RPCs that check themselves" (PR 0.3, D29).
 - **Every resource needs its RPCs**, each tested per role, area and token state. Each page's DB PR adds them.
 - **Changing the existing helpers** touches every staff policy and `services/shared/staff.ts` at once.
   - **DB-1** brings aal2 into the helpers, `requireStaff`, the write-path removals and the trust fixes, with a full isolation run and the function tests. Until DB-2, the helpers check aal2 only, and `requireStaff` uses today's manager rule (superadmin or ops) and refuses any area check, because the area table doesn't exist yet. DB-2 then adds `active` and the areas to both the helpers and `requireStaff`.
   - **DB-2** adds `profiles.active`, the role × area table and the area-aware reads, then creates the staff profiles.
 - **Preview needs TOTP too.** Every Preview staff account needs a factor, and every SQL test fixture that fakes a staff JWT sets `aal`.
-- **The RPC as the boundary** is this ADR's reading of D8. The alternative is a gateway secret (ADR 0013's pattern) that lets only `admin-mutate` call the RPCs; it would also be sound. The owner can switch to it before A4a.
+- **The RPC as the boundary** is this ADR's reading of D8, accepted by the owner on 2026-11-21. The alternative, a gateway secret (ADR 0013's pattern) that lets only `admin-mutate` call the RPCs, is not used.
