@@ -1,6 +1,6 @@
 # 0027 — one database: the Nmesis project, with its schemas adopted in place
 
-**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D1, D2 and D30). The owner also accepted decision 4 (the consumer app is pointed at the project only after A1) the same day. It supersedes ADR 0019 once step H4 of the runbook is done: from then on, Preview has its own project.
+**Status:** accepted — 2026-11-21 (owner; `docs/merge-map/decisions.md` D1, D2 and D30). The owner also accepted decision 4 (the consumer app is pointed at the project only after A1) the same day. It supersedes ADR 0019 once the runbook's _After A1_ step is done: from then on, Production and Preview use different projects.
 
 ## Context
 
@@ -41,23 +41,31 @@ The full table-by-table map is in `docs/merge-map/data.md`.
      - Later the owner runs it against production, or it runs as a server-side job, with a read-only catalogue role.
      - It prints only object names and hashes, and it **never runs in CI**, since Actions logs on a public repo are public.
    - It skips the AI Studio's listed objects, and reports any object in the adopted schemas that is on neither the baseline nor that list.
-   - From then on, this repo is the only place those schemas change, except for the AI Studio's own objects (decision 10). Any other migration pipeline aimed at that project is disconnected at H4, except the Studio's own.
+   - From then on, this repo is the only place those schemas change, except for the AI Studio's own objects (decision 10). Any other migration pipeline aimed at that project is disconnected at H4, except the Studio's own, which decision 10 bounds.
    - `catalog` is retired into `public`.
 3. **The grant rules live in the same migration as the baseline**, so no database (CI, Preview, production) ever holds the adopted schemas without them:
    - **Staff means aal2** (ADR 0032).
    - **Function grants.** EXECUTE on every SECURITY DEFINER function is revoked `from public, anon, authenticated`, then granted only where needed.
      - Postgres grants EXECUTE to PUBLIC on every new function, so each future function carries its own revoke.
      - Before revoking, each function's callers are listed (function statistics, API logs), so the configurator server and the AI Studio don't break.
-   - **Views.** Every adopted view is `security_invoker = true` or service-role only. Materialized views, and anything that reads `auth.users`, are service-role only.
+   - **Views.** Every adopted view is `security_invoker = true` or service-role only. Materialized views, and anything that reads `auth.users`, are service-role only. The two shared objects that read `auth.users` (`accounts.people`, `accounts.user_for_email`) are service role and `studio_app` only (decision 10), and never on the `anon`/`authenticated` allow-list.
    - **Explicit grants per table** replace schema-wide default privileges.
    - **Default privileges are revoked, not just left out.** Stripping the dump's `ALTER DEFAULT PRIVILEGES` lines keeps them out of CI, but production keeps its live defaults. So the baseline runs `alter default privileges for role <owner> in schema <each> revoke all on tables, sequences, functions from anon, authenticated` for every owner role found in H2.
    - **The migration ends with an asserting `do` block.** It raises if anything in the four schemas is usable by `anon` or `authenticated` outside an allow-list: schema usage, table or sequence privilege, function EXECUTE, a table without RLS, or a `pg_default_acl` entry for those roles. The same assertion is a CI test, because a REVOKE that does nothing only warns.
    - **None of these rules touches the AI Studio's own objects** (decision 10). They skip them by the closed list, never by a name pattern, so no Engine object escapes the rules by its name.
+     - Functions match on schema, name and identity arguments; relations on schema, name and kind. An overload that isn't listed is not skipped.
+     - The list lives in one place in this repo, and any change to it goes through `security-review`.
+     - A CI test proves schema `studio` doesn't exist in CI, so no Engine migration can create anything there unseen.
 4. **The live project's current exposure is measured, then closed by A1, before the Engine uses its anon key.**
    - H2 lists what `anon` and `authenticated` can reach today, and each function's callers.
    - A1's migration closes it: the grant rules and the asserting block, tested in CI.
    - The production consumer app is pointed at the Nmesis project **only after A1 merges** (runbook, _After A1_).
-   - Before that, the exposure queries run again. Anything `anon` or `authenticated` can still reach must be on A1's allow-list or one of the AI Studio's objects. The owner confirms each such Studio object is meant to be reachable, since the Engine leaves them alone.
+   - Before that, the exposure queries run again. Anything `anon` or `authenticated` can still reach must be on A1's allow-list or one of the AI Studio's objects.
+   - **The owner checks each such Studio object with the Studio**, since the Engine leaves them alone. Engine brand and staff users are `authenticated` too, and the Studio never planned for them. So:
+     - a table has RLS on, and no policy is true for a signed-in user in none of its organisations;
+     - a view is `security_invoker`, or filters to the caller's organisations;
+     - a SECURITY DEFINER function checks the caller itself.
+   - The confirmed list is saved privately. The drift check then lists every Studio object `anon` or `authenticated` can reach, and any change from that list alerts. It reads; it never alters.
    - H4 itself changes no permission on the live project.
 5. **One exception, on purpose.** Adopted brand-scoped tables have no Engine brand column from A1 until A10 (DB-5). From DB-5 they carry a **nullable** `brand_uuid` (FK to `public.brands`, `on delete restrict`), until the backfill (A11) fills it. In both phases, until it becomes `not null`:
    - adopted tables get **staff policies only**: no brand-read policy, and never the "no brand" public-read pattern;
@@ -70,16 +78,22 @@ The full table-by-table map is in `docs/merge-map/data.md`.
    - No step takes a long lock.
    - No public URL changes host.
 7. **What never moves:** `analytics.events`, `ops.shared_configs`, `ops.frame_keys` and `ops.model_state`. The configurator server owns their writes, and it stays where it is.
-8. **More people become `authenticated`** on a database that holds PII and money: AI Studio members, and any self-sign-up. The runbook checks that Auth sign-ups are off, or intended. Policies that say `to authenticated using (true)` are re-checked in DB-1.
-9. **Other credentials.** The configurator server, the AI Studio and the Nmesis backend hold service credentials that will reach Engine tables. Each moves to its own least-privilege credential before Engine leads land there (A8); the steps are with the owner.
+8. **More people become `authenticated`** on a database that holds PII and money: AI Studio members, and any self-sign-up. The runbook checks that Auth sign-ups are off, or intended. Policies that say `to authenticated using (true)` are re-checked in DB-1. On the AI Studio's objects, the owner checks them with the Studio (point 4).
+9. **Other credentials.** The configurator server, the AI Studio and the Nmesis backend hold service credentials that will reach Engine tables. Each moves to its own least-privilege credential before Engine leads land there (A8); the steps are with the owner. Function secrets are project-wide too: every function deployed to the project can read every secret, the Engine's included. Before A8, the owner confirms that each function deployed there (H3 lists them) is one this repo reviews, or one trusted with those secrets.
 10. **The AI Studio's objects are the Studio's, and the Engine leaves them alone** (owner, D30). The list is below.
     - **Engine migrations never alter, re-grant or drop them.** They are not in the baseline, and the grant rules, the asserting block and the drift check skip them by the closed list.
     - **The Studio's own migrations** (`studio.__studio_migrations`) stay the only place they change. A new Studio object in `accounts` joins the list through an Engine PR; until then, the drift check reports it.
+    - **The Studio's migration runner is one of point 9's credentials.** Before A8 it runs as its own role, which owns only the Studio's objects. That role has no ownership of, or privilege on, `public`, `app_auth` or the adopted objects beyond the shared contract; no `BYPASSRLS`; and no membership of `postgres`. H2 records the role it uses today.
     - **The whole `studio` schema is the Studio's.** No Engine migration creates, alters or drops anything in it.
     - **The role `studio_app` is never altered.** The baseline creates it as a `nologin` role only where it doesn't exist (CI, Preview), so the grants and the contract tests below work everywhere.
-    - **The shared objects keep their contract.** On the shared `accounts` objects, `studio_app` keeps exactly the access H2 measures today, and on schema `accounts` its usage. Where that access comes from PUBLIC, the baseline grants it to `studio_app` by name before revoking from PUBLIC.
+    - **The shared objects keep their contract.** On the shared `accounts` objects only, `studio_app` keeps exactly the access H2 measures today, and on schema `accounts` its usage. The baseline grants each of those privileges to `studio_app` by name, before any revoke, so none is lost through PUBLIC or another role. On every other adopted object, `studio_app`'s access through PUBLIC ends.
+    - **A1 never grants a shared object to `anon` or `authenticated`** to keep the Studio working.
+    - **The shared set is checked against dependencies,** not only the owner's list. H2 lists what the Studio's views and functions read, and any Studio policy or trigger on an adopted table. Anything found there that isn't on the list goes to the owner, and joins the list through an Engine PR. For example, if a Studio function reads `accounts.staff`, A7b's change of `accounts.staff` into a view changes who the Studio treats as staff.
     - **Contract tests**, run as `studio_app` in CI, keep each shared function's result shape and each shared table's and view's columns, and prove `studio_app` can still reach them.
-    - **If H2 shows the Studio reaching an `accounts` object as `anon` or `authenticated`** rather than as `studio_app`, A1 stops for the owner: the grant rules and D30 would then conflict.
+    - **A1 stops for the owner** if H2 shows any of these, since the grant rules and D30 would then conflict:
+      - the Studio reaching an `accounts` object as `anon` or `authenticated` rather than as `studio_app`, directly or indirectly (a Studio function that runs as the caller, or a `security_invoker` Studio view over a shared table, used by `authenticated`);
+      - `anon` or `authenticated` being a member of `studio_app`, which would widen every grant to it.
+    - The asserting block checks effective privileges (`has_*_privilege`), which catches role memberships, not just ACL entries.
     - **When an Engine page needs a Studio function** (for example support access, A17), it calls it from inside an Engine RPC that applies ADR 0032's checks. No Engine migration grants anything on a Studio object.
 
 ## The AI Studio's objects (D30)

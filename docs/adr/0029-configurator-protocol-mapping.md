@@ -46,7 +46,7 @@ The Engine's embed route carries the showcase's embed over (ADR 0028).
 3. **Validation (§5.1).** Both sides are Zod-validated. A malformed or unknown message is dropped, counted and alerted on, never thrown. A `hello` with an unsupported version shows the page's fallback (the poster and the static renders).
 4. **Origins are locked both ways, never `*`.**
    - The Engine page posts to, and accepts from, only the embed's origin and window.
-   - The embed accepts commands only from `window.parent`, and only when the parent's origin is on the brand's allowed-host list (`embed_hosts`). It posts only to that origin.
+   - The embed accepts commands only from `window.parent` (it checks `event.source === window.parent` as well as `event.origin`), and only when the parent's origin is on the brand's allowed-host list (`embed_hosts`). The match is exact on scheme, host and port: never a suffix, a substring or a wildcard. It posts only to that origin.
    - With no list for the brand, the embed is view-only: it shows the car, takes no command and posts nothing.
    - No message carries personal data or a key.
 5. **Naming and the contract test.**

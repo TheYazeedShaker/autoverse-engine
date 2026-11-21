@@ -55,28 +55,86 @@
    where tgrelid = 'auth.users'::regclass and not tgisinternal;
    ```
 
-   **The AI Studio's access today.** The baseline keeps it exactly (ADR 0027, decision 10). Save the output privately for the A1 session:
+   **The AI Studio's access to the shared objects today** (ADR 0027, decision 10). A1 grants each of these privileges to `studio_app` by name, on the shared objects only; on every other adopted object, `studio_app`'s access through PUBLIC ends. Save the output privately for the A1 session:
 
    ```sql
+   -- The role, and its memberships both ways. Add the roles that the configurator server,
+   -- the Nmesis backend and the Studio's migration runner connect as (ADR 0027, points 9 and 10).
+   select rolname, rolcanlogin, rolsuper, rolbypassrls, rolinherit
+   from pg_roles where rolname in ('studio_app');
+   select r.rolname as role, m.rolname as member
+   from pg_auth_members am
+   join pg_roles r on r.oid = am.roleid join pg_roles m on m.oid = am.member
+   where r.rolname = 'studio_app' or m.rolname = 'studio_app';
+
    select has_schema_privilege('studio_app', 'accounts', 'USAGE') as accounts_usage;
 
-   select c.relname, c.relkind,
-          has_table_privilege('studio_app', c.oid, 'SELECT') as can_select,
-          has_table_privilege('studio_app', c.oid, 'INSERT,UPDATE,DELETE') as can_write
+   -- Exact grants on the shared tables and view (grantee PUBLIC shows as PUBLIC)
+   select c.relname, coalesce(g.rolname, 'PUBLIC') as grantee, a.privilege_type
    from pg_class c join pg_namespace n on n.oid = c.relnamespace
-   where n.nspname = 'accounts' and c.relkind in ('r', 'p', 'v', 'm')
-   order by 1;
+   cross join lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+   left join pg_roles g on g.oid = a.grantee
+   where n.nspname = 'accounts' and c.relname in ('members', 'usage_ledger', 'cars', 'people')
+   order by 1, 2, 3;
 
-   -- from_public: the access comes from PUBLIC, so A1 grants it to studio_app by name before revoking
+   -- Column-level grants on them, if any
+   select c.relname, att.attname, att.attacl
+   from pg_attribute att join pg_class c on c.oid = att.attrelid
+   join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'accounts' and c.relname in ('members', 'usage_ledger', 'cars', 'people')
+     and att.attacl is not null;
+
+   -- Exact grants on the shared functions, and what studio_app can run in effect
    select p.proname, pg_get_function_identity_arguments(p.oid) as args,
-          has_function_privilege('studio_app', p.oid, 'EXECUTE') as can_execute,
-          has_function_privilege('public', p.oid, 'EXECUTE') as from_public
+          coalesce(g.rolname, 'PUBLIC') as grantee,
+          has_function_privilege('studio_app', p.oid, 'EXECUTE') as studio_app_can_execute
    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'accounts'
-   order by 1;
+   cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+   left join pg_roles g on g.oid = a.grantee
+   where n.nspname = 'accounts' and p.proname in (
+     'entitlements', 'credits_balance', 'record_usage', 'seats', 'save_member',
+     'user_for_email', 'org_for_brand')
+   order by 1, 2, 3;
    ```
 
-   Also confirm, from the Studio's code or the API logs, that the Studio reaches `accounts` only as `studio_app`. If it reaches any object as `anon` or `authenticated`, tell the A1 session: A1 stops there for you (ADR 0027, decision 10).
+   **What the Studio's objects depend on.** Anything adopted that they read and that isn't on the shared list goes to the A1 session, and to you, to join the list (ADR 0027, decision 10):
+
+   ```sql
+   -- Adopted relations that the Studio's views read
+   select distinct v.relname as studio_view, dn.nspname as reads_schema, d.relname as reads
+   from pg_rewrite rw
+   join pg_class v on v.oid = rw.ev_class
+   join pg_namespace vn on vn.oid = v.relnamespace
+   join pg_depend dep on dep.objid = rw.oid
+     and dep.classid = 'pg_rewrite'::regclass and dep.refclassid = 'pg_class'::regclass
+   join pg_class d on d.oid = dep.refobjid
+   join pg_namespace dn on dn.oid = d.relnamespace
+   where (vn.nspname = 'studio' or (vn.nspname = 'accounts' and v.relname like 'studio\_%'))
+     and d.oid <> v.oid
+     and dn.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'public')
+   order by 1, 3;
+
+   -- Studio functions whose bodies name an adopted schema: read each one
+   select n.nspname, p.proname
+   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where (n.nspname = 'studio' or (n.nspname = 'accounts' and p.proname like 'studio\_%'))
+     and p.prosrc ~ '(accounts|ops|analytics|brochures)\.';
+
+   -- Triggers on adopted tables that call a Studio function
+   select n.nspname, c.relname, t.tgname, f.proname
+   from pg_trigger t
+   join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace
+   join pg_proc f on f.oid = t.tgfoid join pg_namespace fn on fn.oid = f.pronamespace
+   where not t.tgisinternal and n.nspname in ('accounts', 'ops', 'analytics', 'brochures')
+     and (fn.nspname = 'studio' or f.proname like 'studio\_%');
+   ```
+
+   Also read the policies listed above for any that names a Studio role or function.
+
+   **How the Studio connects.** Confirm from the Studio's code (every client it creates, and which key or JWT role each one uses) that it reaches `accounts` only as `studio_app`. API logs alone miss rare flows, such as invites. Note the role its migration runner uses. Tell the A1 session if any of these holds, since A1 stops there for you (ADR 0027, decision 10):
+
+   - the Studio reaches an `accounts` object as `anon` or `authenticated`, directly or through a Studio function or view that runs as the caller;
+   - `anon` or `authenticated` is a member of `studio_app`.
 
 2. **Exposure.** Measure what `anon` and `authenticated` can reach today.
    - Every row is an exposure. **Nothing is revoked by hand:** A1's migration closes them, tested in CI, and the consumer app is pointed at this project only after that (_After A1_).
@@ -94,17 +152,26 @@
    select n.nspname, p.proname, r.rolname, p.prosecdef
    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    cross join (values ('anon'), ('authenticated')) r(rolname)
-   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'studio')
+   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public', 'studio')
      and has_function_privilege(r.rolname, p.oid, 'EXECUTE');
 
-   -- Table privileges, and whether RLS is on
-   select n.nspname, c.relname, r.rolname, c.relrowsecurity
+   -- Table, view and column privileges, with RLS (tables) and security_invoker (views)
+   select n.nspname, c.relname, c.relkind, r.rolname, c.relrowsecurity,
+          coalesce('security_invoker=true' = any(c.reloptions), false) as security_invoker
    from pg_class c join pg_namespace n on n.oid = c.relnamespace
    cross join (values ('anon'), ('authenticated')) r(rolname)
    where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public', 'studio')
-     and c.relkind in ('r', 'p', 'v', 'm', 'S')
-     and (has_table_privilege(r.rolname, c.oid, 'SELECT')
-          or has_table_privilege(r.rolname, c.oid, 'INSERT,UPDATE,DELETE'));
+     and c.relkind in ('r', 'p', 'v', 'm', 'f')
+     and (has_any_column_privilege(r.rolname, c.oid, 'SELECT, INSERT, UPDATE')
+          or has_table_privilege(r.rolname, c.oid, 'DELETE, TRUNCATE'));
+
+   -- Sequences
+   select n.nspname, c.relname, r.rolname
+   from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   cross join (values ('anon'), ('authenticated')) r(rolname)
+   where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public', 'studio')
+     and c.relkind = 'S'
+     and has_sequence_privilege(r.rolname, c.oid, 'USAGE, SELECT, UPDATE');
 
    -- Who calls each function today, so A1's revokes break nothing
    -- (needs track_functions = 'pl' or 'all'; otherwise read the API logs for /rest/v1/rpc/*)
@@ -221,7 +288,7 @@ where n.nspname = 'accounts' and p.proname like 'studio\_%' and p.proname not in
   'studio_team_invite','studio_team_remove','studio_team_set_role')
 union all
 select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
-where n.nspname = 'accounts' and c.relkind in ('r', 'p', 'v', 'm', 'f')
+where n.nspname = 'accounts' and c.relkind in ('r', 'p', 'v', 'm', 'f', 'S')
   and c.relname like 'studio\_%' and c.relname not in (
   'studio_brands','studio_cars','studio_credit_packs','studio_live_cars','studio_memberships',
   'studio_organisations','studio_people','studio_price_book','studio_staff',
@@ -240,12 +307,12 @@ supabase secrets list --project-ref <nmesis-ref>     # expect none of: TURNSTILE
 - **If check 9 finds a body that names an Engine table without a schema**, stop. That function is pinned in A1 before H4.
 - **If any other check fails**, stop and report it.
 
-Also confirm that **no other pipeline** applies migrations to the Nmesis project (for example from the Nmesis repo). If one does, it is disconnected in H4 step 1.
+Also confirm that **no other pipeline** applies migrations to the Nmesis project (for example from the Nmesis repo). If one does, it is disconnected in H4 step 1. The one exception is the AI Studio's own runner, bounded by ADR 0027 decision 10: note the role it runs as (H2).
 
 ## H4 — repoint
 
 1. **Integration.** Connect this repo's `supabase/` to the Nmesis project, with production branch `main`.
-   - Disconnect any other migration pipeline aimed at it.
+   - Disconnect any other migration pipeline aimed at it, except the AI Studio's own (ADR 0027, decision 10).
    - Keep the Engine project receiving the same migrations, so Preview stays in step: either connect it as well, or run `supabase db push --db-url "$ENGINE_DB_URL"` after each merge.
    - Then trigger the apply with the integration's manual deploy, or by merging a PR (never a direct push to `main`). Confirm first that the integration reacts to a merge that doesn't touch `supabase/`. Watch all 27 migrations finish.
 2. **Function secrets and Vault** on the Nmesis project:
@@ -294,7 +361,14 @@ Record pass or fail and the date in `PROGRESS.md`, with no refs, URLs or counts.
 
 A1 (DB-1) closes the exposure H2 measured: its grant rules and asserting block, tested in CI (ADR 0027). Only after it has merged and applied:
 
-1. **Re-run H2 step 2's queries.** They return only rows on A1's allow-list, or rows for the AI Studio's own objects (ADR 0027, decision 10). Confirm that each Studio row is meant to be reachable by `anon` or `authenticated`. If one isn't, stop here: the Studio fixes it, since the Engine leaves its objects alone.
+1. **Re-run H2 step 2's queries.** They return only rows on A1's allow-list (the Engine's own anon functions in `public` among them), or rows for the AI Studio's own objects (ADR 0027, decision 10).
+   - **For each Studio row, confirm with the Studio** that:
+     - a table has RLS on, and no policy is true for a signed-in user in none of its organisations;
+     - a view is `security_invoker`, or filters to the caller's organisations;
+     - a SECURITY DEFINER function checks the caller itself.
+   - Engine brand and staff users are `authenticated` here too, and the Studio never planned for them.
+   - Save the confirmed list privately: the drift check alerts on any change from it.
+   - If a row fails, stop here. The Studio fixes it, since the Engine leaves its objects alone.
 2. **Point the Vercel production env vars** (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ASSET_BASE_URL`) at the Nmesis project, and redeploy. Preview stays on the Engine project.
 3. **Re-run the verify block above**, and the showroom's own preview checks.
 4. **Record pass or fail** in `PROGRESS.md`. The next PR marks ADR 0019 superseded and BACKLOG #13 done.
@@ -335,17 +409,23 @@ Restoring the backup is the last resort: it would lose the configurator events w
 
 The owner's choice (D27): a separate private repository that holds nothing but the configurator server's data files. Nothing here needs a paid GitHub feature.
 
-1. **Create the repository.** A new private repository with no code, no Actions and no other collaborators.
-   - Copy the data branch into it with its history, so every file and path stays identical. From a clone of the Nmesis repo, run `git push <data repository> <branch>:<branch>`. The branch is the one in the server's `GITHUB_DATA_BRANCH`, or `data` if that isn't set.
+1. **Create the repository.** A new private repository with no code and no other collaborators. In its settings, Actions are disabled, and there are no webhooks, deploy keys or other Apps.
+   - **Copy the data branch** so that every file and path stays identical. The branch is the one in the server's `GITHUB_DATA_BRANCH`, or `data` if that isn't set.
+   - **Copy its history only if it shares none with the code.** The server creates that branch from `main` when it is missing, so it may carry the server's whole code history, and any secret ever committed there. Check with `git merge-base main <branch>` in a clone of the Nmesis repo: no output means none is shared.
+     - None shared: `git push <data repository> <branch>:<branch>`.
+     - Shared: copy the files only, as one first commit on a fresh branch of the same name.
    - Check first that nothing else reads the old data branch. Anything that does moves with it.
-2. **The identity.** Create a GitHub App with only these repository permissions: **Contents: read and write**, **Metadata: read**. Install it on the data repository alone.
+2. **The identity.** Create a GitHub App with only these repository permissions: **Contents: read and write**, **Metadata: read**. Its webhook is inactive. Install it on the data repository alone.
    - **Not** a personal token, and not installed on any other repository.
    - It has no administration permission, so it can't change the repository's settings.
-3. **Where its key lives.** Store the App's private key as a secret of the `publish-config` function only (the name is set in A11). `publish-config` mints an installation token for each publish; the token lasts an hour.
-4. **Point the configurator server at it.** On that server's host, set `GITHUB_REPO` to the data repository, and give the server its own token for it.
-   - The token is read and write while the Nmesis admin still writes the catalogue, and read-only after the catalogue's switch-off (A17).
+3. **Where its key lives.** Store the App's private key as a secret of the `publish-config` function (the name is set in A11).
+   - Function secrets are project-wide (H3), so every function deployed to that project can read it. Before A11, every function deployed there is reviewed in this repo, or `publish-config` runs where only it holds the key (ADR 0030 point 3).
+   - `publish-config` requests an installation token for each publish, for the data repository alone, with the fewest permissions (Contents read for the reconciliation job). The token lasts an hour.
+4. **Point the configurator server at it.** On that server's host, set `GITHUB_REPO` to the data repository, with the server's own credential for that repository alone: a fine-grained token, never the one that reaches the server's code repository.
+   - The token has Contents read and write while the Nmesis admin still writes the catalogue, and read-only after the catalogue's switch-off (A17).
+   - When the rollback window closes, revoke the server's old token for the Nmesis repository.
    - Redeploy. Then check that the boot restore succeeded: the server's health endpoint reports the restore as done, and a configurator loads as before.
    - Keep the old data branch untouched, as a backup, until the catalogue's switch-off.
    - **Rollback:** set `GITHUB_REPO` back and redeploy. Nothing was deleted.
-5. **Re-reading on change.** Today the server reads its data files only at boot, so a publish would reach visitors only after a restart. ADR 0030 point 2 has it re-read the data repository when the branch moves. That change is made on that server, before A11.
+5. **Re-reading on change.** Today the server reads its data files only at boot, so a publish would reach visitors only after a restart. ADR 0030 point 2 has it re-read the data repository when the branch moves by a fast-forward, through the same checks `publish-config` applies, swapping the whole set at once. That change is made on that server, before A11.
 6. **Rotation.** Rotate the App's key on the same schedule as the other function secrets. A publish with a revoked key fails closed: the configurator keeps its last good files, and an alert fires.
