@@ -4,9 +4,26 @@
 >
 > **This repository is public** ([ADR-0008](docs/adr/0008-public-repository.md)). Write this file as if a customer will read it: no credentials, no new infrastructure identifiers, nothing said about a vendor or a prospect.
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-21
 
-**Latest (2026-11-20): the merge map.**
+**Latest (2026-11-21): merge-map decisions answered; PR 0.2 opened as a draft.**
+
+- **D1–D29 are decided** (owner, 2026-11-21): the recommendations stand, with these exceptions, all recorded in `docs/merge-map/decisions.md`:
+  - **D10 = C**: the owner supplies the Finance, Brochures and Monitoring designs before their PRs.
+  - **D13**: adopt `accounts`, but keep Starter / Growth / Enterprise everywhere; the designs' labels are sample copy.
+  - **D22 = B, interim until the owner confirms with legal**: legacy leads and bookings stay frozen, staff-read only, nothing migrated or deleted.
+  - **D28 confirmed**: `docs/merge-map/order.md` replaces the 2026-09-30 order in _Next Session_ §0.
+- **No `#build-decisions` threads** for these, by the owner's instruction.
+- **Still open:** D30 (the AI Studio's objects, needed before DB-1) and D31 (route JS ceilings, needed before A3a).
+- **PR 0.2** (`docs/adrs-one-database`, a draft against `main`, to be rebased once #93 merges):
+  - ADRs 0027–0032;
+  - `docs/runbooks/one-database.md`.
+- **Next:**
+  - the owner merges #93, then 0.2;
+  - the owner runs H1–H4;
+  - then A1 (DB-1 baseline).
+
+**Earlier (2026-11-20): the merge map.**
 
 - **Owner decisions** (not re-asked):
   - Nmesis and the Engine become one platform on this monorepo: one design system, one Supabase project, one admin.

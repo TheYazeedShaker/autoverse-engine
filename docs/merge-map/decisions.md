@@ -1,10 +1,28 @@
-# Open decisions
+# Decisions
 
-Every open question the merge raises, for the owner. Each has the options and a recommendation (**Rec.**). Nothing here is asked in chat.
+Every question the merge raised, for the owner. Each has the options and a recommendation (**Rec.**). Nothing here was asked in chat.
 
 The owner's standing decisions (one platform, the Engine admin design wins, the showcase is the consumer base, the admin is ported page by page, the configurator server stays, the dashboard comes after the admin, the repo goes private when the merge is finished) are **not** re-opened.
 
-Where a recommendation would change a spec, an ADR or `CLAUDE.md`, the change is proposed here (D29) and made only by the owner.
+Where a recommendation would change a spec, an ADR or `CLAUDE.md`, the change is proposed here (D29). The owner makes the spec and `CLAUDE.md` edits; the new ADRs come in PR 0.2.
+
+## Answers (owner, 2026-11-21)
+
+**D1–D29 are decided: the recommendation stands, except where the table below says otherwise.** Each decision below keeps its options for the record. The owner asked for no `#build-decisions` threads.
+
+| Decision | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1–D9    | As recommended                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **D10**  | **C.** The owner supplies the designs for Finance, Brochures and Monitoring before their PRs (A19's Monitoring sections, A22, A23, A26). Everything else in §C of `admin-pages.md` is built from the nearest page's components                                                                                                                                                                                                                                            |
+| D11, D12 | As recommended                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **D13**  | **Adopt `accounts`** (as recommended), **but keep the plan names Starter / Growth / Enterprise everywhere.** The names come from `accounts.plans`. The designs' "Standard" and "Professional" are sample copy (rule A), so the built pages show the data's names; the owner updates the approved copies to match                                                                                                                                                          |
+| D14–D21  | As recommended                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **D22**  | **B, interim, until the owner confirms with legal.** Nmesis `ops.leads` and showcase `catalog.bookings` rows stay frozen where they are, readable by staff only through a labelled legacy view. Nothing is migrated into `public.leads` and nothing is deleted; no retention period is set until legal answers. New leads without a consent record keep landing in `ops.leads` until the configurator server's form posts to `capture-lead`, so that change is now urgent |
+| D23–D27  | As recommended                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **D28**  | **Confirmed:** this order replaces the 2026-09-30 order                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| D29      | As recommended. The owner edits the specs and `CLAUDE.md`; PR 0.2 adds the ADRs                                                                                                                                                                                                                                                                                                                                                                                           |
+| **D30**  | **Open.** Needed before DB-1 (H2)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **D31**  | **Open.** Needed before the first UI PR's performance gate (A3a)                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Platform
 
@@ -167,6 +185,8 @@ The 16 feature groups listed in [`admin-pages.md`](admin-pages.md) §C, from sta
 
 **Rec. C.**
 
+**Decided (owner, 2026-11-21): C.** The owner supplies the Finance, Brochures and Monitoring designs before their PRs.
+
 ### D11 — Approved designs with no feature yet
 
 **The designs:**
@@ -220,6 +240,8 @@ The tenant shapes and plan names disagree:
 - **Adopt `accounts` as the commercial model.** An organisation owns brands; plans and features drive the dashboard's tier gates through `accounts.entitlements()`.
 - **Retire the Engine's empty commercial tables:** `public.subscriptions`, `public.invoices` and `public.tier_modules`.
 - **Plan names:** the owner picks one set for all three places. Rec.: the designs' "Starter / Professional / Enterprise", with Growth renamed to Professional. The admin design's "Standard" is a sample-copy slip.
+
+**Decided (owner, 2026-11-21): adopt `accounts`, but keep Starter / Growth / Enterprise everywhere.** The names come from `accounts.plans`; the designs' labels are sample copy and the owner updates the approved copies to match.
 
 ### D14 — The switch-off rule per page
 
@@ -315,7 +337,9 @@ The options are listed for the owner's legal answer only:
 - **B.** Leave them frozen in their tables, readable by staff only, and delete them after a retention period.
 - **C.** Migrate only those that later give consent.
 
-**No recommendation: this is legal text and policy, and it is the owner's.** Until it is answered, those rows stay frozen where they are.
+**No recommendation: this is legal text and policy, and it is the owner's.**
+
+**Decided (owner, 2026-11-21): B, interim, until the owner confirms with legal.** The rows stay frozen and staff-read only; nothing is deleted and no retention period is set yet.
 
 ### D23 — Two brochure systems become one
 
@@ -386,7 +410,7 @@ The 2026-09-30 order said: the consumer pages (showroom slices 9–10, then broc
 - **Track B, alongside it:** showroom slice 9 (event capture, consent B), because the dashboard depends on it.
 - **Track C (the showcase port):** its packages (C1–C2) can start after 0.2; its pages (C3 on) come after the admin's Catalog I, which feeds them.
 
-Confirm that this replaces the 2026-09-30 order.
+**Decided (owner, 2026-11-21): confirmed.** This replaces the 2026-09-30 order.
 
 ### D29 — Spec, ADR and `CLAUDE.md` changes for the owner
 
@@ -432,6 +456,8 @@ It shares the project and `accounts`, and owns objects no repo shows (for exampl
 - The Studio's contract (`entitlements()`, `members`, `usage_ledger`, `cars`) is kept by tests.
 - Folding the Studio into the monorepo is out of scope.
 
+**Status (2026-11-21): open.**
+
 ### D31 — Performance ceilings per route
 
 Production plan §15 says "fixed ceiling per route" without a number.
@@ -448,3 +474,5 @@ Production plan §15 says "fixed ceiling per route" without a number.
 | each admin route | 300 KB  |
 
 Enforced in CI with a bundle check. The owner confirms or sets the numbers.
+
+**Status (2026-11-21): open.**
