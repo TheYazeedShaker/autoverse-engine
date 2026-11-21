@@ -121,7 +121,7 @@ Options:
 - **on every route,** by the admin app;
 - **in the database:** `app_auth.is_autoverse_staff()` and every staff helper require `auth.jwt()->>'aal' = 'aal2'`.
 
-A password-only token therefore passes no staff policy, even when it is used directly against PostgREST. DB-1 and DB-2 carry this, with a test that an aal1 staff token is refused everywhere.
+A password-only token therefore passes no staff policy, even when it is used directly against PostgREST. DB-1 and DB-2 carry this, with a test that an aal1 staff token is refused everywhere. The edge functions' staff check requires aal2 too (ADR 0032).
 
 The emergency fallback becomes a documented owner-only procedure in the Supabase dashboard.
 
@@ -154,7 +154,7 @@ The Engine pattern is no browser writes and service-role edge functions. The adm
 
 **Rec. C, with B for privileged work.** Theme validation, key issuing, publishing, money, staff administration and frame keys get their own functions.
 
-- C keeps "browsers never write tables": a staff token used directly against PostgREST can write nothing.
+- C keeps "browsers never write tables": a staff token used directly against PostgREST can write only through the RPCs, and each RPC checks aal2, role, area, its arguments and a rate limit itself (ADR 0032).
 - The RPCs check aal2, role and area themselves, and the audit triggers record every write (D9).
 - The pattern (helpers, soft-delete columns, the first RPCs) lands in its own DB PR (A4a). Each page's DB PR adds its resource's RPCs.
 
@@ -365,7 +365,7 @@ The Nmesis admin has its own brochure tool: the `brochures` schema (brand pages,
 
 - Engine slugs start equal to the Nmesis slugs.
 - A `legacy_ids` table maps every Nmesis and showcase key (brand, model, trim, colour, interior, CDN prefix) to Engine ids.
-- `ops.frame_keys` keeps its original strings forever: they are bound into the key wrap.
+- `ops.frame_keys` keeps its original strings forever: the configurator server depends on them exactly.
 
 ### D26 — Catalogue gaps the showcase and Nmesis need
 
