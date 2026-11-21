@@ -6,7 +6,16 @@
 
 **Last updated:** 2026-11-21
 
-**Latest (2026-11-21, later): D30 and D31 answered; PR 0.2's choices accepted; PR 0.3 (#95) opened as a draft.**
+**Latest (2026-11-21, end of session): #93 and #94 merged; PR 0.3 (#95) ready for the owner's review.**
+
+- **Merged by the owner:** #93 (the merge map) and #94 (PR 0.2: ADRs 0027–0032, `docs/runbooks/one-database.md`, and the records of the later answers).
+- **PR 0.3 (#95):** the D29 spec, ADR and `CLAUDE.md` edits, rebased onto `main` and out of draft. The owner kept the extra `CLAUDE.md` line, which names the configurator page's View, Build and Enhanced modes, with pixel streaming deferred (D17).
+- **Next:**
+  - the owner reviews and merges #95;
+  - the owner runs H1–H4 (`docs/runbooks/one-database.md`), saving H2's Studio queries for the A1 session;
+  - then A1 (DB-1 baseline).
+
+**Earlier (2026-11-21, later): D30 and D31 answered; PR 0.2's choices accepted; PR 0.3 (#95) opened as a draft.**
 
 - **D30** (owner): the AI Studio's objects are declared as the Studio's and left alone by the baseline. ADR 0027 lists them: the `studio_app` role, the `studio` schema, and the Studio's functions and views in `accounts`. Engine migrations never alter, re-grant or drop them. Contract tests keep the shared `accounts` objects working for it.
 - **D31** (owner): the route ceilings as recommended (initial JS, gzipped: showroom 180 KB, brochure 200, configurator 160, compare 160, embed 120, each admin route 300), enforced in CI from the first UI PR of the merge.
@@ -22,11 +31,7 @@
   - the Studio's migration runner gets a bounded role before A8;
   - `studio_app` keeps by-name grants on the shared objects only.
 - **No `#build-decisions` threads**, by the owner's instruction.
-- **Next:**
-  - the owner merges #93;
-  - then #94 (rebased), then 0.3 (rebased);
-  - the owner runs H1–H4;
-  - then A1 (DB-1 baseline).
+- **Then next:** the owner merges #93, then #94 (rebased), then 0.3 (rebased); H1–H4; A1. (#93 and #94 are since merged, above.)
 
 **Earlier (2026-11-21): merge-map decisions answered; PR 0.2 opened as a draft.**
 
