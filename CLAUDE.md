@@ -10,13 +10,13 @@ Naming, precisely: **Autoverse** = the company, and also the name of the Phase-2
 
 **Phase 1 ships:** the engine plus three applications serving five product surfaces —
 
-- `apps/consumer` — ONE app, three gated surfaces: Virtual Showroom, Digital Brochure (with light configurator), Configurator page (streamed session). One journey, one session, one analytics trail; surfaces enabled per brand by server-side entitlement flags. Never split into separate apps.
+- `apps/consumer` — ONE app, three gated surfaces: Virtual Showroom, Digital Brochure (with light configurator), Configurator page (View, Build and Enhanced modes; pixel streaming deferred, D17). One journey, one session, one analytics trail; surfaces enabled per brand by server-side entitlement flags. Never split into separate apps.
 - `apps/dashboard` — multi-tenant brand dashboard (tier-gated analytics, leads).
 - `apps/admin` — Autoverse operations portal (pipeline board, catalogue, commercial, cross-brand analytics, ops, RBAC).
 
-**Commercial model:** the Configurator is the mandatory base SKU; Brochure and Showroom attach to it. Surfaces are entitlements; dashboard modules are tiers — two independent flag axes, both resolved server-side. **Data capture is never gated**; upgrades reveal history retroactively.
+**Commercial model:** the Configurator is the mandatory base SKU; Brochure and Showroom attach to it. Surfaces are entitlements; dashboard modules are tiers, which come from the adopted `accounts` plans and features (D13 in `docs/merge-map/decisions.md`) — two independent flag axes, both resolved server-side. **Data capture is never gated**; upgrades reveal history retroactively.
 
-**Scope boundary (hard rule):** the Engine's world begins at the **upload event** — a 3D file + `manifest.yaml` landing in the structured asset store (see `docs/autoverse-model-delivery-spec.html`). Nothing upstream (studio work at Nmesis) is modeled, described, or built here. The manifest is the single source of truth for what exists per model.
+**Scope boundary (hard rule):** the Engine's world begins at the **upload event** — a 3D file + `manifest.yaml` landing in the structured asset store (see `docs/autoverse-model-delivery-spec.html`). The Engine also hosts the Nmesis platform's admin, catalogue and configurator settings. It never models studio production work: that begins and ends before the upload event. The manifest is the single source of truth for what exists per model.
 
 ## Governing documents (in `docs/`)
 
@@ -33,6 +33,7 @@ packages/design-tokens   tokens: palette, fonts (self-hosted, OFL), spacing/radi
 packages/ui              Storybook (Vite, from this package) + primitive library
 packages/types           shared entities, event schemas, configurator protocol (internal)
 packages/engine-core     typed data-access layer, entitlements, tiers, flags resolution
+packages/configurator    image-sequence configurator engine, client-only (ADR 0028)
 apps/consumer            showroom + brochure + configurator surfaces (gated)
 apps/dashboard           brand dashboard
 apps/admin               admin portal
