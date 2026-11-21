@@ -4,11 +4,11 @@ Every question the merge raised, for the owner. Each has the options and a recom
 
 The owner's standing decisions (one platform, the Engine admin design wins, the showcase is the consumer base, the admin is ported page by page, the configurator server stays, the dashboard comes after the admin, the repo goes private when the merge is finished) are **not** re-opened.
 
-Where a recommendation would change a spec, an ADR or `CLAUDE.md`, the change is proposed here (D29). The owner makes the spec and `CLAUDE.md` edits; the new ADRs come in PR 0.2.
+Where a recommendation would change a spec, an ADR or `CLAUDE.md`, the change is proposed here (D29). The new ADRs come in PR 0.2; the spec, ADR and `CLAUDE.md` edits come in PR 0.3, with the wording proposed in D29 (owner, 2026-11-21).
 
 ## Answers (owner, 2026-11-21)
 
-**D1–D29 are decided: the recommendation stands, except where the table below says otherwise.** Each decision below keeps its options for the record. The owner asked for no `#build-decisions` threads.
+**D1–D31 are decided: the recommendation stands, except where the table below says otherwise.** Each decision below keeps its options for the record. The owner asked for no `#build-decisions` threads.
 
 | Decision | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,11 +18,18 @@ Where a recommendation would change a spec, an ADR or `CLAUDE.md`, the change is
 | **D13**  | **Adopt `accounts`** (as recommended), **but keep the plan names Starter / Growth / Enterprise everywhere.** The names come from `accounts.plans`. The designs' "Standard" and "Professional" are sample copy (rule A), so the built pages show the data's names; the owner updates the approved copies to match                                                                                                                                                          |
 | D14–D21  | As recommended                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **D22**  | **B, interim, until the owner confirms with legal.** Nmesis `ops.leads` and showcase `catalog.bookings` rows stay frozen where they are, readable by staff only through a labelled legacy view. Nothing is migrated into `public.leads` and nothing is deleted; no retention period is set until legal answers. New leads without a consent record keep landing in `ops.leads` until the configurator server's form posts to `capture-lead`, so that change is now urgent |
-| D23–D27  | As recommended                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| D23–D26  | As recommended                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **D27**  | As recommended, except `publish-config`'s identity: **a separate data-only repository** that the configurator server reads, written through a GitHub App installed on that repository alone (H5, ADR 0030). Nothing relies on a paid GitHub feature such as rulesets                                                                                                                                                                                                      |
 | **D28**  | **Confirmed:** this order replaces the 2026-09-30 order                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| D29      | As recommended. The owner edits the specs and `CLAUDE.md`; PR 0.2 adds the ADRs                                                                                                                                                                                                                                                                                                                                                                                           |
-| **D30**  | **Open.** Needed before DB-1 (H2)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **D31**  | **Open.** Needed before the first UI PR's performance gate (A3a)                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **D29**  | **As recommended, and made by the builder:** PR 0.2 adds the new ADRs; PR 0.3, its own docs PR after 0.2, makes the spec, ADR and `CLAUDE.md` edits with the wording proposed in D29. The owner approved the wording and reviews the PR                                                                                                                                                                                                                                   |
+| **D30**  | **The Studio's objects are declared and left alone.** The owner listed them (ADR 0027, _The AI Studio's objects_): the `studio_app` role, the whole `studio` schema, and the Studio's functions and views in `accounts`. Engine migrations never alter, re-grant or drop them. The shared `accounts` objects the Studio depends on keep their behaviour under contract tests                                                                                              |
+| **D31**  | **As recommended:** initial JS, gzipped: showroom 180 KB, brochure 200, configurator 160, compare 160, embed 120, each admin route 300. Enforced in CI from the first UI PR of the merge                                                                                                                                                                                                                                                                                  |
+
+**PR 0.2's own choices (owner, 2026-11-21): accepted.**
+
+- **Each database function guards its own writes** (ADR 0032): the RPC is the security boundary, not a gateway secret held by `admin-mutate`.
+- **The live consumer app switches to the Nmesis project only after A1** (ADR 0027), so the repoint (H4) changes no permission on the live project.
+- **The embed takes commands only from hosts on the brand's allowed-host list** (ADR 0029). An empty list means view-only: the car shows, but no command is taken.
 
 ## Platform
 
@@ -398,6 +405,8 @@ Each needs a column or table (`data.md` §5.7).
 - **`publish-config`** gets its own identity, held only by that function: a separate data-only repository, or a GitHub App or machine user held to the data branch by a ruleset (ADR 0030).
 - **Per-product API keys** keep working until the AI Studio reads entitlements another way.
 
+**Decided (owner, 2026-11-21): as recommended, with the separate data-only repository.** The configurator server reads a private repository that holds nothing but its data files, and `publish-config` writes to it through a GitHub App installed on that repository alone (H5, ADR 0030). The ruleset option is dropped: rulesets on a private repository need a paid GitHub plan, and nothing in the plan relies on one.
+
 ## Process
 
 ### D28 — The order relative to the consumer pages
@@ -445,6 +454,8 @@ The 2026-09-30 order said: the consumer pages (showroom slices 9–10, then broc
 9. **"Commercial model":** tiers come from the adopted plans and features (D13).
 10. **The repo structure** gains `packages/configurator`.
 
+**Decided (owner, 2026-11-21): as recommended, but made by the builder.** PR 0.3 is its own docs PR after 0.2. It makes edits 1–5 and 8–10 with the wording above, and adds forward notes to ADRs 0008 and 0019 (7). Each one is marked superseded only when its event happens. The owner approved the wording and reviews the PR.
+
 ### D30 — The AI Studio
 
 It shares the project and `accounts`, and owns objects no repo shows (for example, a support-access function).
@@ -456,7 +467,11 @@ It shares the project and `accounts`, and owns objects no repo shows (for exampl
 - The Studio's contract (`entitlements()`, `members`, `usage_ledger`, `cars`) is kept by tests.
 - Folding the Studio into the monorepo is out of scope.
 
-**Status (2026-11-21): open.**
+**Decided (owner, 2026-11-21): declared as the Studio's, and left alone by the baseline.** The full list, as given, is in ADR 0027 (_The AI Studio's objects_):
+
+- **The Studio's own objects:** the role `studio_app`; every table and function in the `studio` schema; and in `accounts`, the Studio's six `studio_*` functions and eleven `studio_*` views. Engine migrations never alter, re-grant or drop them. The baseline leaves them out by that closed list, not by a name pattern.
+- **Shared `accounts` objects the Studio depends on:** `entitlements(org)`, `credits_balance(org)`, `record_usage(…)`, `seats(org)`, `save_member(…)`, `user_for_email(email)`, `org_for_brand(brand)`, the `people` view, and the members, usage-ledger and cars tables behind them. The Engine adopts these, but contract tests keep their behaviour and `studio_app`'s access to them.
+- **Not the Studio's** (the Nmesis admin's, adopted under the Engine's rules like the rest of `accounts`): `client_direct_costs`, `credit_ledger_summary`, `invoice_totals`, `open_invoice`, `replace_invoice_lines`, `settle_invoice`, the `refuse_*` triggers, and the cron jobs `nmesis-cleanup-nightly` and `nmesis-rollup-hourly`.
 
 ### D31 — Performance ceilings per route
 
@@ -475,4 +490,4 @@ Production plan §15 says "fixed ceiling per route" without a number.
 
 Enforced in CI with a bundle check. The owner confirms or sets the numbers.
 
-**Status (2026-11-21): open.**
+**Decided (owner, 2026-11-21): as recommended, enforced in CI.** The bundle check lands with the first UI PR of the merge (A3a, or B2 if it comes first) and fails the build when a route goes over its ceiling. If it needs a workflow change, that comes as a patch the owner applies (`.github/` is human-gated).
