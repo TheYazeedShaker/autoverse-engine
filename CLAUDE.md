@@ -10,7 +10,7 @@ Naming, precisely: **Autoverse** = the company, and also the name of the Phase-2
 
 **Phase 1 ships:** the engine plus three applications serving five product surfaces —
 
-- `apps/consumer` — ONE app, three gated surfaces: Virtual Showroom, Digital Brochure (with light configurator), Configurator page (View, Build and Enhanced modes; pixel streaming deferred, D17). One journey, one session, one analytics trail; surfaces enabled per brand by server-side entitlement flags. Never split into separate apps.
+- `apps/consumer` — ONE app, three gated surfaces: Virtual Showroom, Digital Brochure (with light configurator), Configurator page (View, Build and Enhanced modes; pixel streaming deferred, D17 in `docs/merge-map/decisions.md`). One journey, one session, one analytics trail; surfaces enabled per brand by server-side entitlement flags. Never split into separate apps.
 - `apps/dashboard` — multi-tenant brand dashboard (tier-gated analytics, leads).
 - `apps/admin` — Autoverse operations portal (pipeline board, catalogue, commercial, cross-brand analytics, ops, RBAC).
 
@@ -23,7 +23,7 @@ Naming, precisely: **Autoverse** = the company, and also the name of the Phase-2
 - **Production Plan v2.1 (Engine-Lock)** — the engineering contract: guarantee model, boundary rules, merge wall, observability standard, SLOs, testing strategy, failure handling, DoD. Where anything conflicts, the production plan wins.
 - **Journey Blueprint v1.0** — approved consumer journey, admin pipeline (7 stages: upload → render → configurator ready → content → approve → data fill → publish), event capture map, packaging, degraded journeys.
 - **Model Delivery Spec v2.0** — the studio handover contract.
-- **Hosting Decision Report** — StreamPixel for launch; Vagon at Gulf expansion; session lifecycle stays provider-agnostic.
+- **Hosting Decision Report** — StreamPixel for launch (pixel streaming is now deferred, D17); Vagon at Gulf expansion; session lifecycle stays provider-agnostic.
 
 ## Repo structure
 

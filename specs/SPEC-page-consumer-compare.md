@@ -21,7 +21,7 @@ Replace the `/compare` placeholder with the approved side-by-side comparison of 
 - **Show differences:** hides rows whose two values are identical.
 - **Changing a side:** the design's picker panel swaps one trim; the URL follows (replace).
 - **Linked viewers:** one configurator viewer per side (`packages/configurator`), created only when visible. The two are linked, with one shared Exterior/Interior switch and seat switch; `link=0` in the query unlinks them. An angled still shows until each viewer is ready, then fades.
-- **Swatches/views per side:** same no-faking rule as the brochure: swap only when a matching render exists.
+- **Swatches/views per side:** a swatch changes that side's viewer. A static render swaps only when a matching one exists, the same no-faking rule as the brochure.
 - **Leads:** a lead opener per side, prefilled with that side's model and trim.
 - At phone width, follow the design's stacking exactly.
 
@@ -32,7 +32,7 @@ Replace the `/compare` placeholder with the approved side-by-side comparison of 
 
 ## Acceptance
 
-- [ ] Visual verification against the design at 390/768/1440, EN and AR (screenshots attached).
+- [ ] Visual verification against the design at 390/768/1440, EN and AR (rule B: both screenshot sets shown in the chat, a text-only note on the PR).
 - [ ] Differences-only is correct for identical, different and missing values.
 - [ ] Deep links work (`/compare?trims=a,b` opened cold); invalid input never errors.
 - [ ] An old `?a=&b=` link lands on the same pair through the redirect.
