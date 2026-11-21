@@ -6,7 +6,29 @@
 
 **Last updated:** 2026-11-21
 
-**Latest (2026-11-21): merge-map decisions answered; PR 0.2 opened as a draft.**
+**Latest (2026-11-21, later): D30 and D31 answered; PR 0.2's choices accepted; PR 0.3 (#95) opened as a draft.**
+
+- **D30** (owner): the AI Studio's objects are declared as the Studio's and left alone by the baseline. ADR 0027 lists them: the `studio_app` role, the `studio` schema, and the Studio's functions and views in `accounts`. Engine migrations never alter, re-grant or drop them. Contract tests keep the shared `accounts` objects working for it.
+- **D31** (owner): the route ceilings as recommended (initial JS, gzipped: showroom 180 KB, brochure 200, configurator 160, compare 160, embed 120, each admin route 300), enforced in CI from the first UI PR of the merge.
+- **D27, for A11** (owner): `publish-config` writes to a separate data-only repository (H5). ADR 0030 does it through a GitHub App installed on that repository alone. Nothing relies on a paid GitHub feature.
+- **PR 0.2's three choices accepted** (owner): each database function guards its own writes; the live consumer app switches only after A1; the embed takes commands only from listed hosts (an empty list means view-only).
+- **D29** (owner): the builder makes the spec, ADR and `CLAUDE.md` edits in PR 0.3 (#95, `docs/d29-spec-claude-md`), a draft against `main` until 0.2 merges.
+- **Found while recording A11:** the configurator server reads its data files only at boot, so a publish would reach visitors only after a restart. ADR 0030 now requires the server to re-read the repository when it changes, through `publish-config`'s own checks, a change on that server before A11.
+- **Security review of these changes** (applied in #94):
+  - the server re-reads only on a fast-forward, checks every file and swaps the whole set;
+  - the server gets its own token for the data repository alone;
+  - function secrets are project-wide, so every function in the project is reviewed before A11;
+  - before the consumer repoint, the owner checks each Studio object that `anon` or `authenticated` can reach with the Studio;
+  - the Studio's migration runner gets a bounded role before A8;
+  - `studio_app` keeps by-name grants on the shared objects only.
+- **No `#build-decisions` threads**, by the owner's instruction.
+- **Next:**
+  - the owner merges #93;
+  - then #94 (rebased), then 0.3 (rebased);
+  - the owner runs H1–H4;
+  - then A1 (DB-1 baseline).
+
+**Earlier (2026-11-21): merge-map decisions answered; PR 0.2 opened as a draft.**
 
 - **D1–D29 are decided** (owner, 2026-11-21): the recommendations stand, with these exceptions, all recorded in `docs/merge-map/decisions.md`:
   - **D10 = C**: the owner supplies the Finance, Brochures and Monitoring designs before their PRs.
@@ -14,7 +36,7 @@
   - **D22 = B, interim until the owner confirms with legal**: legacy leads and bookings stay frozen, staff-read only, nothing migrated or deleted.
   - **D28 confirmed**: `docs/merge-map/order.md` replaces the 2026-09-30 order in _Next Session_ §0.
 - **No `#build-decisions` threads** for these, by the owner's instruction.
-- **Still open:** D30 (the AI Studio's objects, needed before DB-1) and D31 (route JS ceilings, needed before A3a).
+- **Then still open:** D30 and D31 (both since answered, above).
 - **PR 0.2** (`docs/adrs-one-database`, a draft against `main`, to be rebased once #93 merges):
   - ADRs 0027–0032;
   - `docs/runbooks/one-database.md`.

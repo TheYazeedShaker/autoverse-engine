@@ -230,7 +230,7 @@ Production plan §15 targets:
 | `/compare`           | Two engines, created on intersection, with GPU pre-upload                              | As above; viewers are created only when visible                                                                                                                                                                                                           |
 | `/models/[model]`    | Client-rendered from 4 JSON fetches; local clips up to 7.8 MB per model                | Server-rendered HTML (LCP from the hero poster). Clips are lazy, `playsinline`, muted, paused off-screen, none under reduced motion or Save-Data                                                                                                          |
 
-**Owner.** The ceilings themselves (the KB per route) are an open item in D31: the plan names a "fixed ceiling per route" but no number.
+**Ceilings (D31, owner 2026-11-21).** Initial JS, gzipped, lazy heavy embeds excluded: showroom 180 KB, brochure 200, configurator 160, compare 160, embed 120. A CI bundle check enforces them from the first UI PR of the merge.
 
 **Caching.** Content-hashed, immutable asset names (ADR 0022) replace the showcase's unversioned immutable `/showcase/sequence/*`, which could pin a stale render for a year.
 
