@@ -1,6 +1,6 @@
 # 0008 — the Engine repository is public
 
-**Status:** accepted — 2026-08-12. **To be superseded** when the repository goes private at the end of the Nmesis merge (`docs/merge-map/decisions.md` D5; `docs/merge-map/order.md` A27). Until then it stands in full.
+**Status:** accepted — 2026-08-12. **To be superseded** when the repository goes private at the end of the Nmesis merge (`docs/merge-map/decisions.md` D5; `docs/merge-map/order.md` A27). Until then it stands in full, and its no-real-names rule stays after that (D5).
 
 ## Context
 
