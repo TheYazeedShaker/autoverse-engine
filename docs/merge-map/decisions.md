@@ -391,11 +391,11 @@ Each needs a column or table (`data.md` §5.7).
 
 **Rec.:**
 
-- **Before anything:** pin the admin session and signed-link secrets on the Nmesis host (H1). The exact steps were given to the owner privately.
+- **Before anything:** the private pre-step H1, which the owner already has.
 - **No key is rotated during the merge.**
 - **`FRAME_MASTER_KEY` stays only on the configurator server.**
 - **The `frame-keys` function** asks that server to issue a key. It never holds the master key itself.
-- **`publish-config`** gets its own GitHub credential, scoped to writing the data branch and held only by that function.
+- **`publish-config`** gets its own identity, held only by that function: a separate data-only repository, or a GitHub App or machine user held to the data branch by a ruleset (ADR 0030).
 - **Per-product API keys** keep working until the AI Studio reads entitlements another way.
 
 ## Process
