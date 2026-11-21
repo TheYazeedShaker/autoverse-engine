@@ -44,7 +44,7 @@ The Engine admin's Catalog page replaces that admin. Nmesis keys everything by t
    - **Nothing relies on a paid GitHub feature**, such as rulesets or branch protection on a private repository. So Contents write also allows a force-push, a branch deletion or a tag; the server's fast-forward rule (point 2) covers that.
    - **The App's private key is a function secret, and function secrets are project-wide** (runbook H3): every function deployed to that project can read it. Before A11, every function deployed there is reviewed in this repo, or `publish-config` runs where only it holds the key.
 4. **A reconciliation job** runs every few minutes. It matches each new commit on the data branch with the SHAs and content hashes in the publish audit (ADR 0031).
-   - **Until the catalogue's switch-over**, the server's commits (the Nmesis admin's saves) are the only other ones it accepts, each matched against the dual-read sync (point 7). Any other commit pages.
+   - **Until the catalogue's switch-over**, the server's commits (the Nmesis admin's saves) are the only ones it accepts, each matched against the dual-read sync (point 7). Any other commit pages.
    - **After it**, any commit that `publish-config` didn't make pages.
    - The response is to re-publish the last approved version.
 5. **Format compatibility is tested twice.**

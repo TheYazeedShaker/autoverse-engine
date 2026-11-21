@@ -142,14 +142,17 @@
      and pn.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'public')
    order by 1, 3;
 
-   -- Studio functions whose bodies, or whose search_path, name an adopted schema: read each one
+   -- Studio functions whose bodies or search_path name an adopted schema, or with no pinned
+   -- search_path (they resolve names through the caller's): read each one
    select n.nspname, p.proname, p.proconfig
    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where (n.nspname = 'studio' or (n.nspname = 'accounts' and p.proname like 'studio\_%'))
      and (p.prosrc ~ '(accounts|ops|analytics|brochures)\.'
           or coalesce(pg_get_function_sqlbody(p.oid), '') ~ '(accounts|ops|analytics|brochures)\.'
           or coalesce(array_to_string(p.proconfig, ','), '')
-             ~ 'search_path=.*(accounts|ops|analytics|brochures|public)');
+             ~ 'search_path=.*(accounts|ops|analytics|brochures|public)'
+          or not exists (select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) c
+                         where c like 'search_path=%'));
 
    -- Triggers on adopted tables that call a Studio function
    select n.nspname, c.relname, t.tgname, f.proname
@@ -188,7 +191,7 @@
 
    -- Table, view and column privileges, with RLS (tables) and security_invoker (views)
    select n.nspname, c.relname, c.relkind, r.rolname, c.relrowsecurity,
-          coalesce(array_to_string(c.reloptions, ',') ~ '(^|,)security_invoker=(true|on|1|yes)(,|$)',
+          coalesce(array_to_string(c.reloptions, ',') ~* '(^|,)security_invoker=(true|on|1|yes)(,|$)',
                    false) as security_invoker
    from pg_class c join pg_namespace n on n.oid = c.relnamespace
    cross join (values ('anon'), ('authenticated')) r(rolname)
