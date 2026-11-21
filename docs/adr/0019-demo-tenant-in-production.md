@@ -1,7 +1,9 @@
 # 0019 — the demo tenant lives in the production database, for now
 
 **Status:** accepted, **time-limited** — 2026-09-26 (owner, `#build-decisions`). Superseded as
-soon as condition 3 triggers.
+soon as condition 3 triggers. **To be superseded by ADR 0027** (one database, D1) once Production
+moves to the Nmesis project and Preview keeps its own (`docs/runbooks/one-database.md`, _After
+A1_). The first PR after that step marks it superseded. At that step Production's variables move and Preview's stay, the reverse of what the last consequence below says.
 
 ## Context
 
