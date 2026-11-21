@@ -48,14 +48,14 @@
    -- Types, policies, cron jobs, and every trigger on auth.users
    select n.nspname, t.typname from pg_type t join pg_namespace n on n.oid = t.typnamespace
    where n.nspname in ('accounts', 'ops', 'analytics', 'brochures') and t.typtype in ('e', 'c', 'd');
-   select schemaname, tablename, policyname from pg_policies
+   select schemaname, tablename, policyname, roles, cmd, qual, with_check from pg_policies
    where schemaname in ('accounts', 'ops', 'analytics', 'brochures', 'storage', 'public');
    select jobname, schedule, command from cron.job;
    select tgname from pg_trigger
    where tgrelid = 'auth.users'::regclass and not tgisinternal;
    ```
 
-   **The AI Studio's access to the shared objects today** (ADR 0027, decision 10). A1 grants each of these privileges to `studio_app` by name, on the shared objects only; on every other adopted object, `studio_app`'s access through PUBLIC ends. Save the output privately for the A1 session:
+   **The AI Studio's access to the shared objects today** (ADR 0027, decision 10). A1 grants `studio_app`, by name, exactly what it can do in effect today (the `studio_app_*` columns), on the shared objects only. The ACL rows only show where each privilege comes from: A1 never copies another grantee's privileges to `studio_app`. On every other adopted object, `studio_app`'s access through PUBLIC ends. Save the output privately for the A1 session:
 
    ```sql
    -- The role, and its memberships both ways. Add the roles that the configurator server,
@@ -66,10 +66,24 @@
    from pg_auth_members am
    join pg_roles r on r.oid = am.roleid join pg_roles m on m.oid = am.member
    where r.rolname = 'studio_app' or m.rolname = 'studio_app';
+   -- Indirect membership too. The authenticator row also shows whether the Studio connects
+   -- through the Data API.
+   select v.r, pg_has_role(v.r::name, 'studio_app'::name, 'MEMBER') as is_member
+   from (values ('anon'), ('authenticated'), ('authenticator')) v(r);
 
    select has_schema_privilege('studio_app', 'accounts', 'USAGE') as accounts_usage;
 
-   -- Exact grants on the shared tables and view (grantee PUBLIC shows as PUBLIC)
+   -- What studio_app can do on the shared tables and view in effect: A1 grants exactly this
+   select c.relname,
+          has_table_privilege('studio_app', c.oid, 'SELECT') as studio_app_select,
+          has_table_privilege('studio_app', c.oid, 'INSERT') as studio_app_insert,
+          has_table_privilege('studio_app', c.oid, 'UPDATE') as studio_app_update,
+          has_table_privilege('studio_app', c.oid, 'DELETE') as studio_app_delete
+   from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'accounts' and c.relname in ('members', 'usage_ledger', 'cars', 'people');
+
+   -- Where those privileges come from: exact grants on the shared tables and view
+   -- (grantee PUBLIC shows as PUBLIC). Read only; never copy these to studio_app.
    select c.relname, coalesce(g.rolname, 'PUBLIC') as grantee, a.privilege_type
    from pg_class c join pg_namespace n on n.oid = c.relnamespace
    cross join lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
@@ -85,6 +99,7 @@
      and att.attacl is not null;
 
    -- Exact grants on the shared functions, and what studio_app can run in effect
+   -- (A1 grants EXECUTE where studio_app_can_execute is true)
    select p.proname, pg_get_function_identity_arguments(p.oid) as args,
           coalesce(g.rolname, 'PUBLIC') as grantee,
           has_function_privilege('studio_app', p.oid, 'EXECUTE') as studio_app_can_execute
@@ -114,11 +129,27 @@
      and dn.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'public')
    order by 1, 3;
 
-   -- Studio functions whose bodies name an adopted schema: read each one
-   select n.nspname, p.proname
+   -- Adopted functions that the Studio's views call
+   select distinct v.relname as studio_view, pn.nspname as calls_schema, p.proname as calls
+   from pg_rewrite rw
+   join pg_class v on v.oid = rw.ev_class
+   join pg_namespace vn on vn.oid = v.relnamespace
+   join pg_depend dep on dep.objid = rw.oid
+     and dep.classid = 'pg_rewrite'::regclass and dep.refclassid = 'pg_proc'::regclass
+   join pg_proc p on p.oid = dep.refobjid
+   join pg_namespace pn on pn.oid = p.pronamespace
+   where (vn.nspname = 'studio' or (vn.nspname = 'accounts' and v.relname like 'studio\_%'))
+     and pn.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'public')
+   order by 1, 3;
+
+   -- Studio functions whose bodies, or whose search_path, name an adopted schema: read each one
+   select n.nspname, p.proname, p.proconfig
    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where (n.nspname = 'studio' or (n.nspname = 'accounts' and p.proname like 'studio\_%'))
-     and p.prosrc ~ '(accounts|ops|analytics|brochures)\.';
+     and (p.prosrc ~ '(accounts|ops|analytics|brochures)\.'
+          or coalesce(pg_get_function_sqlbody(p.oid), '') ~ '(accounts|ops|analytics|brochures)\.'
+          or coalesce(array_to_string(p.proconfig, ','), '')
+             ~ 'search_path=.*(accounts|ops|analytics|brochures|public)');
 
    -- Triggers on adopted tables that call a Studio function
    select n.nspname, c.relname, t.tgname, f.proname
@@ -157,7 +188,8 @@
 
    -- Table, view and column privileges, with RLS (tables) and security_invoker (views)
    select n.nspname, c.relname, c.relkind, r.rolname, c.relrowsecurity,
-          coalesce('security_invoker=true' = any(c.reloptions), false) as security_invoker
+          coalesce(array_to_string(c.reloptions, ',') ~ '(^|,)security_invoker=(true|on|1|yes)(,|$)',
+                   false) as security_invoker
    from pg_class c join pg_namespace n on n.oid = c.relnamespace
    cross join (values ('anon'), ('authenticated')) r(rolname)
    where n.nspname in ('accounts', 'ops', 'analytics', 'brochures', 'catalog', 'public', 'studio')
@@ -411,9 +443,9 @@ The owner's choice (D27): a separate private repository that holds nothing but t
 
 1. **Create the repository.** A new private repository with no code and no other collaborators. In its settings, Actions are disabled, and there are no webhooks, deploy keys or other Apps.
    - **Copy the data branch** so that every file and path stays identical. The branch is the one in the server's `GITHUB_DATA_BRANCH`, or `data` if that isn't set.
-   - **Copy its history only if it shares none with the code.** The server creates that branch from `main` when it is missing, so it may carry the server's whole code history, and any secret ever committed there. Check with `git merge-base main <branch>` in a clone of the Nmesis repo: no output means none is shared.
-     - None shared: `git push <data repository> <branch>:<branch>`.
-     - Shared: copy the files only, as one first commit on a fresh branch of the same name.
+   - **Copy its history only if it holds nothing but data files.** The server creates that branch from `main` when it is missing, so it may carry the server's whole code history, and any secret ever committed there. In a full clone of the Nmesis repo, list every path the branch's history ever touched: `git log --format= --name-only <branch> | sort -u`.
+     - Only data-file paths: `git push <data repository> <branch>:<branch>`.
+     - Any other path, or any error: copy the files only, as one first commit on a fresh branch of the same name.
    - Check first that nothing else reads the old data branch. Anything that does moves with it.
 2. **The identity.** Create a GitHub App with only these repository permissions: **Contents: read and write**, **Metadata: read**. Its webhook is inactive. Install it on the data repository alone.
    - **Not** a personal token, and not installed on any other repository.
@@ -422,10 +454,10 @@ The owner's choice (D27): a separate private repository that holds nothing but t
    - Function secrets are project-wide (H3), so every function deployed to that project can read it. Before A11, every function deployed there is reviewed in this repo, or `publish-config` runs where only it holds the key (ADR 0030 point 3).
    - `publish-config` requests an installation token for each publish, for the data repository alone, with the fewest permissions (Contents read for the reconciliation job). The token lasts an hour.
 4. **Point the configurator server at it.** On that server's host, set `GITHUB_REPO` to the data repository, with the server's own credential for that repository alone: a fine-grained token, never the one that reaches the server's code repository.
-   - The token has Contents read and write while the Nmesis admin still writes the catalogue, and read-only after the catalogue's switch-off (A17).
+   - The token has Contents read and write while the Nmesis admin still writes the catalogue. It becomes read-only at the catalogue's switch-over, when the Nmesis admin's catalogue writes are refused (D14 step 2).
    - When the rollback window closes, revoke the server's old token for the Nmesis repository.
    - Redeploy. Then check that the boot restore succeeded: the server's health endpoint reports the restore as done, and a configurator loads as before.
-   - Keep the old data branch untouched, as a backup, until the catalogue's switch-off.
+   - Keep the old data branch untouched, as a backup, until the catalogue's switch-over.
    - **Rollback:** set `GITHUB_REPO` back and redeploy. Nothing was deleted.
 5. **Re-reading on change.** Today the server reads its data files only at boot, so a publish would reach visitors only after a restart. ADR 0030 point 2 has it re-read the data repository when the branch moves by a fast-forward, through the same checks `publish-config` applies, swapping the whole set at once. That change is made on that server, before A11.
 6. **Rotation.** Rotate the App's key on the same schedule as the other function secrets. A publish with a revoked key fails closed: the configurator keeps its last good files, and an alert fires.

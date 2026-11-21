@@ -39,13 +39,14 @@ The Engine admin's Catalog page replaces that admin. Nmesis keys everything by t
      - installed on that repository alone;
      - short-lived installation tokens, each requested for that one repository with the fewest permissions (Contents read for the reconciliation job);
      - not a personal token or a machine user.
-   - **The configurator server has its own credential for that repository alone:** a fine-grained token, never the one that reaches its code repository. It has Contents read and write while the Nmesis admin still writes the catalogue, and read only after the catalogue's switch-over (A17).
+   - **The configurator server has its own credential for that repository alone:** a fine-grained token, never the one that reaches its code repository. It has Contents read and write while the Nmesis admin still writes the catalogue, and read only from the catalogue's switch-over, when the Nmesis admin's catalogue writes are refused (D14 step 2).
    - **Neither credential can reach the configurator server's code**, which lives in a repository neither one is scoped to. A leaked one could still change what visitors see. The server's checks (point 2) and point 4 stand in the way.
    - **Nothing relies on a paid GitHub feature**, such as rulesets or branch protection on a private repository. So Contents write also allows a force-push, a branch deletion or a tag; the server's fast-forward rule (point 2) covers that.
    - **The App's private key is a function secret, and function secrets are project-wide** (runbook H3): every function deployed to that project can read it. Before A11, every function deployed there is reviewed in this repo, or `publish-config` runs where only it holds the key.
 4. **A reconciliation job** runs every few minutes. It matches each new commit on the data branch with the SHAs and content hashes in the publish audit (ADR 0031).
-   - **Until the catalogue's switch-over**, the server's commits (the Nmesis admin's saves) are the only other ones it accepts, each matched against the dual-read sync (point 7).
-   - **After it**, any commit to the catalogue files that `publish-config` didn't make pages. The response is to re-publish the last approved version.
+   - **Until the catalogue's switch-over**, the server's commits (the Nmesis admin's saves) are the only other ones it accepts, each matched against the dual-read sync (point 7). Any other commit pages.
+   - **After it**, any commit that `publish-config` didn't make pages.
+   - The response is to re-publish the last approved version.
 5. **Format compatibility is tested twice.**
    - A Zod schema of today's files is checked against a brand-free synthetic fixture in CI.
    - Before the first real publish, a dry run diffs its output against the live data branch. It is reviewed by the owner and must be empty except for intended changes.

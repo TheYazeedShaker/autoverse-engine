@@ -38,7 +38,7 @@ The full table-by-table map is in `docs/merge-map/data.md`.
    - **The AI Studio's objects are not in the baseline at all** (decision 10). The generator strips them from the dump by their list, and a check fails if one is left.
    - **A drift check** compares definitions, policy expressions, ACLs, `prosecdef` and `proconfig`.
      - The A1 session runs it locally against the dump.
-     - Later the owner runs it against production, or it runs as a server-side job, with a read-only catalogue role.
+     - Later it runs against production as a scheduled server-side job, with a read-only catalogue role, from the consumer repoint (_After A1_) on. It is then the ongoing control on the Studio's exposure (point 4). The owner can also run it by hand.
      - It prints only object names and hashes, and it **never runs in CI**, since Actions logs on a public repo are public.
    - It skips the AI Studio's listed objects, and reports any object in the adopted schemas that is on neither the baseline nor that list.
    - From then on, this repo is the only place those schemas change, except for the AI Studio's own objects (decision 10). Any other migration pipeline aimed at that project is disconnected at H4, except the Studio's own, which decision 10 bounds.
