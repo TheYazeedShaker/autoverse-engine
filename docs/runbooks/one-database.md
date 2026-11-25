@@ -339,7 +339,10 @@ supabase secrets list --project-ref <nmesis-ref>     # expect none of: TURNSTILE
 ```
 
 - **If check 10 returns versions the repo doesn't have**, stop. The GitHub integration refuses a remote history it doesn't know. The usual fix is to mark those versions reverted in the history only (`supabase migration repair --db-url "$NMESIS_DB_URL" --status reverted <version>`), because the A1 baseline will carry their schema. Decide that with the agent before H4.
-- **If check 9 finds a body that names an Engine table without a schema**, stop. That function is pinned in A1 before H4.
+- **If check 9 finds a body that names an Engine table without a schema**, stop: once H4 creates that table in `public`, the name could resolve to it. Fix it on the Nmesis project before H4, since A1 comes after H4. This is the one change to an existing Nmesis object in H2–H4, and the one exception to the freeze. The rollback leaves it in place.
+  1. In that function, qualify each such name with the schema it means (`<schema>.<table>`). Start from its current definition (`pg_get_functiondef`), so `security definer` and its settings stay, and change nothing else. Don't pin or change its `search_path`: that can break other names it uses. Make the change through the Nmesis repo's migrations, or have the Studio make it through its own if the function is on the Studio's list (ADR 0027, decision 10).
+  2. Take H2's schema-only dump again (step 4), so it matches the live schema, and hand the new file to the A1 session.
+  3. Re-run checks 9 and 10. Check 9 may still list the function, but no body it lists may name an Engine table without a schema. Handle any new version in check 10 as above.
 - **If any other check fails**, stop and report it.
 
 Also confirm that **no other pipeline** applies migrations to the Nmesis project (for example from the Nmesis repo). If one does, it is disconnected in H4 step 1. The one exception is the AI Studio's own runner, bounded by ADR 0027 decision 10: note the role it runs as (H2).
